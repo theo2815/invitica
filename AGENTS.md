@@ -18,6 +18,15 @@ The codebase is the source of truth for what is actually implemented.
 
 Never claim that a feature exists, a migration ran, a test passes, or a milestone is complete without codebase evidence.
 
+## Branch and Release Workflow
+
+- `main` is the production branch. Do not commit, merge, or push directly to `main` unless the user explicitly authorizes an exceptional production action.
+- `dev-main` is the integration branch for active development. Repository changes should be made and committed on `dev-main`, or on a user-requested branch created from `dev-main`.
+- Before implementation, verify the active branch with `git branch --show-current`. If it is `main`, switch to `dev-main` before editing. Stop and ask if uncommitted changes make the switch unsafe.
+- Promote `dev-main` to `main` only through a GitHub pull request that satisfies the repository ruleset and required checks. Do not bypass protections, force-push, or merge the production branch locally.
+- Run `pnpm check` before pushing development changes intended for a pull request.
+- After a production pull request is merged, synchronize `dev-main` with `origin/main` before beginning the next development cycle.
+
 ## Mandatory New-Session Onboarding
 
 At the beginning of every new root Invitica chat or agent session, before planning or changing the project:

@@ -1,0 +1,29 @@
+{
+  "name": "@invitica/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "test": "vitest run --pool=threads --maxWorkers=1",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "5.2.9",
+    "@fontsource-variable/instrument-sans": "5.2.8",
+    "next": "16.2.10",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.2",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "26.1.0",
+    "tailwindcss": "4.3.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

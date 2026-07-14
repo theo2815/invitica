@@ -44,6 +44,13 @@ pnpm --filter @invitica/web dev
 
 Open [http://localhost:3000](http://localhost:3000) to view the current landing page and interactive invitation preview.
 
+## Development workflow
+
+- `main` is the production branch.
+- `dev-main` is the active development and integration branch.
+- Changes move from `dev-main` to `main` through a GitHub pull request after `pnpm check` passes.
+- Repository rulesets and required checks must not be bypassed.
+
 ## Quality checks
 
 ```bash

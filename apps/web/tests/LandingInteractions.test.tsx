@@ -7,6 +7,21 @@ import { LandingConcept } from "../src/components/LandingConcept";
 afterEach(cleanup);
 
 describe("Invitica marketing landing interactions", () => {
+  it("links desktop and mobile visitors to authentication", () => {
+    render(createElement(LandingConcept));
+
+    expect(
+      screen
+        .getAllByRole("link", { name: "Log in" })
+        .every((link) => link.getAttribute("href") === "/login"),
+    ).toBe(true);
+    expect(
+      screen
+        .getAllByRole("link", { name: "Create account" })
+        .every((link) => link.getAttribute("href") === "/register"),
+    ).toBe(true);
+  });
+
   it("opens the invitation sample", () => {
     render(createElement(LandingConcept));
 

@@ -1,0 +1,667 @@
+.pageHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: clamp(2rem, 4vw, 3.75rem);
+  border-bottom: 1px solid var(--border);
+}
+
+.eyebrow,
+.label {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin: 0.65rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(2.9rem, 6vw, 5.25rem);
+  font-weight: 510;
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+}
+
+.pageDescription {
+  max-width: 43rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.headerActions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.headerActions button {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.headerActions svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.workspace {
+  padding-block: clamp(2rem, 4vw, 3.75rem);
+}
+
+.invitationContext {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
+  min-height: 19rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 5%);
+}
+
+.contextCopy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(1.6rem, 4vw, 3.5rem);
+}
+
+.contextCopy h2,
+.ledgerHeader h2,
+.privacyNote h2 {
+  margin: 0.65rem 0 0;
+  font-family: var(--display-font);
+  font-weight: 550;
+  letter-spacing: -0.045em;
+}
+
+.contextCopy h2 {
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  line-height: 0.98;
+}
+
+.contextCopy > p:not(.label) {
+  max-width: 35rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+.contextCopy a {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.35rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 760;
+  text-underline-offset: 0.25em;
+}
+
+.contextCopy a svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  transition: transform 160ms ease;
+}
+
+.contextCopy a:hover svg {
+  transform: translateX(0.2rem);
+}
+
+.ledgerArtwork {
+  position: relative;
+  display: grid;
+  min-height: 19rem;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgb(255 255 255 / 28%), transparent 44%), #dfe4d3;
+  place-items: center;
+}
+
+.ledgerArtwork::before,
+.ledgerArtwork::after {
+  position: absolute;
+  border: 1px solid rgb(72 82 61 / 16%);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.ledgerArtwork::before {
+  top: -3rem;
+  right: -3rem;
+  width: 9rem;
+  height: 9rem;
+}
+
+.ledgerArtwork::after {
+  bottom: -4rem;
+  left: -4rem;
+  width: 11rem;
+  height: 11rem;
+}
+
+.artworkLabel {
+  position: absolute;
+  top: 1.2rem;
+  left: 1.3rem;
+  color: rgb(72 82 61 / 70%);
+  font-size: 0.6rem;
+  font-weight: 760;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.ledgerSheet {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(65%, 15rem);
+  min-height: 13rem;
+  align-content: start;
+  gap: 0.9rem;
+  padding: 1.5rem;
+  border: 1px solid rgb(84 74 60 / 22%);
+  background: #fffaf0;
+  box-shadow: 0 1.4rem 3rem rgb(48 55 40 / 18%);
+  transform: rotate(1.5deg);
+}
+
+.ledgerSheet span,
+.ledgerSheet small {
+  color: #554b40;
+  font-size: 0.58rem;
+  font-weight: 740;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ledgerSheet i {
+  height: 1px;
+  background: #d6c9b7;
+}
+
+.ledgerSheet small {
+  margin-top: auto;
+  color: #817465;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.summaryGrid article {
+  display: grid;
+  min-width: 0;
+  padding: 1.2rem;
+}
+
+.summaryGrid article + article {
+  border-left: 1px solid var(--border);
+}
+
+.summaryGrid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 720;
+}
+
+.summaryGrid strong {
+  margin-top: 0.7rem;
+  font-family: var(--display-font);
+  font-size: 2.4rem;
+  font-weight: 520;
+  line-height: 1;
+}
+
+.summaryGrid span {
+  margin-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.63rem;
+}
+
+.ledgerSection {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+}
+
+.ledgerHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.ledgerHeader h2 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.ledgerControls {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.ledgerControls label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.ledgerControls input,
+.ledgerControls select {
+  min-height: 2.6rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.ledgerControls input {
+  width: min(17rem, 32vw);
+}
+
+.tableFrame {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.tableFrame table {
+  width: 100%;
+  min-width: 45rem;
+  border-collapse: collapse;
+}
+
+.tableFrame th {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface));
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 760;
+  text-align: left;
+}
+
+.tableFrame td {
+  padding: 0;
+}
+
+.ledgerEmpty {
+  display: grid;
+  min-height: 18rem;
+  padding: 2rem;
+  text-align: center;
+  place-content: center;
+}
+
+.ledgerEmpty > span {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  margin-inline: auto;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--background);
+  color: var(--accent);
+  place-items: center;
+}
+
+.ledgerEmpty svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.ledgerEmpty p {
+  margin: 0.9rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.45rem;
+  font-weight: 560;
+}
+
+.ledgerEmpty small {
+  max-width: 25rem;
+  margin: 0.5rem auto 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.privacyNote {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.3fr) minmax(0, 0.7fr);
+  gap: 2rem;
+  margin-top: 1.25rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface));
+}
+
+.privacyNote h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.privacyNote div p {
+  max-width: 45rem;
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.65;
+}
+
+.workspaceError {
+  max-width: 46rem;
+  margin-block: 3rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.workspaceError h2 {
+  margin: 0.7rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  font-weight: 550;
+  letter-spacing: -0.04em;
+}
+
+.workspaceError > p:last-child {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+}
+
+.loadingPage,
+.routeErrorPage {
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --focus: #2457c5;
+  --display-font: "Fraunces Variable", Georgia, serif;
+  min-height: 100dvh;
+  background: var(--background);
+  color: var(--text);
+}
+
+.loadingPage {
+  display: grid;
+  grid-template-columns: 15.5rem minmax(0, 1fr);
+}
+
+.loadingSidebar {
+  display: grid;
+  height: 100dvh;
+  align-content: start;
+  gap: 1rem;
+  padding: 2rem 1.4rem;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 72%, var(--background));
+}
+
+.loadingSidebar span,
+.loadingTitle,
+.loadingContext,
+.loadingSummary,
+.loadingLedger {
+  display: block;
+  border-radius: 0.3rem;
+  background: var(--surface-muted);
+}
+
+.loadingSidebar span {
+  width: 75%;
+  height: 2.5rem;
+}
+
+.loadingSidebar .loadingBrand {
+  width: 55%;
+  height: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.loadingContent {
+  width: min(100%, 84rem);
+  margin-inline: auto;
+  padding: clamp(2rem, 4vw, 4rem) clamp(1.5rem, 4.5vw, 4.75rem);
+}
+
+.loadingTitle {
+  width: min(28rem, 70%);
+  height: 5rem;
+}
+
+.loadingRule {
+  height: 1px;
+  margin-block: 3rem;
+  background: var(--border);
+}
+
+.loadingContext {
+  height: 19rem;
+}
+
+.loadingSummary {
+  height: 7rem;
+  margin-top: 1.25rem;
+}
+
+.loadingLedger {
+  height: 22rem;
+  margin-top: 3rem;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.routeErrorPage {
+  display: grid;
+  padding: 1.5rem;
+  place-items: center;
+}
+
+.routeError {
+  width: min(100%, 34rem);
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 1.5rem 4rem rgb(61 45 37 / 8%);
+}
+
+.routeError h1 {
+  margin: 0.8rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(2.25rem, 7vw, 3.8rem);
+  font-weight: 520;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.routeError > p:last-of-type {
+  margin: 1.2rem 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.routeError button {
+  min-height: 2.85rem;
+  margin-top: 1.5rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.routeError button:focus-visible {
+  outline-color: var(--focus);
+}
+
+@media (max-width: 900px) {
+  .pageHeader {
+    display: grid;
+  }
+
+  .headerActions {
+    width: 100%;
+  }
+
+  .headerActions button {
+    flex: 1;
+  }
+
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summaryGrid article:nth-child(3) {
+    border-left: 0;
+  }
+
+  .summaryGrid article:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 700px) {
+  .pageHeader h1 {
+    font-size: clamp(3rem, 15vw, 4.5rem);
+  }
+
+  .headerActions {
+    display: grid;
+  }
+
+  .invitationContext {
+    grid-template-columns: 1fr;
+  }
+
+  .ledgerArtwork {
+    min-height: 17rem;
+  }
+
+  .ledgerHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ledgerControls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ledgerControls input,
+  .ledgerControls select {
+    width: 100%;
+  }
+
+  .privacyNote {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .footer {
+    display: grid;
+  }
+
+  .loadingPage {
+    display: block;
+  }
+
+  .loadingSidebar {
+    height: 4.25rem;
+    padding: 1.3rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .loadingSidebar span:not(.loadingBrand) {
+    display: none;
+  }
+
+  .loadingSidebar .loadingBrand {
+    width: 7rem;
+    margin: 0;
+  }
+
+  .loadingContent {
+    padding: 2rem 1.25rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid article + article,
+  .summaryGrid article:nth-child(3) {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .ledgerControls {
+    grid-template-columns: 1fr;
+  }
+}

@@ -15,6 +15,10 @@ The codebase is the source of truth for what is actually implemented.
    - Determine whether the code is wrong, the documentation is stale, or a decision is unresolved.
    - Update the stale source as part of the authorized task, or ask the user when reconciliation changes product intent or architecture.
 5. A proposal, roadmap item, or planned folder in the vault does not mean it has been implemented.
+6. Within the vault, use the following roles:
+   - Product definitions, the Decision Register, accepted ADRs, and the Roadmap govern intent, accepted choices, and sequencing.
+   - Progress notes record verified completed outcomes and validation evidence.
+   - `TASK/` notes are operational plans for upcoming or active work. They do not override accepted decisions, the Roadmap, observed code, or the user's current request.
 
 Never claim that a feature exists, a migration ran, a test passes, or a milestone is complete without codebase evidence.
 
@@ -42,7 +46,10 @@ At the beginning of every new root Invitica chat or agent session, before planni
    - `03 - MVP Product Definition.md`
    - `Decision Register.md`
    - `Roadmap.md`
-   - The newest note under `Progress\`
+   - `Progress\00 - Progress Index.md`
+   - The latest completed Progress note linked by the Progress index
+   - `TASK\00 - Task Board.md`
+   - Only the dated task note currently marked **Next** or **In progress**, when one exists
    - Any architecture, engineering, product, or skill notes relevant to the request
 4. Then verify the handoff against the codebase. Inspect at least:
    - `git status --short`
@@ -53,11 +60,31 @@ At the beginning of every new root Invitica chat or agent session, before planni
    - What Invitica is
    - The current verified phase
    - What was last completed
-   - What remains in progress or unresolved
-   - The recommended next action
+   - Today's recommended focus and why it is next
+   - Required founder inputs, approvals, or external prerequisites
+   - The task's success criteria
+   - What remains in progress, blocked, deferred, or unresolved
    - Any disagreement between the vault and codebase
 
-Do not repeat the full startup brief on every turn in the same session. If the vault is unavailable, say so explicitly, inspect the codebase, and avoid presenting unverified roadmap or business context as fact.
+The user's current request controls the session. Do not redirect the user to the Task Board when they explicitly choose a different in-scope task; instead, note any priority difference that materially affects the Roadmap or risk.
+
+Do not repeat the full startup brief on every turn in the same session. If the vault, Progress index, Task Board, or referenced active task is unavailable, say so explicitly, inspect the codebase, and avoid presenting unverified roadmap, task, or business context as fact.
+
+### Task Planning and Lifecycle
+
+- Treat `TASK\00 - Task Board.md` as the operational queue, not as implementation evidence or an independent product authority.
+- Read the Task Board plus the single **Next** or **In progress** dated task. Do not load every task note unless the user's request requires broader planning context.
+- Before recommending or starting a tracked task, verify that it is still needed against the codebase, Progress index, latest relevant Progress note, Roadmap, Decision Register, and current Git state.
+- If a task is stale, already implemented, inconsistent with the Roadmap, missing a prerequisite, or contradicted by code, state the discrepancy. Do not silently follow or rewrite it when reconciliation changes product intent, architecture, security, cost, or sequencing.
+- A task note never grants authority to apply migrations, change provider settings, deploy, merge, push, handle secrets, use production data, contact third parties, incur cost, or perform another consequential external action. Obtain the authorization otherwise required by this rulebook and the user's request.
+- Never store credentials, access tokens, guest PII, private invitation links, production identifiers, or provider secrets in Task or Progress notes.
+- Do not mark a task **Done** because a plan exists, UI shell renders, partial check passes, or work appears likely complete. Require implementation evidence and task-specific success criteria.
+- For work tracked in `TASK/`, synchronize the Second Brain after verification:
+  1. Create or update the focused Progress note with code paths, evidence, and deliberate boundaries.
+  2. Remove the completed item from **Next** or **In progress** and link its Progress note under recently completed work.
+  3. Promote the next accepted planned item only when prerequisites and Roadmap alignment are clear.
+  4. Reconcile Home, Roadmap, Decision Register, architecture notes, or conventions only when their factual state materially changed.
+- If tracked work stops mid-task, keep its status accurate and record the exact verified checkpoint, remaining steps, and named blocker. Do not label ordinary incomplete work as blocked.
 
 ### Delegated Subagent Onboarding
 

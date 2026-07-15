@@ -56,3 +56,79 @@ export function SoundWave({ className }: IconProps) {
     </svg>
   );
 }
+
+export function Home({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+export function Envelope({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <rect height="14" rx="1.5" stroke="currentColor" strokeWidth="1.7" width="18" x="3" y="5" />
+      <path
+        d="m4 7 8 6 8-6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+export function Grid({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <rect height="7" rx="1" stroke="currentColor" strokeWidth="1.7" width="7" x="3" y="3" />
+      <rect height="7" rx="1" stroke="currentColor" strokeWidth="1.7" width="7" x="14" y="3" />
+      <rect height="7" rx="1" stroke="currentColor" strokeWidth="1.7" width="7" x="3" y="14" />
+      <rect height="7" rx="1" stroke="currentColor" strokeWidth="1.7" width="7" x="14" y="14" />
+    </svg>
+  );
+}
+
+export function Users({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-3A4.5 4.5 0 0 0 4 18.5V20m6-10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7-1a2.5 2.5 0 0 1 0 5m3 6v-1.5a4 4 0 0 0-2.5-3.7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+export function Settings({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+export function Plus({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.9" />
+    </svg>
+  );
+}

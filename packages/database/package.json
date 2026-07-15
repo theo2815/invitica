@@ -1,0 +1,12 @@
+{
+  "name": "@invitica/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reviewed SQL migrations and database policy tests for Invitica",
+  "license": "UNLICENSED",
+  "files": [
+    "migrations",
+    "tests",
+    "README.md"
+  ]
+}

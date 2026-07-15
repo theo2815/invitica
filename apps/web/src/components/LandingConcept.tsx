@@ -60,9 +60,14 @@ export function LandingConcept() {
           <a href="#faq">FAQ</a>
         </nav>
 
-        <a className={styles.headerCta} href="#templates">
-          Browse templates
-        </a>
+        <div className={styles.headerActions}>
+          <Link className={styles.loginLink} href="/login">
+            Log in
+          </Link>
+          <Link className={styles.headerCta} href="/register">
+            Create account
+          </Link>
+        </div>
 
         <button
           aria-controls="mobile-navigation"
@@ -97,8 +102,11 @@ export function LandingConcept() {
         <Link href="#faq" onClick={closeMenu}>
           FAQ
         </Link>
-        <Link className={styles.mobileCta} href="#templates" onClick={closeMenu}>
-          Browse templates
+        <Link href="/login" onClick={closeMenu}>
+          Log in
+        </Link>
+        <Link className={styles.mobileCta} href="/register" onClick={closeMenu}>
+          Create account
         </Link>
       </nav>
 

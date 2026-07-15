@@ -4,7 +4,7 @@
 
 Invitica is a Philippines-first platform for creating premium, interactive digital invitation websites. It is designed around mobile-first editing, curated templates, expressive motion, media, and fast account-free guest experiences.
 
-> **Project status:** Foundation and walking skeleton. The invitation document contract, shared renderer, and responsive marketing landing page are implemented. Authentication, publishing, RSVP operations, and payments are not yet production-ready.
+> **Project status:** Foundation and walking skeleton. The invitation document contract, shared renderer, responsive marketing landing page, and first authentication/tenancy slice are implemented. Publishing, RSVP operations, and payments are not yet production-ready.
 
 ## Current foundation
 
@@ -12,6 +12,8 @@ Invitica is a Philippines-first platform for creating premium, interactive digit
 - One shared React renderer contract for creator preview and published output
 - Safe, data-only templates with no arbitrary HTML, CSS, or JavaScript
 - Responsive marketing interactions with keyboard and reduced-motion support
+- Supabase email/password and Google OAuth flows with protected creator routes
+- Workspace-based ownership and row-level security migration with negative cross-user policy tests
 - TypeScript monorepo with pnpm workspaces, Turborepo, Biome, Vitest, and GitHub Actions
 
 ## Repository structure
@@ -20,6 +22,7 @@ Invitica is a Philippines-first platform for creating premium, interactive digit
 apps/
   web/                 Next.js marketing and creator surface
 packages/
+  database/            Reviewed SQL migrations and database policy tests
   invitation-schema/   Versioned invitation document schemas and fixtures
   renderer/            Shared semantic invitation renderer
 ```
@@ -39,10 +42,34 @@ Additional applications and packages are added through verified vertical slices 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
+Copy-Item apps/web/.env.example apps/web/.env.local
 pnpm --filter @invitica/web dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the current landing page and interactive invitation preview.
+
+### Authentication setup
+
+Set `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `apps/web/.env.local`. Next.js loads environment
+files from the `apps/web` application root, not the monorepo root. The publishable key is intended
+for browser use; never add a Supabase secret/service-role key or Google client secret to a
+`NEXT_PUBLIC` variable.
+
+In Supabase:
+
+1. Keep email confirmation enabled for email/password registration.
+2. Enable the Google provider and enter the Google Client ID and Client Secret there.
+3. Add `http://localhost:3000/auth/callback` and the production equivalent to the authentication
+   redirect allow list.
+4. In Google Cloud, use Supabase's callback URL:
+   `https://<project-ref>.supabase.co/auth/v1/callback`.
+5. Explicitly apply and test the reviewed migration under `packages/database`; the application
+   never applies migrations at startup.
+
+Google OAuth accounts return with a provider-confirmed email and do not go through Invitica's
+separate email confirmation screen. Email/password registrations must follow the emailed
+confirmation link before entering the creator dashboard.
 
 ## Development workflow
 

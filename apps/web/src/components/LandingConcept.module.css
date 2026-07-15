@@ -76,11 +76,32 @@
   color: var(--text);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  justify-self: end;
+}
+
+.loginLink {
+  display: grid;
+  min-height: 2.75rem;
+  place-items: center;
+  padding-inline: 0.8rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.loginLink:hover {
+  color: var(--text);
+}
+
 .headerCta {
   display: grid;
   min-height: 2.75rem;
   place-items: center;
-  justify-self: end;
   padding-inline: 1rem;
   border-radius: 0.35rem;
   background: var(--accent);
@@ -854,7 +875,7 @@
   }
 
   .desktopNav,
-  .headerCta {
+  .headerActions {
     display: none;
   }
 

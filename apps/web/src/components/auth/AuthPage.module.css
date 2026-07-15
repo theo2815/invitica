@@ -1,0 +1,342 @@
+.page {
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --accent-hover: #5d2632;
+  --accent-text: #ffffff;
+  --focus: #2457c5;
+  --danger: #9d2d2d;
+  --display-font: "Fraunces Variable", Georgia, serif;
+  min-height: 100dvh;
+  padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem) 2.5rem;
+  background: var(--background);
+  color: var(--text);
+}
+
+.page::before {
+  position: fixed;
+  inset: 0 auto 0 clamp(1.4rem, 8vw, 7rem);
+  width: 1px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.page a:focus-visible,
+.page button:focus-visible,
+.page input:focus-visible {
+  outline-color: var(--focus);
+}
+
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(100%, 70rem);
+  min-height: 3rem;
+  margin-inline: auto;
+}
+
+.brand {
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.brand svg {
+  color: var(--accent);
+}
+
+.headerNote {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 27rem);
+  align-items: center;
+  gap: clamp(3rem, 9vw, 8rem);
+  width: min(100%, 65rem);
+  min-height: calc(100dvh - 6rem);
+  margin-inline: auto;
+  padding-block: clamp(2.5rem, 7vh, 5.5rem);
+}
+
+.story {
+  max-width: 31rem;
+  padding-left: clamp(1.25rem, 3vw, 2.5rem);
+  border-left: 1px solid var(--accent);
+}
+
+.storyLabel,
+.eyebrow {
+  margin: 0 0 0.9rem;
+  color: var(--accent);
+  font-size: 0.69rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.story h2 {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: clamp(2.8rem, 5.5vw, 4.8rem);
+  font-weight: 510;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.story > p:last-of-type {
+  max-width: 29rem;
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.storyRule {
+  display: flex;
+  align-items: center;
+  width: 8rem;
+  margin-top: 2.25rem;
+}
+
+.storyRule::before,
+.storyRule::after {
+  width: 3rem;
+  height: 1px;
+  background: var(--border);
+  content: "";
+}
+
+.storyRule span {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-inline: 0.45rem;
+  border: 1px solid var(--accent);
+  transform: rotate(45deg);
+}
+
+.panel {
+  width: 100%;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface);
+  box-shadow: 0 1.5rem 4rem rgb(61 45 37 / 8%);
+}
+
+.panelHeading h1 {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: clamp(2.35rem, 4vw, 3.35rem);
+  font-weight: 520;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.panelHeading > p:last-child {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.91rem;
+  line-height: 1.6;
+}
+
+.googleButton,
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3rem;
+  border-radius: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.googleButton {
+  gap: 0.7rem;
+  margin-top: 1.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.googleButton:hover:not(:disabled) {
+  border-color: var(--text);
+  background: var(--surface-muted);
+}
+
+.googleMark {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: none;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-block: 1.45rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.divider::before,
+.divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+  content: "";
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.field label {
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+.field input {
+  width: 100%;
+  min-height: 3rem;
+  padding-inline: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: #fffefb;
+  color: var(--text);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.field input:hover {
+  border-color: color-mix(in srgb, var(--text) 55%, var(--border));
+}
+
+.field input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
+.primaryButton {
+  margin-top: 0.2rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.primaryButton:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.googleButton:disabled,
+.primaryButton:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.error {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-left: 3px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  color: var(--danger);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.alternate {
+  margin: 1.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.alternate a {
+  color: var(--accent);
+  font-weight: 760;
+  text-underline-offset: 0.2em;
+}
+
+.noticeLayout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: calc(100dvh - 6rem);
+  place-items: center;
+  padding-block: 3rem;
+}
+
+.noticeLayout .panel {
+  max-width: 30rem;
+}
+
+.notice {
+  margin: 1.5rem 0 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 780px) {
+  .page::before,
+  .headerNote,
+  .story {
+    display: none;
+  }
+
+  .layout {
+    display: block;
+    min-height: auto;
+    padding-block: clamp(2.5rem, 8vh, 4.5rem);
+  }
+
+  .panel {
+    max-width: 30rem;
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    padding: 1rem 1rem 2rem;
+  }
+
+  .panel {
+    padding: 1.35rem;
+  }
+}

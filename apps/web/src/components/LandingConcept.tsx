@@ -3,39 +3,16 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { templatePreviews } from "../data/templatePreviews";
 import { BrandMark } from "./BrandMark";
 import { ArrowRight, ArrowUpRight, Check } from "./Icons";
 import styles from "./LandingConcept.module.css";
-
-const templates = [
-  {
-    occasion: "Wedding",
-    name: "Garden Promise",
-    previewTitle: "Mara & Joaquin",
-    date: "January 17, 2027 · Manila",
-    tier: "Free",
-  },
-  {
-    occasion: "Debut",
-    name: "Golden Hour",
-    previewTitle: "Sam turns XVIII",
-    date: "August 14, 2027 · Quezon City",
-    tier: "Premium",
-  },
-  {
-    occasion: "Birthday",
-    name: "Sunday Joy",
-    previewTitle: "Lia is seven!",
-    date: "May 9, 2027 · Pasig",
-    tier: "Free",
-  },
-] as const;
 
 export function LandingConcept() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [invitationOpen, setInvitationOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(0);
-  const activeTemplate = templates[selectedTemplate] ?? templates[0];
+  const activeTemplate = templatePreviews[selectedTemplate] ?? templatePreviews[0];
 
   function closeMenu() {
     setMenuOpen(false);
@@ -211,7 +188,7 @@ export function LandingConcept() {
           </div>
 
           <div className={styles.templateGrid}>
-            {templates.map((template, index) => (
+            {templatePreviews.map((template, index) => (
               <article
                 className={styles.templateCard}
                 data-selected={selectedTemplate === index}

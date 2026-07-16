@@ -1,18 +1,26 @@
 "use client";
 
+import type { TemplateCatalogEntry } from "@invitica/template-kit";
 import Link from "next/link";
 import { useState } from "react";
 
-import { templatePreviews } from "../data/templatePreviews";
 import { BrandMark } from "./BrandMark";
 import { ArrowRight, ArrowUpRight, Check } from "./Icons";
 import styles from "./LandingConcept.module.css";
 
-export function LandingConcept() {
+interface LandingConceptProps {
+  templates: readonly TemplateCatalogEntry[];
+}
+
+export function LandingConcept({ templates }: LandingConceptProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [invitationOpen, setInvitationOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(0);
-  const activeTemplate = templatePreviews[selectedTemplate] ?? templatePreviews[0];
+  const activeTemplate = templates[selectedTemplate] ?? templates[0];
+
+  if (!activeTemplate) {
+    throw new Error("The landing page requires at least one registered template");
+  }
 
   function closeMenu() {
     setMenuOpen(false);
@@ -188,7 +196,7 @@ export function LandingConcept() {
           </div>
 
           <div className={styles.templateGrid}>
-            {templatePreviews.map((template, index) => (
+            {templates.map((template, index) => (
               <article
                 className={styles.templateCard}
                 data-selected={selectedTemplate === index}

@@ -1,31 +1,40 @@
 "use client";
 
+import type { TemplateCatalogEntry } from "@invitica/template-kit";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type TemplatePreview, templatePreviews } from "../../data/templatePreviews";
 import { ArrowRight } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
 
 type Device = "desktop" | "mobile";
-type Tier = "All" | TemplatePreview["tier"];
+type Tier = "All" | TemplateCatalogEntry["tier"];
 
-const occasions = ["All", ...new Set(templatePreviews.map((template) => template.occasion))];
-const stylesList = ["All", ...new Set(templatePreviews.map((template) => template.style))];
+interface TemplateCatalogProps {
+  templates: readonly TemplateCatalogEntry[];
+}
 
-export function TemplateCatalog() {
+export function TemplateCatalog({ templates }: TemplateCatalogProps) {
   const [query, setQuery] = useState("");
   const [occasion, setOccasion] = useState("All");
   const [style, setStyle] = useState("All");
   const [tier, setTier] = useState<Tier>("All");
   const [sort, setSort] = useState("featured");
-  const [preview, setPreview] = useState<TemplatePreview | null>(null);
+  const [preview, setPreview] = useState<TemplateCatalogEntry | null>(null);
   const [device, setDevice] = useState<Device>("mobile");
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const occasions = useMemo(
+    () => ["All", ...new Set(templates.map((template) => template.occasion))],
+    [templates],
+  );
+  const stylesList = useMemo(
+    () => ["All", ...new Set(templates.map((template) => template.style))],
+    [templates],
+  );
 
   const filteredTemplates = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
-    const filtered = templatePreviews.filter((template) => {
+    const filtered = templates.filter((template) => {
       const searchable =
         `${template.name} ${template.occasion} ${template.style}`.toLocaleLowerCase("en-PH");
 
@@ -42,7 +51,7 @@ export function TemplateCatalog() {
     }
 
     return filtered;
-  }, [occasion, query, sort, style, tier]);
+  }, [occasion, query, sort, style, templates, tier]);
 
   useEffect(() => {
     if (!preview) {
@@ -98,7 +107,7 @@ export function TemplateCatalog() {
     setSort("featured");
   }
 
-  function openPreview(template: TemplatePreview) {
+  function openPreview(template: TemplateCatalogEntry) {
     setDevice("mobile");
     setPreview(template);
   }
@@ -110,7 +119,7 @@ export function TemplateCatalog() {
           <p>Preview collection</p>
           <strong>Explore the art direction already established in Invitica.</strong>
         </div>
-        <span>3 concept previews · Creation integration follows</span>
+        <span>{templates.length} concept previews · Creation integration follows</span>
       </div>
 
       <div className={styles.controls}>

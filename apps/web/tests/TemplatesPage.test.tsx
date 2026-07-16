@@ -1,3 +1,4 @@
+import { templateCatalog } from "@invitica/template-kit";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,7 +63,7 @@ describe("templates page", () => {
   });
 
   it("searches and filters the preview collection", () => {
-    render(<TemplateCatalog />);
+    render(<TemplateCatalog templates={templateCatalog} />);
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search templates" }), {
       target: { value: "debut" },
@@ -79,7 +80,7 @@ describe("templates page", () => {
   });
 
   it("opens and closes an accessible responsive preview", () => {
-    render(<TemplateCatalog />);
+    render(<TemplateCatalog templates={templateCatalog} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Preview Garden Promise" }));
     expect(screen.getByRole("dialog", { name: "Preview Garden Promise" })).toBeDefined();
@@ -92,7 +93,7 @@ describe("templates page", () => {
   });
 
   it("handles no matches, loading, and unexpected errors", () => {
-    const { unmount } = render(<TemplateCatalog />);
+    const { unmount } = render(<TemplateCatalog templates={templateCatalog} />);
     fireEvent.change(screen.getByRole("searchbox", { name: "Search templates" }), {
       target: { value: "not a real template" },
     });

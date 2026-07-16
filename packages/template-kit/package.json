@@ -1,5 +1,5 @@
 {
-  "name": "@invitica/invitation-schema",
+  "name": "@invitica/template-kit",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,7 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
-    },
-    "./testing": "./src/testing.ts"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -16,6 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@invitica/invitation-schema": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

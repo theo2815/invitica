@@ -1,3 +1,5 @@
+import { templateCatalog } from "@invitica/template-kit";
+
 import { CreatorShell } from "../../../src/components/dashboard/CreatorShell";
 import { TemplateCatalog } from "../../../src/components/templates/TemplateCatalog";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
@@ -27,7 +29,7 @@ export default async function TemplatesPage() {
           </p>
         </section>
       ) : (
-        <TemplateCatalog />
+        <TemplateCatalog templates={templateCatalog} />
       )}
 
       <footer className={styles.footer}>

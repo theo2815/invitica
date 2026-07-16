@@ -1,6 +1,8 @@
 begin;
 
+set local role postgres;
 create extension if not exists pgtap with schema extensions;
+grant usage on schema extensions to public;
 set local search_path = public, extensions, pg_catalog;
 
 select plan(22);
@@ -111,7 +113,7 @@ select is(
   'an active owner can update their workspace name'
 );
 
-reset role;
+set local role postgres;
 select set_config(
   'test.user_a_workspace',
   (
@@ -130,7 +132,7 @@ select lives_ok(
   'User B can provision a separate personal workspace'
 );
 
-reset role;
+set local role postgres;
 select set_config(
   'test.user_b_workspace',
   (
@@ -215,7 +217,7 @@ select throws_ok(
   'authenticated users cannot create memberships'
 );
 
-reset role;
+set local role postgres;
 set local role anon;
 select set_config('request.jwt.claim.sub', '', true);
 select set_config('request.jwt.claim.role', 'anon', true);
@@ -245,6 +247,6 @@ select throws_ok(
   'anonymous users cannot provision a workspace'
 );
 
-reset role;
+set local role postgres;
 select * from finish();
 rollback;

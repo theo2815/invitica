@@ -217,14 +217,34 @@
   gap: 1rem;
 }
 
+.formWithTopMargin {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.6rem;
+}
+
 .field {
   display: grid;
   gap: 0.42rem;
 }
 
+.fieldLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .field label {
   font-size: 0.76rem;
   font-weight: 720;
+}
+
+.fieldLink {
+  color: var(--accent);
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-underline-offset: 0.2em;
 }
 
 .field input {
@@ -240,6 +260,10 @@
     box-shadow 160ms ease;
 }
 
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
 .field input:hover {
   border-color: color-mix(in srgb, var(--text) 55%, var(--border));
 }
@@ -249,11 +273,87 @@
   box-shadow: 0 0 0 1px var(--focus);
 }
 
+.passwordControl {
+  position: relative;
+}
+
+.passwordControl input {
+  padding-right: 3.2rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 0.15rem;
+  display: inline-grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  place-items: center;
+  transform: translateY(-50%);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.passwordToggle:hover {
+  color: var(--text);
+}
+
+.passwordToggle svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+
+.fieldHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.otpInput {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.45em;
+  text-align: center;
+}
+
 .primaryButton {
   margin-top: 0.2rem;
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-text);
+}
+
+.secondaryButton {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-muted);
+}
+
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .primaryButton:hover:not(:disabled) {
@@ -275,6 +375,30 @@
   color: var(--danger);
   font-size: 0.78rem;
   line-height: 1.5;
+}
+
+.success {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-left: 3px solid #477052;
+  background: color-mix(in srgb, #477052 8%, var(--surface));
+  color: #34543d;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.privacyNotice {
+  margin: 1.5rem 0 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.resendForm {
+  margin-top: 0.8rem;
 }
 
 .alternate {

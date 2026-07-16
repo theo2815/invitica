@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { type FormEvent, useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { BrandMark } from "../BrandMark";
+import type { AuthActionState, AuthFieldErrors, AuthFieldName } from "../../server/auth/types";
+import { validateEmailLogin, validateEmailRegistration } from "../../server/auth/validation";
+import { FieldError, PasswordField, PendingButton } from "./AuthFormFields";
 import styles from "./AuthPage.module.css";
+import { AuthShell } from "./AuthShell";
 
 type AuthMode = "login" | "register";
-
-type AuthActionState = {
-  error: string | null;
-};
 
 type EmailAction = (state: AuthActionState, formData: FormData) => Promise<AuthActionState>;
 
@@ -19,10 +18,16 @@ interface AuthPageProps {
   emailAction: EmailAction;
   googleAction: (formData: FormData) => Promise<void>;
   initialError?: string | undefined;
+  initialNotice?: string | undefined;
   mode: AuthMode;
 }
 
-const initialState: AuthActionState = { error: null };
+interface AuthValues {
+  confirmPassword: string;
+  email: string;
+  fullName: string;
+  password: string;
+}
 
 const pageCopy = {
   login: {
@@ -56,15 +61,12 @@ const pageCopy = {
   },
 } as const;
 
-function SubmitButton({ idleLabel, pendingLabel }: { idleLabel: string; pendingLabel: string }) {
-  const { pending } = useFormStatus();
-
-  return (
-    <button className={styles.primaryButton} disabled={pending} type="submit">
-      {pending ? pendingLabel : idleLabel}
-    </button>
-  );
-}
+const initialValues: AuthValues = {
+  confirmPassword: "",
+  email: "",
+  fullName: "",
+  password: "",
+};
 
 function GoogleButton() {
   const { pending } = useFormStatus();
@@ -91,155 +93,201 @@ function GoogleButton() {
   );
 }
 
-export function AuthPage({ emailAction, googleAction, initialError, mode }: AuthPageProps) {
+function focusFirstError(fieldErrors: AuthFieldErrors, mode: AuthMode) {
+  const order: AuthFieldName[] =
+    mode === "register"
+      ? ["fullName", "email", "password", "confirmPassword"]
+      : ["email", "password"];
+  const firstInvalid = order.find((name) => fieldErrors[name]);
+
+  if (firstInvalid) {
+    document
+      .getElementById(
+        firstInvalid === "fullName"
+          ? "full-name"
+          : firstInvalid === "confirmPassword"
+            ? "confirm-password"
+            : `${mode}-${firstInvalid}`,
+      )
+      ?.focus();
+  }
+}
+
+export function AuthPage({
+  emailAction,
+  googleAction,
+  initialError,
+  initialNotice,
+  mode,
+}: AuthPageProps) {
   const copy = pageCopy[mode];
   const [state, formAction] = useActionState(emailAction, {
-    ...initialState,
     error: initialError ?? null,
+    notice: initialNotice ?? null,
   });
+  const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
+  const [values, setValues] = useState<AuthValues>(initialValues);
+  const fieldErrors = { ...state.fieldErrors, ...clientErrors };
   const headingId = `${mode}-heading`;
   const errorId = `${mode}-form-error`;
 
+  function updateValue(name: keyof AuthValues, value: string) {
+    setValues((current) => ({ ...current, [name]: value }));
+    setClientErrors((current) => {
+      if (!current[name]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const result =
+      mode === "register"
+        ? validateEmailRegistration(new FormData(event.currentTarget))
+        : validateEmailLogin(new FormData(event.currentTarget));
+
+    if (!result.ok) {
+      event.preventDefault();
+      setClientErrors(result.fieldErrors);
+      focusFirstError(result.fieldErrors, mode);
+      return;
+    }
+
+    setClientErrors({});
+  }
+
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
-        <Link aria-label="Invitica home" className={styles.brand} href="/">
-          <BrandMark />
-        </Link>
-        <span className={styles.headerNote}>Invitations, thoughtfully made</span>
-      </header>
+    <AuthShell
+      description={copy.description}
+      eyebrow={copy.eyebrow}
+      heading={copy.heading}
+      headingId={headingId}
+      story={{
+        heading: copy.storyHeading,
+        label: "A beautiful beginning",
+        text: copy.story,
+      }}
+    >
+      <form action={googleAction} aria-label="Continue with Google">
+        <GoogleButton />
+      </form>
 
-      <div className={styles.layout}>
-        <section aria-labelledby={`${mode}-story-heading`} className={styles.story}>
-          <p className={styles.storyLabel}>A beautiful beginning</p>
-          <h2 id={`${mode}-story-heading`}>{copy.storyHeading}</h2>
-          <p>{copy.story}</p>
-          <div aria-hidden="true" className={styles.storyRule}>
-            <span />
-          </div>
-        </section>
-
-        <section aria-labelledby={headingId} className={styles.panel}>
-          <div className={styles.panelHeading}>
-            <p className={styles.eyebrow}>{copy.eyebrow}</p>
-            <h1 id={headingId}>{copy.heading}</h1>
-            <p>{copy.description}</p>
-          </div>
-
-          <form action={googleAction} aria-label="Continue with Google">
-            <GoogleButton />
-          </form>
-
-          <div aria-hidden="true" className={styles.divider}>
-            <span>or continue with email</span>
-          </div>
-
-          <form
-            action={formAction}
-            aria-describedby={state.error ? errorId : undefined}
-            aria-label={copy.formLabel}
-            className={styles.form}
-          >
-            {mode === "register" ? (
-              <div className={styles.field}>
-                <label htmlFor="full-name">Full name</label>
-                <input
-                  autoComplete="name"
-                  id="full-name"
-                  maxLength={120}
-                  minLength={2}
-                  name="fullName"
-                  required
-                  type="text"
-                />
-              </div>
-            ) : null}
-
-            <div className={styles.field}>
-              <label htmlFor={`${mode}-email`}>Email address</label>
-              <input
-                autoComplete="email"
-                id={`${mode}-email`}
-                inputMode="email"
-                name="email"
-                required
-                type="email"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor={`${mode}-password`}>Password</label>
-              <input
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                id={`${mode}-password`}
-                maxLength={128}
-                minLength={mode === "register" ? 8 : undefined}
-                name="password"
-                required
-                type="password"
-              />
-            </div>
-
-            {mode === "register" ? (
-              <div className={styles.field}>
-                <label htmlFor="confirm-password">Confirm password</label>
-                <input
-                  autoComplete="new-password"
-                  id="confirm-password"
-                  maxLength={128}
-                  minLength={8}
-                  name="confirmPassword"
-                  required
-                  type="password"
-                />
-              </div>
-            ) : null}
-
-            {state.error ? (
-              <p className={styles.error} id={errorId} role="alert">
-                {state.error}
-              </p>
-            ) : null}
-
-            <SubmitButton idleLabel={copy.emailSubmit} pendingLabel={copy.emailPending} />
-          </form>
-
-          <p className={styles.alternate}>
-            {copy.alternate} <Link href={copy.alternateHref}>{copy.alternateAction}</Link>
-          </p>
-        </section>
+      <div aria-hidden="true" className={styles.divider}>
+        <span>or continue with email</span>
       </div>
-    </main>
+
+      <form
+        action={formAction}
+        aria-describedby={state.error ? errorId : undefined}
+        aria-label={copy.formLabel}
+        className={styles.form}
+        noValidate
+        onSubmit={handleSubmit}
+      >
+        {mode === "register" ? (
+          <div className={styles.field}>
+            <label htmlFor="full-name">Full name</label>
+            <input
+              aria-describedby={fieldErrors.fullName ? "full-name-error" : undefined}
+              aria-invalid={fieldErrors.fullName ? true : undefined}
+              autoComplete="name"
+              id="full-name"
+              maxLength={120}
+              minLength={2}
+              name="fullName"
+              onChange={(event) => updateValue("fullName", event.target.value)}
+              required
+              type="text"
+              value={values.fullName}
+            />
+            <FieldError id="full-name-error" message={fieldErrors.fullName} />
+          </div>
+        ) : null}
+
+        <div className={styles.field}>
+          <label htmlFor={`${mode}-email`}>Email address</label>
+          <input
+            aria-describedby={fieldErrors.email ? `${mode}-email-error` : undefined}
+            aria-invalid={fieldErrors.email ? true : undefined}
+            autoComplete="email"
+            id={`${mode}-email`}
+            inputMode="email"
+            maxLength={254}
+            name="email"
+            onChange={(event) => updateValue("email", event.target.value)}
+            required
+            type="email"
+            value={values.email}
+          />
+          <FieldError id={`${mode}-email-error`} message={fieldErrors.email} />
+        </div>
+
+        <PasswordField
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          error={fieldErrors.password}
+          id={`${mode}-password`}
+          label="Password"
+          labelAction={
+            mode === "login" ? (
+              <Link className={styles.fieldLink} href="/forgot-password">
+                Forgot password?
+              </Link>
+            ) : undefined
+          }
+          name="password"
+          onChange={(value) => updateValue("password", value)}
+          value={values.password}
+        />
+
+        {mode === "register" ? (
+          <PasswordField
+            autoComplete="new-password"
+            error={fieldErrors.confirmPassword}
+            id="confirm-password"
+            label="Confirm password"
+            name="confirmPassword"
+            onChange={(value) => updateValue("confirmPassword", value)}
+            value={values.confirmPassword}
+          />
+        ) : null}
+
+        {state.error ? (
+          <p className={styles.error} id={errorId} role="alert">
+            {state.error}
+          </p>
+        ) : null}
+
+        {state.notice ? (
+          <p className={styles.success} role="status">
+            {state.notice}
+          </p>
+        ) : null}
+
+        <PendingButton idleLabel={copy.emailSubmit} pendingLabel={copy.emailPending} />
+      </form>
+
+      <p className={styles.alternate}>
+        {copy.alternate} <Link href={copy.alternateHref}>{copy.alternateAction}</Link>
+      </p>
+    </AuthShell>
   );
 }
 
 export function CheckEmailPage() {
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
-        <Link aria-label="Invitica home" className={styles.brand} href="/">
-          <BrandMark />
-        </Link>
-        <span className={styles.headerNote}>Invitations, thoughtfully made</span>
-      </header>
-      <div className={styles.noticeLayout}>
-        <section className={styles.panel}>
-          <div className={styles.panelHeading}>
-            <p className={styles.eyebrow}>Confirm your email</p>
-            <h1>Check your inbox</h1>
-            <p>
-              We sent a confirmation link to the email address you provided. Open it to finish
-              creating your Invitica account.
-            </p>
-          </div>
-          <p className={styles.notice}>
-            You can close this page after opening the confirmation link.
-          </p>
-          <p className={styles.alternate}>
-            <Link href="/login">Back to sign in</Link>
-          </p>
-        </section>
-      </div>
-    </main>
+    <AuthShell
+      description="We sent a confirmation link to the email address you provided. Open it to finish creating your Invitica account."
+      eyebrow="Confirm your email"
+      heading="Check your inbox"
+      headingId="check-email-heading"
+    >
+      <p className={styles.notice}>You can close this page after opening the confirmation link.</p>
+      <p className={styles.alternate}>
+        <Link href="/login">Back to sign in</Link>
+      </p>
+    </AuthShell>
   );
 }

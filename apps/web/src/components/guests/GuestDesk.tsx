@@ -10,7 +10,8 @@ import {
 } from "../../server/guests/actions";
 import type { GuestInvitationSummary, GuestPartySummary } from "../../server/guests/guests";
 import type { InvitationResultSummary } from "../../server/guests/results";
-import { Check, Plus, Users } from "../Icons";
+import { Select } from "../forms/Select";
+import { Check, MoreHorizontal, Plus, Users } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
 interface GuestDeskProps {
@@ -68,6 +69,7 @@ export function GuestDesk({
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [openPartyMenuId, setOpenPartyMenuId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [revealedLink, setRevealedLink] = useState<string | null>(null);
   const [responseFilter, setResponseFilter] = useState<
@@ -78,6 +80,8 @@ export function GuestDesk({
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const generalLinkInputRef = useRef<HTMLInputElement>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
+  const openPartyMenuRef = useRef<HTMLDivElement>(null);
+  const partyMenuButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   const dialogOpen = createOpen || confirmation !== null;
@@ -110,6 +114,32 @@ export function GuestDesk({
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [dialogOpen, isPending]);
+
+  useEffect(() => {
+    if (!openPartyMenuId) return;
+    const partyMenuId = openPartyMenuId;
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (event.target instanceof Node && !openPartyMenuRef.current?.contains(event.target)) {
+        setOpenPartyMenuId(null);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      const trigger = partyMenuButtonRefs.current.get(partyMenuId);
+      setOpenPartyMenuId(null);
+      trigger?.focus();
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openPartyMenuId]);
 
   function openCreate() {
     restoreFocusRef.current = createButtonRef.current;
@@ -190,8 +220,14 @@ export function GuestDesk({
     event: React.MouseEvent<HTMLButtonElement>,
     guestPartyId: string,
     kind: "replace" | "revoke",
+    restoreFocus?: HTMLButtonElement,
   ) {
-    restoreFocusRef.current = event.currentTarget;
+    const usesMobileMenu =
+      typeof window.matchMedia === "function" && window.matchMedia("(max-width: 700px)").matches;
+    restoreFocusRef.current = usesMobileMenu
+      ? (restoreFocus ?? event.currentTarget)
+      : event.currentTarget;
+    setOpenPartyMenuId(null);
     setActionMessage(null);
     setConfirmation({ guestPartyId, kind });
     window.requestAnimationFrame(() => dialogRef.current?.focus());
@@ -268,27 +304,26 @@ export function GuestDesk({
           </p>
         </div>
         {invitations.length > 0 ? (
-          <label className={styles.invitationPicker}>
-            <span>Published invitation</span>
-            <select
-              onChange={(event) => {
-                const invitationId = event.currentTarget.value;
-                router.push(
-                  invitationId
-                    ? `/dashboard/guests?invitationId=${encodeURIComponent(invitationId)}`
-                    : "/dashboard/guests",
-                );
-              }}
-              value={selectedInvitation?.invitationId ?? ""}
-            >
-              <option value="">Select an invitation</option>
-              {invitations.map((invitation) => (
-                <option key={invitation.invitationId} value={invitation.invitationId}>
-                  {invitation.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            className={styles.invitationPicker}
+            id="guest-invitation"
+            label="Published invitation"
+            onChange={(invitationId) => {
+              router.push(
+                invitationId
+                  ? `/dashboard/guests?invitationId=${encodeURIComponent(invitationId)}`
+                  : "/dashboard/guests",
+              );
+            }}
+            options={[
+              { label: "Select an invitation", value: "" },
+              ...invitations.map((invitation) => ({
+                label: invitation.title,
+                value: invitation.invitationId,
+              })),
+            ]}
+            value={selectedInvitation?.invitationId ?? ""}
+          />
         ) : (
           <Link href="/dashboard/invitations">View invitations</Link>
         )}
@@ -429,12 +464,15 @@ export function GuestDesk({
                 <h2 id="party-ledger-heading">Guest parties</h2>
               </div>
               <button
+                aria-label="Add guest party"
                 className={styles.primaryAction}
                 onClick={openCreate}
                 ref={createButtonRef}
                 type="button"
               >
-                <Plus /> Add guest party
+                <Plus />
+                <span className={styles.desktopActionLabel}>Add guest party</span>
+                <span className={styles.mobileActionLabel}>Add party</span>
               </button>
             </header>
 
@@ -461,20 +499,19 @@ export function GuestDesk({
                       value={query}
                     />
                   </label>
-                  <label>
-                    <span>Response</span>
-                    <select
-                      onChange={(event) =>
-                        setResponseFilter(event.currentTarget.value as typeof responseFilter)
-                      }
-                      value={responseFilter}
-                    >
-                      <option value="all">All responses</option>
-                      <option value="attending">Attending</option>
-                      <option value="declined">Declined</option>
-                      <option value="awaiting">Awaiting reply</option>
-                    </select>
-                  </label>
+                  <Select
+                    className={styles.responseFilter}
+                    id="guest-response-filter"
+                    label="Response"
+                    onChange={(nextValue) => setResponseFilter(nextValue as typeof responseFilter)}
+                    options={[
+                      { label: "All responses", value: "all" },
+                      { label: "Attending", value: "attending" },
+                      { label: "Declined", value: "declined" },
+                      { label: "Awaiting reply", value: "awaiting" },
+                    ]}
+                    value={responseFilter}
+                  />
                 </div>
 
                 {filteredParties.length === 0 ? (
@@ -525,9 +562,11 @@ export function GuestDesk({
                               ) : null}
                             </td>
                             <td data-label="Seats">
-                              {party.response?.attendance === "attending"
-                                ? `${party.response.attendeeCount} / ${party.capacity}`
-                                : `0 / ${party.capacity}`}
+                              <span>
+                                {party.response?.attendance === "attending"
+                                  ? `${party.response.attendeeCount} / ${party.capacity}`
+                                  : `0 / ${party.capacity}`}
+                              </span>
                             </td>
                             <td data-label="Message">
                               {party.response?.message ? (
@@ -549,35 +588,75 @@ export function GuestDesk({
                               )}
                             </td>
                             <td data-label="Private link">
-                              <span
-                                className={
-                                  party.linkStatus === "active" ? styles.active : styles.revoked
-                                }
-                              >
-                                {party.linkStatus === "active" ? "Link active" : "Link revoked"}
-                              </span>
-                              <div className={styles.partyActions}>
-                                <button
-                                  onClick={(event) =>
-                                    requestConfirmation(event, party.id, "replace")
+                              <div className={styles.linkControl}>
+                                <span
+                                  className={
+                                    party.linkStatus === "active" ? styles.active : styles.revoked
                                   }
-                                  type="button"
                                 >
-                                  {party.linkStatus === "active"
-                                    ? "Replace link"
-                                    : "Create new link"}
-                                </button>
-                                {party.linkStatus === "active" ? (
+                                  {party.linkStatus === "active" ? "Link active" : "Link revoked"}
+                                </span>
+                                <div
+                                  className={styles.partyActionMenu}
+                                  ref={openPartyMenuId === party.id ? openPartyMenuRef : undefined}
+                                >
                                   <button
-                                    className={styles.dangerAction}
-                                    onClick={(event) =>
-                                      requestConfirmation(event, party.id, "revoke")
+                                    aria-expanded={openPartyMenuId === party.id}
+                                    aria-haspopup="true"
+                                    aria-label={`More actions for ${party.internalLabel}`}
+                                    className={styles.moreAction}
+                                    onClick={() =>
+                                      setOpenPartyMenuId((current) =>
+                                        current === party.id ? null : party.id,
+                                      )
                                     }
+                                    ref={(element) => {
+                                      if (element)
+                                        partyMenuButtonRefs.current.set(party.id, element);
+                                      else partyMenuButtonRefs.current.delete(party.id);
+                                    }}
                                     type="button"
                                   >
-                                    Revoke link
+                                    <MoreHorizontal />
+                                    <span>More</span>
                                   </button>
-                                ) : null}
+                                  <div
+                                    className={styles.partyActions}
+                                    data-open={openPartyMenuId === party.id}
+                                  >
+                                    <button
+                                      onClick={(event) =>
+                                        requestConfirmation(
+                                          event,
+                                          party.id,
+                                          "replace",
+                                          partyMenuButtonRefs.current.get(party.id),
+                                        )
+                                      }
+                                      type="button"
+                                    >
+                                      {party.linkStatus === "active"
+                                        ? "Replace link"
+                                        : "Create new link"}
+                                    </button>
+                                    {party.linkStatus === "active" ? (
+                                      <button
+                                        className={styles.dangerAction}
+                                        onClick={(event) =>
+                                          requestConfirmation(
+                                            event,
+                                            party.id,
+                                            "revoke",
+                                            partyMenuButtonRefs.current.get(party.id),
+                                          )
+                                        }
+                                        type="button"
+                                      >
+                                        Revoke link
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </div>
                               </div>
                             </td>
                           </tr>

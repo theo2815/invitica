@@ -30,6 +30,63 @@ export function ArrowRight({ className }: IconProps) {
   );
 }
 
+export function CalendarDays({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <rect height="17" rx="2" stroke="currentColor" strokeWidth="1.7" width="18" x="3" y="4" />
+      <path d="M7 2.5v4M17 2.5v4M3 9h18" stroke="currentColor" strokeLinecap="round" />
+      <path
+        d="M7.5 13h.01M12 13h.01M16.5 13h.01M7.5 17h.01M12 17h.01"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.2"
+      />
+    </svg>
+  );
+}
+
+export function ChevronDown({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="m7 9.5 5 5 5-5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+export function ChevronLeft({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="m14.5 7-5 5 5 5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+export function ChevronRight({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="m9.5 7 5 5-5 5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 export function Check({ className }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
@@ -40,6 +97,30 @@ export function Check({ className }: IconProps) {
         strokeLinejoin="round"
         strokeWidth="2"
       />
+    </svg>
+  );
+}
+
+export function LogOut({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M10 5H5.5A1.5 1.5 0 0 0 4 6.5v11A1.5 1.5 0 0 0 5.5 19H10m4-3 4-4-4-4m4 4H9"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+export function MoreHorizontal({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <circle cx="5" cy="12" fill="currentColor" r="1.4" />
+      <circle cx="12" cy="12" fill="currentColor" r="1.4" />
+      <circle cx="19" cy="12" fill="currentColor" r="1.4" />
     </svg>
   );
 }
@@ -120,6 +201,19 @@ export function Settings({ className }: IconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+export function SlidersHorizontal({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M4 7h5m4 0h7M4 17h7m4 0h5M9 4v6m6 4v6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
       />
     </svg>
   );

@@ -39,6 +39,12 @@
   text-align: right;
 }
 
+.mobileSearchBar,
+.activeFilters,
+.filterBackdrop {
+  display: none;
+}
+
 .controls {
   display: grid;
   grid-template-columns: minmax(14rem, 1.6fr) repeat(2, minmax(9rem, 0.8fr)) auto minmax(
@@ -66,8 +72,7 @@
   font-weight: 720;
 }
 
-.searchField input,
-.selectField select {
+.searchField input {
   width: 100%;
   min-height: 2.75rem;
   padding-inline: 0.8rem;
@@ -78,8 +83,7 @@
   font-size: 0.75rem;
 }
 
-.searchField input:focus,
-.selectField select:focus {
+.searchField input:focus {
   border-color: var(--focus);
   outline: 2px solid var(--focus);
   outline-offset: 1px;
@@ -316,6 +320,10 @@
 .cardActions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.mobileActionLabel {
+  display: none;
 }
 
 .creationForm {
@@ -672,36 +680,374 @@
 }
 
 @media (max-width: 760px) {
+  .catalog {
+    padding-block: 1.25rem;
+  }
+
   .catalogNotice,
   .resultsHeading {
-    align-items: flex-start;
-    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .catalogNotice {
+    display: block;
+    margin-bottom: 0.8rem;
+    padding: 0.75rem 0.8rem;
+  }
+
+  .catalogNotice strong {
+    margin-top: 0.2rem;
+    font-size: 0.68rem;
+    line-height: 1.4;
   }
 
   .catalogNotice > span {
-    text-align: left;
+    display: none;
   }
 
   .controls {
-    grid-template-columns: 1fr 1fr;
+    display: none;
   }
 
-  .searchField,
-  .tierControl {
-    grid-column: 1 / -1;
+  .mobileSearchBar {
+    display: grid;
   }
 
-  .tierControl {
-    width: 100%;
-    grid-template-columns: repeat(3, 1fr);
+  .mobileSearchBar > label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .mobileSearchBar > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.55rem;
+  }
+
+  .mobileSearchBar input,
+  .mobileSearchBar button {
+    min-height: 2.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.35rem;
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .mobileSearchBar input {
+    min-width: 0;
+    padding-inline: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .mobileSearchBar button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding-inline: 0.7rem;
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 750;
+  }
+
+  .mobileSearchBar button svg {
+    width: 1rem;
+  }
+
+  .mobileSearchBar button small {
+    display: grid;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #ffffff;
+    font-size: 0.55rem;
+    place-items: center;
+  }
+
+  .mobileSearchBar :is(input, button):focus-visible,
+  .activeFilters button:focus-visible,
+  .filterSheet :is(button, select):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .activeFilters {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.45rem;
+    margin: 0.6rem 0 0;
+    padding: 0 0 0.15rem;
+    border: 0;
+    scrollbar-width: thin;
+  }
+
+  .activeFilters legend {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .activeFilters button {
+    min-height: 2.75rem;
+    flex: none;
+    padding-inline: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+  }
+
+  .resultsHeading {
+    align-items: flex-end;
+    margin-block: 1.25rem 0.8rem;
+  }
+
+  .resultsHeading h2 {
+    margin-top: 0.25rem;
+    font-size: 1.45rem;
+  }
+
+  .resultsHeading > span {
+    font-size: 0.62rem;
   }
 
   .templateGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .templateCard {
+    border-radius: 0.4rem;
+    box-shadow: 0 0.65rem 1.5rem rgb(61 45 37 / 4%);
   }
 
   .cardArtwork {
-    aspect-ratio: 5 / 4;
+    aspect-ratio: 4 / 5;
+    padding: 0.65rem;
+  }
+
+  .cardArtwork::before {
+    inset: 0.5rem;
+  }
+
+  .cardArtwork span,
+  .cardArtwork small {
+    font-size: 0.46rem;
+    letter-spacing: 0.08em;
+  }
+
+  .cardArtwork strong {
+    max-width: 100%;
+    margin-block: 0.65rem;
+    font-size: clamp(1.15rem, 6vw, 1.55rem);
+    line-height: 1;
+  }
+
+  .cardDetails {
+    padding: 0.65rem;
+  }
+
+  .cardMeta {
+    gap: 0.35rem;
+  }
+
+  .cardMeta p,
+  .cardMeta span {
+    font-size: 0.52rem;
+    line-height: 1.25;
+  }
+
+  .cardDetails h2 {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    line-height: 1.08;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .cardDetails > p {
+    display: none;
+  }
+
+  .cardActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+    padding-top: 0.7rem;
+  }
+
+  .cardActions button {
+    min-width: 0;
+    min-height: 2.75rem;
+    padding-inline: 0.35rem;
+    font-size: 0.62rem;
+  }
+
+  .desktopActionLabel {
+    display: none;
+  }
+
+  .mobileActionLabel {
+    display: inline;
+  }
+
+  .filterBackdrop {
+    position: fixed;
+    z-index: 60;
+    inset: 0;
+    display: grid;
+    align-items: end;
+    background: rgb(41 35 31 / 58%);
+  }
+
+  .filterDismiss {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .filterSheet {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-height: min(90dvh, 44rem);
+    overflow-y: auto;
+    padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
+    border-radius: 0.75rem 0.75rem 0 0;
+    background: var(--surface);
+    box-shadow: 0 -1.5rem 4rem rgb(41 35 31 / 18%);
+  }
+
+  .filterSheet > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .filterSheet header p,
+  .filterSheet header h2 {
+    margin: 0;
+  }
+
+  .filterSheet header p {
+    color: var(--accent);
+    font-size: 0.6rem;
+    font-weight: 780;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .filterSheet header h2 {
+    margin-top: 0.25rem;
+    font-family: var(--display-font);
+    font-size: 1.55rem;
+    font-weight: 560;
+  }
+
+  .filterSheet header button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 750;
+  }
+
+  .filterFields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    padding-block: 1rem;
+  }
+
+  .filterFields label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 720;
+  }
+
+  .filterFields fieldset {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.35rem;
+    background: var(--background);
+  }
+
+  .filterFields legend {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .filterFields fieldset button {
+    min-height: 2.75rem;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.66rem;
+    font-weight: 720;
+  }
+
+  .filterFields fieldset button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: 0 1px 0.5rem rgb(61 45 37 / 9%);
+  }
+
+  .filterSheet > footer {
+    display: grid;
+    grid-template-columns: 0.7fr 1.3fr;
+    gap: 0.55rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .filterSheet > footer button {
+    min-height: 2.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.35rem;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 750;
+  }
+
+  .filterSheet > footer button:last-child {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #ffffff;
   }
 
   .dialogBackdrop {
@@ -732,17 +1078,8 @@
 }
 
 @media (max-width: 420px) {
-  .controls {
-    grid-template-columns: 1fr;
-  }
-
-  .searchField,
-  .tierControl {
-    grid-column: auto;
-  }
-
   .cardActions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .reuseConfirmation > div {

@@ -280,6 +280,10 @@
   height: 0.9rem;
 }
 
+.mobileCardAction {
+  display: none;
+}
+
 .emptyState {
   display: grid;
   grid-template-columns: minmax(18rem, 0.9fr) minmax(0, 1.1fr);
@@ -669,34 +673,159 @@
 @media (max-width: 760px) {
   .pageHeader {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.75rem;
+    padding-bottom: 1.25rem;
   }
 
   .pageHeader h1 {
-    font-size: clamp(3rem, 16vw, 4.5rem);
+    margin-top: 0.4rem;
+    font-size: clamp(2.25rem, 11vw, 3rem);
+    line-height: 1;
+  }
+
+  .pageDescription {
+    margin-top: 0.55rem;
+    font-size: 0.76rem;
+    line-height: 1.45;
   }
 
   .primaryButton {
-    width: 100%;
+    min-height: 2.75rem;
+    padding-inline: 0.8rem;
+  }
+
+  .library {
+    padding-block: 1.25rem;
   }
 
   .libraryHeading {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .libraryHeading h2 {
+    margin-top: 0.25rem;
+    font-size: 1.4rem;
+  }
+
+  .libraryHeading > span {
+    max-width: 7rem;
+    font-size: 0.6rem;
+    text-align: right;
+  }
+
+  .invitationGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .savedCard {
+    border-radius: 0.4rem;
+    box-shadow: 0 0.65rem 1.5rem rgb(61 45 37 / 4%);
+  }
+
+  .savedArtwork {
+    min-height: 0;
+    aspect-ratio: 4 / 5;
+    padding: 0.65rem;
+  }
+
+  .savedArtwork::before {
+    inset: 0.5rem;
+  }
+
+  .savedArtwork > span {
+    top: 0.7rem;
+    left: 0.7rem;
+    font-size: 0.46rem;
+  }
+
+  .savedArtwork > p,
+  .savedArtwork > small {
+    font-size: 0.48rem;
+    letter-spacing: 0.08em;
+  }
+
+  .savedArtwork > strong {
+    max-width: 100%;
+    margin-block: 0.65rem;
+    font-size: clamp(1.15rem, 6vw, 1.55rem);
+    line-height: 1;
+  }
+
+  .savedDetails {
+    padding: 0.65rem;
+  }
+
+  .savedMeta > small,
+  .savedDetails > .label,
+  .savedActions > span {
+    display: none;
+  }
+
+  .savedMeta > span {
+    padding: 0.22rem 0.35rem;
+    font-size: 0.5rem;
+    letter-spacing: 0.04em;
+  }
+
+  .savedDetails h3 {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 0.55rem;
+    font-size: 1rem;
+    line-height: 1.08;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .savedDetails > p:not(.label) {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 0.35rem;
+    font-size: 0.6rem;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .savedActions {
-    align-items: flex-start;
-    flex-direction: column;
+    display: block;
+    padding-top: 0.7rem;
   }
 
   .savedActions a {
     width: 100%;
+    min-height: 2.75rem;
+    padding-inline: 0.4rem;
+    font-size: 0.64rem;
   }
 
   .savedActionButtons {
     width: 100%;
-    align-items: stretch;
-    flex-direction: column-reverse;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .savedActionButtons > button {
+    min-width: 0;
+    padding-inline: 0.4rem;
+  }
+
+  .savedActionButtons > :only-child {
+    grid-column: 1 / -1;
+  }
+
+  .desktopCardAction {
+    display: none;
+  }
+
+  .mobileCardAction {
+    display: inline;
   }
 
   .emptyState {

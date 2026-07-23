@@ -10,7 +10,8 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { createInvitationDraftAction } from "../../server/invitations/actions";
-import { ArrowRight } from "../Icons";
+import { Select } from "../forms/Select";
+import { ArrowRight, SlidersHorizontal } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
 
 type Device = "desktop" | "mobile";
@@ -63,6 +64,7 @@ function UseTemplateForm({
       <input name="invitationId" type="hidden" value={creationRequestId} />
       <input name="templateVersionId" type="hidden" value={manifest.templateVersionId} />
       <button
+        aria-label={pending ? "Creating draft" : "Use this template"}
         aria-controls={usedBefore ? confirmationId : undefined}
         aria-expanded={usedBefore ? confirmingReuse : undefined}
         disabled={!available || pending}
@@ -71,7 +73,14 @@ function UseTemplateForm({
         title={available ? undefined : "This renderer-backed fixture is not available for creation"}
         type={usedBefore ? "button" : "submit"}
       >
-        {pending ? "Creating draft…" : "Use this template"}
+        {pending ? (
+          "Creating draft…"
+        ) : (
+          <>
+            <span className={styles.desktopActionLabel}>Use this template</span>
+            <span className={styles.mobileActionLabel}>Use</span>
+          </>
+        )}
       </button>
       {confirmingReuse ? (
         <div className={styles.reuseConfirmation} id={confirmationId}>
@@ -115,11 +124,16 @@ export function TemplateCatalog({
   const [tier, setTier] = useState<Tier>("All");
   const [sort, setSort] = useState("featured");
   const [preview, setPreview] = useState<TemplateCatalogEntry | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [device, setDevice] = useState<Device>("mobile");
   const [previewOpeningState, setPreviewOpeningState] = useState<InvitationOpeningState>("closed");
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const filterSheetId = useId();
+  const filterSheetRef = useRef<HTMLDivElement>(null);
+  const filterCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const usedTemplateVersions = useMemo(
     () => new Set(usedTemplateVersionIds),
     [usedTemplateVersionIds],
@@ -160,6 +174,52 @@ export function TemplateCatalog({
 
     return filtered;
   }, [occasion, query, sort, style, templates, tier]);
+  const activeFilterCount = [
+    occasion !== "All",
+    style !== "All",
+    tier !== "All",
+    sort !== "featured",
+  ].filter(Boolean).length;
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    filterCloseButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || !filterSheetRef.current) return;
+
+      const controls = Array.from(
+        filterSheetRef.current.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled])",
+        ),
+      );
+      const first = controls[0];
+      const last = controls.at(-1);
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      filterTriggerRef.current?.focus();
+    };
+  }, [filtersOpen]);
 
   useEffect(() => {
     if (!preview) {
@@ -234,6 +294,57 @@ export function TemplateCatalog({
         </span>
       </div>
 
+      <div className={styles.mobileSearchBar}>
+        <label htmlFor="mobile-template-search">Search templates</label>
+        <div>
+          <input
+            aria-label="Search templates on mobile"
+            id="mobile-template-search"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search templates"
+            type="search"
+            value={query}
+          />
+          <button
+            aria-controls={filterSheetId}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+            ref={filterTriggerRef}
+            type="button"
+          >
+            <SlidersHorizontal />
+            <span>Filters</span>
+            {activeFilterCount > 0 ? <small>{activeFilterCount}</small> : null}
+          </button>
+        </div>
+      </div>
+
+      {activeFilterCount > 0 ? (
+        <fieldset className={styles.activeFilters}>
+          <legend>Active template filters</legend>
+          {occasion !== "All" ? (
+            <button onClick={() => setOccasion("All")} type="button">
+              Occasion: {occasion} <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+          {style !== "All" ? (
+            <button onClick={() => setStyle("All")} type="button">
+              Style: {style} <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+          {tier !== "All" ? (
+            <button onClick={() => setTier("All")} type="button">
+              Tier: {tier} <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+          {sort !== "featured" ? (
+            <button onClick={() => setSort("featured")} type="button">
+              Sort: Name <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+        </fieldset>
+      ) : null}
+
       <div className={styles.controls}>
         <div className={styles.searchField}>
           <label htmlFor="template-search">Search templates</label>
@@ -246,35 +357,23 @@ export function TemplateCatalog({
           />
         </div>
 
-        <div className={styles.selectField}>
-          <label htmlFor="template-occasion">Occasion</label>
-          <select
-            id="template-occasion"
-            onChange={(event) => setOccasion(event.target.value)}
-            value={occasion}
-          >
-            {occasions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          className={styles.selectField}
+          id="template-occasion"
+          label="Occasion"
+          onChange={setOccasion}
+          options={occasions.map((option) => ({ label: option, value: option }))}
+          value={occasion}
+        />
 
-        <div className={styles.selectField}>
-          <label htmlFor="template-style">Style</label>
-          <select
-            id="template-style"
-            onChange={(event) => setStyle(event.target.value)}
-            value={style}
-          >
-            {stylesList.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          className={styles.selectField}
+          id="template-style"
+          label="Style"
+          onChange={setStyle}
+          options={stylesList.map((option) => ({ label: option, value: option }))}
+          value={style}
+        />
 
         <fieldset aria-label="Access tier" className={styles.tierControl}>
           {(["All", "Free", "Premium"] as const).map((option) => (
@@ -289,13 +388,17 @@ export function TemplateCatalog({
           ))}
         </fieldset>
 
-        <div className={styles.selectField}>
-          <label htmlFor="template-sort">Sort</label>
-          <select id="template-sort" onChange={(event) => setSort(event.target.value)} value={sort}>
-            <option value="featured">Featured</option>
-            <option value="name">Name</option>
-          </select>
-        </div>
+        <Select
+          className={styles.selectField}
+          id="template-sort"
+          label="Sort"
+          onChange={setSort}
+          options={[
+            { label: "Featured", value: "featured" },
+            { label: "Name", value: "name" },
+          ]}
+          value={sort}
+        />
       </div>
 
       <div className={styles.resultsHeading}>
@@ -337,7 +440,9 @@ export function TemplateCatalog({
                     onClick={() => openPreview(template)}
                     type="button"
                   >
-                    Preview <ArrowRight />
+                    <span className={styles.desktopActionLabel}>Preview</span>
+                    <span className={styles.mobileActionLabel}>View</span>
+                    <ArrowRight />
                   </button>
                   <UseTemplateForm
                     creationRequestId={creationRequestIds[template.id] ?? ""}
@@ -462,6 +567,90 @@ export function TemplateCatalog({
                 ) : null}
               </aside>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {filtersOpen ? (
+        <div className={styles.filterBackdrop}>
+          <button
+            aria-label="Close template filters"
+            className={styles.filterDismiss}
+            onClick={() => setFiltersOpen(false)}
+            type="button"
+          />
+          <div
+            aria-labelledby="mobile-filter-title"
+            aria-modal="true"
+            className={styles.filterSheet}
+            id={filterSheetId}
+            ref={filterSheetRef}
+            role="dialog"
+          >
+            <header>
+              <div>
+                <p>Template collection</p>
+                <h2 id="mobile-filter-title">Filter templates</h2>
+              </div>
+              <button
+                aria-label="Close template filters"
+                onClick={() => setFiltersOpen(false)}
+                ref={filterCloseButtonRef}
+                type="button"
+              >
+                Close
+              </button>
+            </header>
+
+            <div className={styles.filterFields}>
+              <Select
+                id="mobile-template-occasion"
+                label="Occasion"
+                onChange={setOccasion}
+                options={occasions.map((option) => ({ label: option, value: option }))}
+                value={occasion}
+              />
+              <Select
+                id="mobile-template-style"
+                label="Style"
+                onChange={setStyle}
+                options={stylesList.map((option) => ({ label: option, value: option }))}
+                value={style}
+              />
+              <fieldset>
+                <legend>Access tier</legend>
+                {(["All", "Free", "Premium"] as const).map((option) => (
+                  <button
+                    aria-pressed={tier === option}
+                    key={option}
+                    onClick={() => setTier(option)}
+                    type="button"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </fieldset>
+              <Select
+                id="mobile-template-sort"
+                label="Sort"
+                onChange={setSort}
+                options={[
+                  { label: "Featured", value: "featured" },
+                  { label: "Name", value: "name" },
+                ]}
+                value={sort}
+              />
+            </div>
+
+            <footer>
+              <button onClick={clearFilters} type="button">
+                Clear all
+              </button>
+              <button onClick={() => setFiltersOpen(false)} type="button">
+                Show {filteredTemplates.length}{" "}
+                {filteredTemplates.length === 1 ? "template" : "templates"}
+              </button>
+            </footer>
           </div>
         </div>
       ) : null}

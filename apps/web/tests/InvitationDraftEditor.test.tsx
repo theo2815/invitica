@@ -95,7 +95,7 @@ describe("invitation draft editor", () => {
     fireEvent.change(screen.getByLabelText(/RSVP message/), {
       target: { value: "Please celebrate with us." },
     });
-    fireEvent.change(screen.getByLabelText(/RSVP deadline/), {
+    fireEvent.change(screen.getByRole("textbox", { name: /RSVP deadline/ }), {
       target: { value: "2027-02-01" },
     });
 

@@ -70,7 +70,7 @@ describe("guests and RSVPs page", () => {
       "/dashboard/invitations",
     );
     expect(screen.queryByRole("button", { name: "Add guest party" })).toBeNull();
-    expect(screen.getByText("maria@example.com")).toBeDefined();
+    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("loads only the requested delivered invitation context", async () => {

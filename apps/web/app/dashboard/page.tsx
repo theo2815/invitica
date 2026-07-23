@@ -286,13 +286,20 @@ export default async function DashboardPage() {
                         <div>
                           {publication?.livePublicIdentifier ? (
                             <Link
+                              aria-label="Guests & RSVPs"
                               href={`/dashboard/guests?invitationId=${encodeURIComponent(draft.invitationId)}`}
                             >
-                              Guests &amp; RSVPs
+                              <span className={styles.desktopActionLabel}>Guests &amp; RSVPs</span>
+                              <span className={styles.mobileActionLabel}>Guests</span>
                             </Link>
                           ) : null}
-                          <Link href={`/dashboard/invitations/${draft.invitationId}`}>
-                            Continue editing <ArrowRight />
+                          <Link
+                            aria-label="Continue editing"
+                            href={`/dashboard/invitations/${draft.invitationId}`}
+                          >
+                            <span className={styles.desktopActionLabel}>Continue editing</span>
+                            <span className={styles.mobileActionLabel}>Edit</span>
+                            <ArrowRight />
                           </Link>
                         </div>
                       </div>

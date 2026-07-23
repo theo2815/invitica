@@ -1,6 +1,6 @@
 import { GardenPromiseRenderer } from "@invitica/renderer";
 import { resolveTemplateById, templateCatalog } from "@invitica/template-kit";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TemplatesError from "../app/dashboard/templates/error";
@@ -60,7 +60,7 @@ describe("templates page", () => {
     expect(screen.getAllByRole("link", { name: "Templates" })[0]?.getAttribute("href")).toBe(
       "/dashboard/templates",
     );
-    expect(screen.getByText("maria@example.com")).toBeDefined();
+    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows the workspace failure instead of a template collection", async () => {
@@ -95,6 +95,31 @@ describe("templates page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Premium" }));
     expect(screen.getByRole("heading", { level: 2, name: "Golden Hour" })).toBeDefined();
     expect(screen.queryByRole("heading", { level: 2, name: "Sunday Joy" })).toBeNull();
+  });
+
+  it("opens the mobile filter sheet, applies a filter, and restores focus", () => {
+    render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
+
+    const trigger = screen.getByRole("button", { name: "Filters" });
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "Filter templates" });
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole("button", { name: "Close template filters" }),
+    );
+    const occasionSelect = within(dialog).getByRole("combobox", { name: "Occasion" });
+    fireEvent.click(occasionSelect);
+    expect(screen.getByRole("listbox", { name: "Occasion" })).toBeDefined();
+    fireEvent.keyDown(occasionSelect, { key: "Escape" });
+    expect(screen.queryByRole("listbox", { name: "Occasion" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Filter templates" })).toBeDefined();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Premium" }));
+    expect(screen.getByRole("button", { name: /Tier: Premium/ })).toBeDefined();
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Filter templates" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("enables creation only for the production template with a stable request key", () => {

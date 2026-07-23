@@ -200,8 +200,20 @@
 }
 
 @media (max-width: 760px) {
+  .pageHeader {
+    padding-bottom: 1.25rem;
+  }
+
   .pageHeader h1 {
-    font-size: clamp(3rem, 16vw, 4.5rem);
+    margin-top: 0.4rem;
+    font-size: clamp(2.25rem, 11vw, 3rem);
+    line-height: 1;
+  }
+
+  .pageDescription {
+    margin-top: 0.55rem;
+    font-size: 0.76rem;
+    line-height: 1.45;
   }
 
   .footer {

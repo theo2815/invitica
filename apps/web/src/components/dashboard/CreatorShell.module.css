@@ -53,10 +53,9 @@
 }
 
 .navItem,
-.activeNavItem,
-.disabledNavItem {
+.activeNavItem {
   display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
   align-items: center;
   min-height: 2.85rem;
   padding-inline: 0.8rem;
@@ -71,8 +70,7 @@
 }
 
 .navItem svg,
-.activeNavItem svg,
-.disabledNavItem svg {
+.activeNavItem svg {
   width: 1.15rem;
   height: 1.15rem;
 }
@@ -98,85 +96,6 @@
   background: var(--accent);
   content: "";
   transform: translateY(-50%);
-}
-
-.disabledNavItem {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.disabledNavItem small {
-  font-size: 0.58rem;
-  font-weight: 760;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.account {
-  display: grid;
-  grid-template-columns: 2.35rem minmax(0, 1fr);
-  gap: 0.7rem;
-  margin-top: auto;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-}
-
-.avatar {
-  display: grid;
-  width: 2.35rem;
-  height: 2.35rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  color: var(--accent);
-  font-family: var(--display-font);
-  font-weight: 650;
-  place-items: center;
-}
-
-.account > div {
-  min-width: 0;
-}
-
-.account strong,
-.account span {
-  display: block;
-}
-
-.account strong {
-  font-size: 0.78rem;
-}
-
-.account > div > span {
-  overflow: hidden;
-  margin-top: 0.15rem;
-  color: var(--muted);
-  font-size: 0.67rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account form {
-  grid-column: 2;
-}
-
-.account button,
-.mobileHeader button {
-  min-height: 2rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-  cursor: pointer;
-}
-
-.account button:hover,
-.mobileHeader button:hover {
-  color: var(--accent);
 }
 
 .mobileHeader,
@@ -215,12 +134,8 @@
     background: color-mix(in srgb, var(--surface) 72%, var(--background));
   }
 
-  .mobileHeader form {
-    display: flex;
-  }
-
   .content {
-    padding: 2rem 1.25rem 1.5rem;
+    padding: 1.5rem 1rem 1.25rem;
   }
 
   .mobileNavigation {

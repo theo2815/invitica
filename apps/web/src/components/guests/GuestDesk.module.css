@@ -72,7 +72,6 @@
   font-weight: 720;
 }
 
-.invitationPicker select,
 .copyField input,
 .dialog input,
 .dialog textarea {
@@ -84,7 +83,6 @@
   font: inherit;
 }
 
-.invitationPicker select,
 .dialog input {
   min-height: 2.85rem;
   padding-inline: 0.75rem;
@@ -344,8 +342,7 @@
   font-weight: 720;
 }
 
-.ledgerControls input,
-.ledgerControls select {
+.ledgerControls input {
   min-height: 2.75rem;
   padding-inline: 0.75rem;
   border: 1px solid var(--border);
@@ -356,6 +353,10 @@
 
 .ledgerControls input {
   width: min(20rem, 40vw);
+}
+
+.responseFilter {
+  width: 10.5rem;
 }
 
 .filteredEmpty {
@@ -411,6 +412,11 @@
   letter-spacing: 0.04em;
   text-align: left;
   text-transform: uppercase;
+}
+
+:where(.ledgerTable th + th),
+:where(.ledgerTable td + td) {
+  border-left: 1px solid var(--border);
 }
 
 .ledgerTable td {
@@ -479,6 +485,7 @@
   border-radius: 999px;
   font-size: 0.6rem;
   font-weight: 760;
+  white-space: nowrap;
 }
 
 .active {
@@ -516,18 +523,55 @@
 }
 
 .partyActions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.linkControl {
   display: grid;
   gap: 0.45rem;
-  margin-top: 0.65rem;
+}
+
+.partyActionMenu {
+  position: relative;
+  width: 100%;
+}
+
+.moreAction {
+  display: none;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-inline: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.moreAction svg {
+  width: 1rem;
 }
 
 .partyActions button {
-  width: 100%;
+  width: auto;
+  min-height: 2.5rem;
+  padding-inline: 0.65rem;
+  font-size: 0.64rem;
 }
 
 .partyActions .dangerAction {
   border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
   color: var(--danger);
+}
+
+.mobileActionLabel {
+  display: none;
 }
 
 .status {
@@ -631,10 +675,44 @@
 }
 
 @media (max-width: 700px) {
+  .desk {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 1.25rem;
+  }
+
   .context,
   .generalLink,
   .linkReveal {
     grid-template-columns: 1fr;
+    gap: 0.8rem;
+    padding: 1rem;
+    border-radius: 0.4rem;
+    box-shadow: 0 0.65rem 1.5rem rgb(61 45 37 / 4%);
+  }
+
+  .context h2 {
+    margin-top: 0.3rem;
+    font-size: 1.45rem;
+  }
+
+  .context p:not(.eyebrow),
+  .generalLink p:not(.eyebrow) {
+    display: none;
+  }
+
+  .invitationPicker {
+    gap: 0.3rem;
+  }
+
+  .generalLink {
+    margin-top: 0.7rem;
+  }
+
+  .generalLink h2 {
+    margin-top: 0.25rem;
+    font-size: 1.15rem;
   }
 
   .linkReveal {
@@ -642,28 +720,56 @@
   }
 
   .copyField {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .copyField button {
+    padding-inline: 0.7rem;
+    font-size: 0.66rem;
   }
 
   .ledger > header {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
   }
 
   .primaryAction {
     justify-content: center;
+    min-width: 6.75rem;
+    padding-inline: 0.65rem;
+    font-size: 0.66rem;
+  }
+
+  .desktopActionLabel {
+    display: none;
+  }
+
+  .mobileActionLabel {
+    display: inline;
   }
 
   .ledgerControls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr);
+    gap: 0.5rem;
   }
 
-  .ledgerControls input {
+  .ledgerControls label {
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  .ledgerControls input,
+  .responseFilter {
+    min-width: 0;
     width: 100%;
   }
 
+  .ledger,
   .tableFrame {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     overflow: visible;
     border: 0;
     background: transparent;
@@ -671,7 +777,6 @@
 
   .ledgerTable,
   .ledgerTable tbody,
-  .ledgerTable tr,
   .ledgerTable td {
     display: block;
     width: 100%;
@@ -679,6 +784,8 @@
 
   .ledgerTable {
     min-width: 0;
+    max-width: 100%;
+    table-layout: fixed;
   }
 
   .ledgerTable thead {
@@ -697,7 +804,11 @@
   }
 
   .ledgerTable tr {
-    overflow: hidden;
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
     border: 1px solid var(--border);
     border-radius: 0.5rem;
     background: var(--surface);
@@ -706,14 +817,75 @@
   .ledgerTable td,
   .ledgerTable tr:last-child td {
     display: grid;
+    min-width: 0;
     max-width: none;
-    grid-template-columns: minmax(6.5rem, 0.35fr) minmax(0, 1fr);
-    gap: 0.8rem;
-    padding: 0.9rem;
+    grid-template-columns: 4.7rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    border-left: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+  }
+
+  .ledgerTable td:nth-child(1) {
+    grid-column: 1 / span 6;
+    grid-row: 1;
+    border-right: 1px solid var(--border);
+  }
+
+  .ledgerTable td:nth-child(2) {
+    grid-column: 7 / span 4;
+    grid-row: 1;
+    align-content: start;
+  }
+
+  .ledgerTable td:nth-child(1),
+  .ledgerTable td:nth-child(2) {
+    display: block;
     border-bottom: 1px solid var(--border);
   }
 
-  .ledgerTable td:last-child {
+  .ledgerTable td:nth-child(1)::before,
+  .ledgerTable td:nth-child(2)::before {
+    display: none;
+  }
+
+  .ledgerTable td:nth-child(3) {
+    grid-column: 1 / span 5;
+    grid-row: 2;
+    border-right: 1px solid var(--border);
+  }
+
+  .ledgerTable td:nth-child(5) {
+    grid-column: 6 / span 5;
+    grid-row: 2;
+  }
+
+  .ledgerTable td:nth-child(3),
+  .ledgerTable td:nth-child(5) {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    align-content: start;
+  }
+
+  .ledgerTable td:nth-child(3) > span,
+  .ledgerTable td:nth-child(5) > :last-child {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .ledgerTable td:nth-child(4) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .ledgerTable td:nth-child(6) {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  .ledgerTable td:nth-child(6),
+  .ledgerTable tr:last-child td:nth-child(6) {
     border-bottom: 0;
   }
 
@@ -726,8 +898,67 @@
     text-transform: uppercase;
   }
 
+  .responseBadge + small {
+    display: none;
+  }
+
+  .partyIdentity h3 {
+    font-size: 1.1rem;
+    line-height: 1.1;
+  }
+
+  .responseBadge {
+    padding: 0.22rem 0.35rem;
+    font-size: 0.56rem;
+  }
+
+  .linkControl {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+
+  .partyActionMenu {
+    width: auto;
+  }
+
+  .moreAction {
+    display: inline-flex;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0;
+  }
+
+  .moreAction span {
+    display: none;
+  }
+
   .partyActions {
+    display: none;
+    position: absolute;
+    z-index: 5;
+    right: 0;
+    bottom: calc(100% + 0.4rem);
+    width: 10.5rem;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 0.4rem;
+    background: var(--surface);
+    box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 14%);
+  }
+
+  .partyActions[data-open="true"] {
+    display: grid;
+  }
+
+  .partyActions button {
+    min-height: 2.75rem;
+    padding-inline: 0.45rem;
+    font-size: 0.62rem;
   }
 
   .dialog {
@@ -739,17 +970,56 @@
 
 @media (max-width: 430px) {
   .summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .ledgerControls,
+  .summary article {
+    gap: 0.25rem;
+    padding: 0.65rem 0.5rem;
+  }
+
+  .summary span {
+    font-size: 0.53rem;
+    line-height: 1.25;
+  }
+
+  .summary strong {
+    font-size: 1.55rem;
+  }
+
+  .summary small {
+    display: none;
+  }
+
+  .ledgerControls {
+    grid-template-columns: minmax(0, 1fr) 7.5rem;
+  }
+
+  .ledgerControls label > span,
+  .responseFilter label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .ledgerTable td:nth-child(3),
+  .ledgerTable td:nth-child(5) {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .ledgerTable td:nth-child(3) > span,
+  .ledgerTable td:nth-child(5) > :last-child {
+    justify-self: start;
+    text-align: left;
+  }
+
   .partyActions {
-    grid-template-columns: 1fr;
-  }
-
-  .ledgerTable td {
-    grid-template-columns: 1fr;
-    gap: 0.45rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dialogActions {

@@ -166,8 +166,8 @@
   white-space: nowrap;
 }
 
-.fieldGroup input,
-.fieldGroup textarea {
+.fieldGroup > input,
+.fieldGroup > textarea {
   width: 100%;
   min-height: 2.8rem;
   padding: 0.72rem 0.8rem;
@@ -185,18 +185,18 @@
     background 140ms ease;
 }
 
-.fieldGroup textarea {
+.fieldGroup > textarea {
   resize: vertical;
 }
 
-.fieldGroup input:focus-visible,
-.fieldGroup textarea:focus-visible {
+.fieldGroup > input:focus-visible,
+.fieldGroup > textarea:focus-visible {
   border-color: var(--accent);
   background: var(--surface);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.fieldGroup :is(input, textarea)[aria-invalid="true"] {
+.fieldGroup > :is(input, textarea)[aria-invalid="true"] {
   border-color: #a54838;
 }
 

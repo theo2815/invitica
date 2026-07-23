@@ -241,6 +241,10 @@
   width: 0.9rem;
 }
 
+.mobileActionLabel {
+  display: none;
+}
+
 .dashboardGrid > section,
 .responses {
   scroll-margin-top: 2rem;
@@ -572,66 +576,203 @@
 @media (max-width: 680px) {
   .pageHeader {
     display: grid;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
   }
 
   .pageHeader h1 {
-    font-size: clamp(2.45rem, 12vw, 3.65rem);
+    margin-top: 0.45rem;
+    font-size: clamp(2.25rem, 10vw, 3rem);
+    line-height: 1;
+  }
+
+  .pageDescription {
+    margin-top: 0.65rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
   }
 
   .primaryButton {
     width: 100%;
+    min-height: 2.75rem;
   }
 
   .sectionHeading {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .sectionHeading h2 {
+    margin-top: 0.25rem;
+    font-size: 1.45rem;
+  }
+
+  .emptyCount {
+    max-width: 8rem;
+    font-size: 0.6rem;
+    text-align: right;
   }
 
   .workspaceSummary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0;
+    overflow: hidden;
+    margin-top: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    background: var(--surface);
+  }
+
+  .workspaceSummary article {
+    grid-column: span 2;
+    gap: 0.25rem;
+    padding: 0.7rem 0.55rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .workspaceSummary article:nth-child(2),
+  .workspaceSummary article:nth-child(3),
+  .workspaceSummary article:nth-child(5) {
+    border-left: 1px solid var(--border);
+  }
+
+  .workspaceSummary article:nth-child(n + 4) {
+    grid-column: span 3;
+    border-top: 1px solid var(--border);
+  }
+
+  .workspaceSummary span {
+    font-size: 0.56rem;
+    line-height: 1.25;
+  }
+
+  .workspaceSummary strong {
+    font-size: 1.65rem;
+  }
+
+  .workspaceSummary small {
+    display: none;
+  }
+
+  .dashboardGrid {
+    gap: 1rem;
+    padding-block: 1.25rem;
+  }
+
+  .invitationList {
+    gap: 0.65rem;
+  }
+
+  .invitationRow {
+    gap: 0.75rem;
+    padding: 0.9rem;
   }
 
   .invitationIdentity,
   .invitationActions {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: start;
+  }
+
+  .invitationIdentity {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem;
+  }
+
+  .invitationIdentity h3 {
+    margin-top: 0.25rem;
+    font-size: 1.3rem;
+    line-height: 1.05;
   }
 
   .lifecycle {
-    justify-items: start;
-    text-align: left;
+    justify-items: end;
+    text-align: right;
+  }
+
+  .lifecycle small {
+    display: none;
   }
 
   .invitationMetrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .invitationMetrics > div:nth-child(3) {
-    padding-left: 0;
-    border-top: 1px solid var(--border);
-    border-left: 0;
+  .invitationMetrics > div {
+    gap: 0.2rem;
+    padding: 0.6rem 0;
   }
 
-  .invitationMetrics > div:nth-child(4) {
-    border-top: 1px solid var(--border);
+  .invitationMetrics > div + div {
+    padding-left: 0.45rem;
+  }
+
+  .invitationMetrics dt {
+    font-size: 0.52rem;
+    line-height: 1.2;
+  }
+
+  .invitationMetrics dd {
+    font-size: 1.2rem;
+  }
+
+  .invitationActions {
+    display: block;
+  }
+
+  .invitationActions > small {
+    display: none;
   }
 
   .invitationActions > div {
-    align-items: stretch;
-    flex-direction: column-reverse;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
   }
 
   .invitationActions a {
     justify-content: center;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.3rem;
+    text-decoration: none;
+  }
+
+  .invitationActions a:last-child {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #ffffff;
+  }
+
+  .invitationActions a:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .desktopActionLabel {
+    display: none;
+  }
+
+  .mobileActionLabel {
+    display: inline;
   }
 
   .emptyState {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
   .emptyCopy {
-    min-height: 23rem;
-    padding: 2rem;
+    min-height: 0;
+    padding: 1.5rem;
+  }
+
+  .emptyCopy h2 {
+    font-size: 2rem;
+    line-height: 1;
   }
 
   .emptyState::before {
@@ -639,7 +780,7 @@
   }
 
   .folioPreview {
-    min-height: 18rem;
+    display: none;
   }
 
   .folioEnvelope {
@@ -648,6 +789,36 @@
 
   .rail {
     grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .gettingStarted,
+  .responses {
+    padding: 0.9rem;
+  }
+
+  .gettingStarted h2,
+  .responses h2 {
+    margin-top: 0.25rem;
+    font-size: 1.2rem;
+  }
+
+  .responseIcon,
+  .responseDescription {
+    display: none;
+  }
+
+  .gettingStarted ol {
+    margin-top: 0.7rem;
+  }
+
+  .gettingStarted li {
+    padding-block: 0.55rem;
+  }
+
+  .textLink {
+    min-height: 2.75rem;
+    margin-top: 0.55rem;
   }
 
   .footer {
@@ -658,9 +829,5 @@
 @media (max-width: 380px) {
   .emptyCopy {
     padding-inline: 1.5rem;
-  }
-
-  .workspaceSummary {
-    grid-template-columns: 1fr;
   }
 }

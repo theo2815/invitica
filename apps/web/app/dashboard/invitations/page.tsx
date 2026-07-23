@@ -122,8 +122,12 @@ export default async function InvitationsPage() {
                               title={draft.title}
                             />
                           ) : null}
-                          <Link href={`/dashboard/invitations/${draft.invitationId}`}>
-                            Continue editing
+                          <Link
+                            aria-label="Continue editing"
+                            href={`/dashboard/invitations/${draft.invitationId}`}
+                          >
+                            <span className={styles.desktopCardAction}>Continue editing</span>
+                            <span className={styles.mobileCardAction}>Edit</span>
                             <ArrowRight />
                           </Link>
                         </div>

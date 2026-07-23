@@ -66,7 +66,7 @@ describe("invitations page", () => {
     expect(screen.getAllByRole("link", { name: "Invitations" })[0]?.getAttribute("href")).toBe(
       "/dashboard/invitations",
     );
-    expect(screen.getByText("maria@example.com")).toBeDefined();
+    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("lists saved drafts with direct links back to their editors", async () => {

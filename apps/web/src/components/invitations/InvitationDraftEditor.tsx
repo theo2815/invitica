@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { saveGardenPromiseAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
+import { CalendarPicker, formatLongCalendarDate, parseCalendarDate } from "../forms/CalendarPicker";
 import styles from "./InvitationDraftEditor.module.css";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
 
@@ -432,18 +433,17 @@ export function InvitationDraftEditor({
               />
             </div>
 
-            <div className={styles.fieldGroup}>
-              <label htmlFor="hero-date">
-                Display date
-                <span>Optional · 120 characters</span>
-              </label>
-              <input
-                id="hero-date"
-                maxLength={120}
-                onChange={(event) => updateField("dateLabel", event.target.value)}
-                value={fields.dateLabel}
-              />
-            </div>
+            <CalendarPicker
+              className={styles.fieldGroup}
+              displayFormat="long"
+              hint="Optional"
+              id="hero-date"
+              label="Display date"
+              onChange={(nextDate) =>
+                updateField("dateLabel", nextDate ? formatLongCalendarDate(nextDate) : "")
+              }
+              value={parseCalendarDate(fields.dateLabel) ?? ""}
+            />
           </div>
 
           <div className={styles.fieldSection}>
@@ -530,16 +530,15 @@ export function InvitationDraftEditor({
             </div>
 
             <div className={styles.fieldGroup}>
-              <label htmlFor="rsvp-deadline">
-                RSVP deadline
-                <span>Optional</span>
-              </label>
-              <input
-                aria-describedby={!rsvpDeadlineIsValid ? "rsvp-deadline-error" : undefined}
-                aria-invalid={!rsvpDeadlineIsValid}
+              <CalendarPicker
+                ariaDescribedBy={
+                  !rsvpDeadlineIsValid ? "rsvp-deadline-error" : "rsvp-deadline-hint"
+                }
+                hint="Optional"
                 id="rsvp-deadline"
-                onChange={(event) => updateField("rsvpDeadline", event.target.value)}
-                type="date"
+                invalid={!rsvpDeadlineIsValid}
+                label="RSVP deadline"
+                onChange={(nextDate) => updateField("rsvpDeadline", nextDate)}
                 value={fields.rsvpDeadline}
               />
               {!rsvpDeadlineIsValid ? (
@@ -547,7 +546,7 @@ export function InvitationDraftEditor({
                   Choose a valid calendar date.
                 </small>
               ) : null}
-              <small className={styles.fieldHint}>
+              <small className={styles.fieldHint} id="rsvp-deadline-hint">
                 End of the selected day in Philippine time.
               </small>
             </div>

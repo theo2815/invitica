@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DashboardPage from "../app/dashboard/page";
@@ -63,8 +63,23 @@ describe("creator dashboard", () => {
       "/dashboard/guests",
     );
     expect(screen.getByRole("navigation", { name: "Creator workspace" })).toBeDefined();
-    expect(screen.getAllByRole("button", { name: "Sign out" })).toHaveLength(2);
-    expect(screen.getByText("maria@example.com")).toBeDefined();
+    expect(screen.getAllByText("Maria")).toHaveLength(2);
+    const profileTrigger = screen.getAllByRole("button", {
+      name: "Open profile menu for Maria",
+    })[0];
+    if (!profileTrigger) {
+      throw new Error("Expected a profile menu trigger.");
+    }
+    fireEvent.click(profileTrigger);
+    expect(screen.getByRole("button", { name: "Settings Coming soon" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(document.activeElement).toBe(profileTrigger);
+    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("connects real publication and guest results to the creator overview", async () => {

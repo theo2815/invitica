@@ -228,6 +228,7 @@ describe("GuestDesk", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Reyes couple" }));
     fireEvent.click(screen.getByRole("button", { name: "Replace link" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "Replace link" }),
@@ -288,7 +289,8 @@ describe("GuestDesk", () => {
     expect(within(ledger).getByText("3 attending")).toBeDefined();
     expect(within(ledger).getByText("Link revoked")).toBeDefined();
 
-    fireEvent.change(screen.getByLabelText("Response"), { target: { value: "attending" } });
+    fireEvent.click(screen.getByRole("combobox", { name: /Response/ }));
+    fireEvent.click(screen.getByRole("option", { name: "Attending" }));
     expect(within(ledger).getByText("Santos household")).toBeDefined();
     expect(within(ledger).queryByText("Reyes couple")).toBeNull();
 

@@ -988,14 +988,21 @@
 
 @media (max-width: 520px) {
   .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cardActions {
     grid-template-columns: 1fr;
   }
 
-  .cardDetails > p {
-    display: block;
+  .cardPreviewLink {
+    gap: 0.25rem;
+    padding-inline: 0.35rem;
+    font-size: 0.6rem;
   }
 
-  .cardActions > button {
-    font-size: 0.66rem;
+  .cardActions svg {
+    width: 0.75rem;
+    height: 0.75rem;
   }
 }

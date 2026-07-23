@@ -37,6 +37,11 @@
   opacity: 0.58;
 }
 
+.primaryButton:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .creationError,
 .creationNote {
   color: var(--muted);
@@ -119,6 +124,38 @@
 .creationForm[data-variant="preview"] .primaryButton:not(:disabled):hover {
   background: var(--accent-hover);
   color: #ffffff;
+}
+
+.creationForm[data-variant="preview"].creationFormExpanded > .primaryButton {
+  display: none;
+}
+
+.creationForm[data-variant="preview"] .reuseConfirmation {
+  gap: 0.7rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.creationForm[data-variant="preview"] .reuseConfirmation p {
+  font-size: 0.72rem;
+}
+
+.creationForm[data-variant="preview"] .reuseConfirmation > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.creationForm[data-variant="preview"] .reuseConfirmation button,
+.creationForm[data-variant="preview"] .reuseConfirmation a {
+  min-width: 0;
+  padding-inline: 0.55rem;
+  text-align: center;
+}
+
+.creationForm[data-variant="preview"] .reuseConfirmation button:last-child {
+  min-height: 2.75rem;
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 520px) {

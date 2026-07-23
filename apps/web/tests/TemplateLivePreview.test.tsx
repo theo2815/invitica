@@ -40,6 +40,15 @@ describe("full template preview", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Hide template actions" }));
     expect(screen.queryByRole("link", { name: "Log in to use this template" })).toBeNull();
+    const restoreAction = screen.getByRole("button", { name: "Show template actions" });
+    expect(restoreAction.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(restoreAction);
+
+    fireEvent.click(restoreAction);
+    expect(screen.getByRole("link", { name: "Log in to use this template" })).toBeDefined();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Hide template actions" }),
+    );
   });
 
   it("keeps fixture previews truthful and unavailable for creation", () => {

@@ -16,7 +16,7 @@
   --art-three: #e7d5a9;
   --display-font: "Fraunces Variable", Georgia, serif;
   min-width: 320px;
-  overflow: hidden;
+  overflow-x: clip;
   background: var(--background);
   color: var(--text);
   font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
@@ -826,9 +826,13 @@
   }
 
   .steps,
-  .templateGrid,
   .featureColumns {
     grid-template-columns: 1fr;
+  }
+
+  .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
   }
 
   .steps li {
@@ -846,11 +850,47 @@
   }
 
   .templateArtwork {
-    min-height: 19rem;
+    min-height: 12.5rem;
+    padding: 0.75rem;
+  }
+
+  .templateArtwork small {
+    font-size: 0.46rem;
+    letter-spacing: 0.08em;
+  }
+
+  .templateArtwork strong {
+    margin-block: 0.8rem;
+    font-size: clamp(1.2rem, 6vw, 1.6rem);
+    line-height: 1;
+  }
+
+  .templateArtwork span {
+    font-size: 0.48rem;
+  }
+
+  .templateDetails {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .templateDetails p {
+    font-size: 0.54rem;
+  }
+
+  .templateDetails h3 {
+    margin-top: 0.3rem;
+    font-size: 1rem;
+    line-height: 1.1;
   }
 
   .templateDetails > a {
-    min-width: 7rem;
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.45rem;
+    font-size: 0.62rem;
   }
 
   .pricing,

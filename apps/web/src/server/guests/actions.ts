@@ -1,6 +1,6 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -8,23 +8,59 @@ import { z } from "zod";
 import { ensurePersonalWorkspace } from "../auth/session";
 import {
   buildPersonalizedInvitationUrl,
-  createGuestParty,
+  createGuestPartiesBulk,
   GuestPersistenceError,
+  getRecoverableGuestLink,
   listDeliveredGuestInvitations,
   listGuestParties,
+  listTrashedGuestParties,
   replaceGuestPartyLink,
+  restoreGuestParty,
   revokeGuestPartyLink,
+  trashGuestParty,
+  updateGuestParty,
 } from "./guests";
-import { generateGuestLinkToken, hashGuestLinkToken } from "./tokens";
+import { buildPersonalInvitationMessage } from "./sharing";
+import {
+  decryptGuestLinkToken,
+  encryptGuestLinkToken,
+  generateGuestLinkToken,
+  hashGuestLinkToken,
+} from "./tokens";
 
 const uuidSchema = z.string().uuid();
 const guestNamesSchema = z.array(z.string().trim().min(1).max(120)).max(50);
-const createGuestPartySchema = z
+const guestPartyInputSchema = z
   .strictObject({
     capacity: z.number().int().min(1).max(50),
     guestNames: guestNamesSchema,
     internalLabel: z.string().trim().min(1).max(120),
-    invitationId: uuidSchema,
+    recipientName: z.string().trim().min(1).max(120),
+  })
+  .superRefine((value, context) => {
+    if (value.guestNames.length > value.capacity) {
+      context.addIssue({
+        code: "custom",
+        message: "Named guests cannot exceed the party capacity.",
+        path: ["guestNames"],
+      });
+    }
+  });
+const createGuestPartiesSchema = z.strictObject({
+  invitationId: uuidSchema,
+  mutationId: uuidSchema,
+  parties: z.array(guestPartyInputSchema).min(1).max(50),
+});
+const partyActionSchema = z.strictObject({
+  expectedRevision: z.number().int().positive(),
+  guestPartyId: uuidSchema,
+  invitationId: uuidSchema,
+});
+const updateGuestPartySchema = partyActionSchema
+  .extend({
+    capacity: z.number().int().min(1).max(50),
+    guestNames: guestNamesSchema,
+    internalLabel: z.string().trim().min(1).max(120),
     recipientName: z.string().trim().min(1).max(120),
   })
   .superRefine((value, context) => {
@@ -38,16 +74,20 @@ const createGuestPartySchema = z
   });
 const linkActionSchema = z.strictObject({ guestPartyId: uuidSchema, invitationId: uuidSchema });
 
-export type CreateGuestPartyActionResult =
-  | { partyId: string; personalizedUrl: string; status: "created" }
+export type CreateGuestPartiesActionResult =
+  | { count: number; status: "created" }
+  | { message: string; status: "error" };
+
+export type CopyGuestInvitationActionResult =
+  | { copyText: string; personalizedUrl: string; status: "ready" }
   | { message: string; status: "error" };
 
 export type ReplaceGuestPartyLinkActionResult =
-  | { personalizedUrl: string; status: "replaced" }
+  | { copyText: string; personalizedUrl: string; status: "replaced" }
   | { message: string; status: "error" };
 
-export type RevokeGuestPartyLinkActionResult =
-  | { status: "revoked" }
+export type GuestManagementActionResult =
+  | { status: "restored" | "revoked" | "trashed" | "updated" }
   | { message: string; status: "error" };
 
 async function loadOwnedInvitationContext(invitationId: string): Promise<{
@@ -65,12 +105,16 @@ async function loadOwnedInvitationContext(invitationId: string): Promise<{
   return invitation ? { ...invitation, supabase, workspaceId } : null;
 }
 
-export async function createGuestPartyAction(
+function requestHash(parties: z.infer<typeof guestPartyInputSchema>[]): string {
+  return createHash("sha256").update(JSON.stringify(parties), "utf8").digest("hex");
+}
+
+export async function createGuestPartiesAction(
   input: unknown,
-): Promise<CreateGuestPartyActionResult> {
-  const parsed = createGuestPartySchema.safeParse(input);
+): Promise<CreateGuestPartiesActionResult> {
+  const parsed = createGuestPartiesSchema.safeParse(input);
   if (!parsed.success) {
-    return { message: "Check the highlighted party details and try again.", status: "error" };
+    return { message: "Check the highlighted guest rows and try again.", status: "error" };
   }
 
   try {
@@ -82,29 +126,86 @@ export async function createGuestPartyAction(
       };
     }
 
-    const token = generateGuestLinkToken();
-    const partyId = randomUUID();
-    await createGuestParty(context.supabase, {
-      capacity: parsed.data.capacity,
-      guestNames: parsed.data.guestNames,
-      internalLabel: parsed.data.internalLabel,
-      invitationId: parsed.data.invitationId,
-      linkId: randomUUID(),
-      partyId,
-      recipientName: parsed.data.recipientName,
-      tokenHash: hashGuestLinkToken(token),
+    const normalizedParties = parsed.data.parties.map((party) => ({
+      ...party,
+      guestNames:
+        party.guestNames.length === 0 && party.capacity === 1
+          ? [party.internalLabel]
+          : party.guestNames,
+    }));
+    const securedParties = normalizedParties.map((party) => {
+      const linkId = randomUUID();
+      const token = generateGuestLinkToken();
+      const encrypted = encryptGuestLinkToken(token, linkId);
+      return {
+        ...party,
+        encryptionKeyVersion: encrypted.keyVersion,
+        linkId,
+        partyId: randomUUID(),
+        tokenCiphertext: encrypted.ciphertext,
+        tokenHash: hashGuestLinkToken(token),
+        tokenNonce: encrypted.nonce,
+      };
+    });
+
+    await createGuestPartiesBulk(context.supabase, {
+      invitationId: context.invitationId,
+      mutationId: parsed.data.mutationId,
+      parties: securedParties,
+      requestHash: requestHash(normalizedParties),
     });
     revalidatePath("/dashboard/guests");
-    return {
-      partyId,
-      personalizedUrl: buildPersonalizedInvitationUrl(context.genericUrl, token),
-      status: "created",
-    };
+    return { count: normalizedParties.length, status: "created" };
   } catch (error: unknown) {
     if (error instanceof GuestPersistenceError) {
-      return { message: "This guest party could not be saved. Try again.", status: "error" };
+      return { message: "These guests could not be saved. Try again.", status: "error" };
     }
-    return { message: "The secure guest link could not be prepared. Try again.", status: "error" };
+    return { message: "Secure guest links could not be prepared. Try again.", status: "error" };
+  }
+}
+
+export async function copyGuestInvitationAction(
+  input: unknown,
+): Promise<CopyGuestInvitationActionResult> {
+  const parsed = linkActionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { message: "This invitation copy request is no longer valid.", status: "error" };
+  }
+
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) {
+      return {
+        message: "This published invitation is unavailable. Refresh and try again.",
+        status: "error",
+      };
+    }
+    const secret = await getRecoverableGuestLink(context.supabase, parsed.data.guestPartyId);
+    if (!secret) {
+      return {
+        message: "This older or revoked link cannot be copied. Create a fresh link first.",
+        status: "error",
+      };
+    }
+    const token = decryptGuestLinkToken(
+      { ciphertext: secret.ciphertext, keyVersion: secret.keyVersion, nonce: secret.nonce },
+      secret.linkId,
+    );
+    const personalizedUrl = buildPersonalizedInvitationUrl(context.genericUrl, token);
+    return {
+      copyText: buildPersonalInvitationMessage(
+        context.title,
+        secret.recipientName,
+        personalizedUrl,
+      ),
+      personalizedUrl,
+      status: "ready",
+    };
+  } catch {
+    return {
+      message: "This private invitation could not be prepared. Try again.",
+      status: "error",
+    };
   }
 }
 
@@ -129,7 +230,8 @@ export async function replaceGuestPartyLinkAction(
       context.workspaceId,
       context.invitationId,
     );
-    if (!parties.some((party) => party.id === parsed.data.guestPartyId)) {
+    const party = parties.find((candidate) => candidate.id === parsed.data.guestPartyId);
+    if (!party) {
       return {
         message: "This guest party is unavailable. Refresh and try again.",
         status: "error",
@@ -137,31 +239,33 @@ export async function replaceGuestPartyLinkAction(
     }
 
     const token = generateGuestLinkToken();
+    const linkId = randomUUID();
+    const encrypted = encryptGuestLinkToken(token, linkId);
     await replaceGuestPartyLink(
       context.supabase,
-      parsed.data.guestPartyId,
-      randomUUID(),
+      party.id,
+      linkId,
       hashGuestLinkToken(token),
+      encrypted,
     );
     revalidatePath("/dashboard/guests");
+    const personalizedUrl = buildPersonalizedInvitationUrl(context.genericUrl, token);
     return {
-      personalizedUrl: buildPersonalizedInvitationUrl(context.genericUrl, token),
+      copyText: buildPersonalInvitationMessage(context.title, party.recipientName, personalizedUrl),
+      personalizedUrl,
       status: "replaced",
     };
   } catch (error: unknown) {
     if (error instanceof GuestPersistenceError) {
-      return {
-        message: "This personalized link could not be replaced. Try again.",
-        status: "error",
-      };
+      return { message: "This private link could not be replaced. Try again.", status: "error" };
     }
-    return { message: "The secure guest link could not be prepared. Try again.", status: "error" };
+    return { message: "A secure replacement link could not be prepared.", status: "error" };
   }
 }
 
 export async function revokeGuestPartyLinkAction(
   input: unknown,
-): Promise<RevokeGuestPartyLinkActionResult> {
+): Promise<GuestManagementActionResult> {
   const parsed = linkActionSchema.safeParse(input);
   if (!parsed.success) {
     return { message: "This link revocation request is no longer valid.", status: "error" };
@@ -170,27 +274,80 @@ export async function revokeGuestPartyLinkAction(
   try {
     const context = await loadOwnedInvitationContext(parsed.data.invitationId);
     if (!context) {
-      return {
-        message: "This published invitation is unavailable. Refresh and try again.",
-        status: "error",
-      };
+      return { message: "This published invitation is unavailable.", status: "error" };
     }
-    const parties = await listGuestParties(
-      context.supabase,
-      context.workspaceId,
-      context.invitationId,
-    );
-    if (!parties.some((party) => party.id === parsed.data.guestPartyId)) {
-      return {
-        message: "This guest party is unavailable. Refresh and try again.",
-        status: "error",
-      };
-    }
-
     await revokeGuestPartyLink(context.supabase, parsed.data.guestPartyId);
     revalidatePath("/dashboard/guests");
     return { status: "revoked" };
   } catch {
-    return { message: "This personalized link could not be revoked. Try again.", status: "error" };
+    return { message: "This private link could not be revoked. Try again.", status: "error" };
+  }
+}
+
+export async function updateGuestPartyAction(input: unknown): Promise<GuestManagementActionResult> {
+  const parsed = updateGuestPartySchema.safeParse(input);
+  if (!parsed.success) {
+    return { message: "Check the party details and try again.", status: "error" };
+  }
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) return { message: "This invitation is unavailable.", status: "error" };
+    await updateGuestParty(context.supabase, parsed.data);
+    revalidatePath("/dashboard/guests");
+    return { status: "updated" };
+  } catch {
+    return {
+      message: "This party could not be updated. Refresh and try again.",
+      status: "error",
+    };
+  }
+}
+
+export async function trashGuestPartyAction(input: unknown): Promise<GuestManagementActionResult> {
+  const parsed = partyActionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { message: "This party removal request is no longer valid.", status: "error" };
+  }
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) return { message: "This invitation is unavailable.", status: "error" };
+    await trashGuestParty(context.supabase, parsed.data.guestPartyId, parsed.data.expectedRevision);
+    revalidatePath("/dashboard/guests");
+    return { status: "trashed" };
+  } catch {
+    return {
+      message: "This party could not be moved to trash. Refresh and try again.",
+      status: "error",
+    };
+  }
+}
+
+export async function restoreGuestPartyAction(
+  input: unknown,
+): Promise<GuestManagementActionResult> {
+  const parsed = partyActionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { message: "This restore request is no longer valid.", status: "error" };
+  }
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) return { message: "This invitation is unavailable.", status: "error" };
+    const trashedParties = await listTrashedGuestParties(
+      context.supabase,
+      context.workspaceId,
+      context.invitationId,
+    );
+    if (!trashedParties.some((party) => party.id === parsed.data.guestPartyId)) {
+      return { message: "This trashed party is unavailable.", status: "error" };
+    }
+    await restoreGuestParty(
+      context.supabase,
+      parsed.data.guestPartyId,
+      parsed.data.expectedRevision,
+    );
+    revalidatePath("/dashboard/guests");
+    return { status: "restored" };
+  } catch {
+    return { message: "This party could not be restored. Refresh and try again.", status: "error" };
   }
 }

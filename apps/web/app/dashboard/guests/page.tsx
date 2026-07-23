@@ -1,7 +1,11 @@
 import { CreatorShell } from "../../../src/components/dashboard/CreatorShell";
 import { GuestDesk } from "../../../src/components/guests/GuestDesk";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
-import { listDeliveredGuestInvitations, listGuestParties } from "../../../src/server/guests/guests";
+import {
+  listDeliveredGuestInvitations,
+  listGuestParties,
+  listTrashedGuestParties,
+} from "../../../src/server/guests/guests";
 import {
   emptyInvitationResultSummary,
   listInvitationResultSummaries,
@@ -28,10 +32,15 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const resultSummaries = guestData?.[1] ?? {};
   const selectedInvitation =
     invitations.find((invitation) => invitation.invitationId === requestedInvitationId) ?? null;
-  const parties =
+  const partyData =
     selectedInvitation && workspaceId
-      ? await listGuestParties(supabase, workspaceId, selectedInvitation.invitationId)
-      : [];
+      ? await Promise.all([
+          listGuestParties(supabase, workspaceId, selectedInvitation.invitationId),
+          listTrashedGuestParties(supabase, workspaceId, selectedInvitation.invitationId),
+        ])
+      : [[], []];
+  const parties = partyData[0];
+  const trashedParties = partyData[1];
 
   return (
     <CreatorShell activePage="guests" email={user.email} metadata={user.user_metadata}>
@@ -67,6 +76,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                 : null
             }
             selectedInvitation={selectedInvitation}
+            trashedParties={trashedParties}
           />
           <aside className={styles.privacyNote}>
             <p className={styles.label}>Private by design</p>

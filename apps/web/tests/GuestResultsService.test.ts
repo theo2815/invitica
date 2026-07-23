@@ -14,9 +14,17 @@ const awaitingPartyId = "73000000-0000-4000-8000-000000000002";
 function summaryClient(records: Record<string, unknown[]>, errorTable?: string) {
   const eqByTable = new Map<string, ReturnType<typeof vi.fn>>();
   const from = vi.fn((table: string) => {
+    const terminal = {
+      data: records[table] ?? [],
+      error: table === errorTable ? {} : null,
+    };
     const eq = vi
       .fn()
-      .mockResolvedValue({ data: records[table] ?? [], error: table === errorTable ? {} : null });
+      .mockReturnValue(
+        table === "guest_parties"
+          ? { is: vi.fn().mockResolvedValue(terminal) }
+          : Promise.resolve(terminal),
+      );
     eqByTable.set(table, eq);
     return { select: vi.fn().mockReturnValue({ eq }) };
   });
@@ -89,17 +97,23 @@ describe("creator invitation result summaries", () => {
 function ledgerClient() {
   const from = vi.fn((table: string) => {
     if (table === "guest_parties") {
-      const order = vi.fn().mockResolvedValue({
+      const partyResult = {
         data: [
           {
+            archived_at: null,
             capacity: 4,
             created_at: "2026-07-22T02:00:00+00:00",
             id: attendingPartyId,
             internal_label: "Santos household",
             recipient_name: "Tita Lena and family",
+            revision: 1,
           },
         ],
         error: null,
+      };
+      const order = vi.fn().mockReturnValue({
+        is: vi.fn().mockResolvedValue(partyResult),
+        not: vi.fn().mockResolvedValue({ data: [], error: null }),
       });
       const invitationEq = vi.fn().mockReturnValue({ order });
       const workspaceEq = vi.fn().mockReturnValue({ eq: invitationEq });
@@ -148,13 +162,15 @@ describe("creator RSVP ledger", () => {
     const parties = await listGuestParties(ledgerClient() as never, workspaceId, invitationId);
     expect(parties).toEqual([
       {
+        archivedAt: null,
         capacity: 4,
         createdAt: "2026-07-22T02:00:00+00:00",
-        guestNames: ["Lena Santos"],
+        guestMembers: [{ id: "75000000-0000-4000-8000-000000000001", name: "Lena Santos" }],
         id: attendingPartyId,
         internalLabel: "Santos household",
         linkStatus: "active",
         recipientName: "Tita Lena and family",
+        revision: 1,
         response: {
           attendance: "attending",
           attendeeCount: 3,

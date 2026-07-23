@@ -68,7 +68,8 @@ export async function listInvitationResultSummaries(
     supabase
       .from("guest_parties")
       .select("id, invitation_id, capacity")
-      .eq("workspace_id", parsedWorkspaceId),
+      .eq("workspace_id", parsedWorkspaceId)
+      .is("archived_at", null),
     supabase
       .from("rsvp_responses")
       .select("guest_party_id, invitation_id, attendance, attendee_count, updated_at")

@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildGenericInvitationUrl,
   buildPersonalizedInvitationUrl,
+  GuestPersistenceError,
+  updateGuestParty,
 } from "../src/server/guests/guests";
 
 const originalInvitationOrigin = process.env.NEXT_PUBLIC_INVITATION_ORIGIN;
@@ -46,5 +48,44 @@ describe("guest invitation URLs", () => {
         "guest-name",
       ),
     ).toThrow();
+  });
+});
+
+describe("guest-party editing", () => {
+  it("maps a revision-safe edit to the narrow database RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+
+    await updateGuestParty({ rpc } as never, {
+      capacity: 4,
+      expectedRevision: 3,
+      guestNames: ["Mara Santos", "Paolo Santos"],
+      guestPartyId: "11111111-1111-4111-8111-111111111111",
+      internalLabel: "Santos family",
+      recipientName: "Mara and Paolo",
+    });
+
+    expect(rpc).toHaveBeenCalledWith("update_guest_party", {
+      p_capacity: 4,
+      p_expected_revision: 3,
+      p_guest_names: ["Mara Santos", "Paolo Santos"],
+      p_guest_party_id: "11111111-1111-4111-8111-111111111111",
+      p_internal_label: "Santos family",
+      p_recipient_name: "Mara and Paolo",
+    });
+  });
+
+  it("returns the domain-safe persistence error when the RPC fails", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: { code: "40001" } });
+
+    await expect(
+      updateGuestParty({ rpc } as never, {
+        capacity: 1,
+        expectedRevision: 1,
+        guestNames: ["Mara Santos"],
+        guestPartyId: "11111111-1111-4111-8111-111111111111",
+        internalLabel: "Mara Santos",
+        recipientName: "Mara Santos",
+      }),
+    ).rejects.toBeInstanceOf(GuestPersistenceError);
   });
 });

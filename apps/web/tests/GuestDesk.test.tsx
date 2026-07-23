@@ -3,10 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GuestDesk } from "../src/components/guests/GuestDesk";
 import {
-  createGuestPartyAction,
+  copyGuestInvitationAction,
+  createGuestPartiesAction,
   replaceGuestPartyLinkAction,
-  revokeGuestPartyLinkAction,
+  restoreGuestPartyAction,
+  trashGuestPartyAction,
+  updateGuestPartyAction,
 } from "../src/server/guests/actions";
+import type { GuestPartySummary } from "../src/server/guests/guests";
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -14,9 +18,13 @@ const writeText = vi.fn();
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("../src/server/guests/actions", () => ({
-  createGuestPartyAction: vi.fn(),
+  copyGuestInvitationAction: vi.fn(),
+  createGuestPartiesAction: vi.fn(),
   replaceGuestPartyLinkAction: vi.fn(),
+  restoreGuestPartyAction: vi.fn(),
   revokeGuestPartyLinkAction: vi.fn(),
+  trashGuestPartyAction: vi.fn(),
+  updateGuestPartyAction: vi.fn(),
 }));
 
 const invitation = {
@@ -38,289 +46,284 @@ const resultSummary = {
   viewCount: 0,
 };
 
+function party(overrides: Partial<GuestPartySummary> = {}): GuestPartySummary {
+  return {
+    archivedAt: null,
+    capacity: 2,
+    createdAt: "2026-07-22T08:00:00+08:00",
+    guestMembers: [{ id: "74000000-0000-4000-8000-000000000001", name: "Lena Santos" }],
+    id: "73000000-0000-4000-8000-000000000001",
+    internalLabel: "Santos household",
+    linkStatus: "active",
+    recipientName: "Tita Lena and family",
+    response: null,
+    revision: 1,
+    ...overrides,
+  };
+}
+
+function renderDesk(
+  parties: readonly GuestPartySummary[] = [],
+  trashedParties: readonly GuestPartySummary[] = [],
+) {
+  return render(
+    <GuestDesk
+      invitations={[invitation]}
+      parties={parties}
+      resultSummary={{
+        ...resultSummary,
+        awaitingParties: parties.length,
+        guestPartyCount: parties.length,
+      }}
+      selectedInvitation={invitation}
+      trashedParties={trashedParties}
+    />,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText },
   });
+  writeText.mockResolvedValue(undefined);
 });
 
 afterEach(cleanup);
 
 describe("GuestDesk", () => {
-  it("creates a party and reveals its personalized link exactly in the action result", async () => {
-    const personalizedUrl = `${invitation.genericUrl}#g=${"A".repeat(43)}`;
-    vi.mocked(createGuestPartyAction).mockResolvedValue({
-      partyId: "73000000-0000-4000-8000-000000000001",
-      personalizedUrl,
-      status: "created",
-    });
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[]}
-        resultSummary={resultSummary}
-        selectedInvitation={invitation}
-      />,
-    );
+  it("creates multiple parties in one keyboard-friendly composer", async () => {
+    vi.mocked(createGuestPartiesAction).mockResolvedValue({ count: 2, status: "created" });
+    renderDesk();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add guest party" }));
-    fireEvent.change(screen.getByLabelText("Internal party label"), {
-      target: { value: "Santos household" },
+    fireEvent.click(screen.getByRole("button", { name: "Add guests" }));
+    const firstName = screen.getByLabelText("Guest or party name");
+    fireEvent.change(firstName, {
+      target: { value: "John Cruz" },
     });
-    fireEvent.change(screen.getByLabelText("Envelope greeting"), {
-      target: { value: "Tita Lena and family" },
+    fireEvent.keyDown(firstName, { key: "Enter" });
+    const names = screen.getAllByLabelText("Guest or party name");
+    fireEvent.change(names[1] as HTMLElement, { target: { value: "Santos family" } });
+    const seats = screen.getAllByLabelText("Seats");
+    fireEvent.change(seats[1] as HTMLElement, { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create 2 parties" }));
+
+    await waitFor(() => expect(createGuestPartiesAction).toHaveBeenCalledOnce());
+    expect(createGuestPartiesAction).toHaveBeenCalledWith({
+      invitationId: invitation.invitationId,
+      mutationId: expect.any(String),
+      parties: [
+        { capacity: 1, guestNames: [], internalLabel: "John Cruz", recipientName: "John Cruz" },
+        {
+          capacity: 4,
+          guestNames: [],
+          internalLabel: "Santos family",
+          recipientName: "Santos family",
+        },
+      ],
     });
-    fireEvent.change(screen.getByLabelText("Party capacity"), { target: { value: "4" } });
-    fireEvent.change(screen.getByLabelText(/Named guests/), {
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("copies a complete general invitation without promising RSVP", async () => {
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Copy general invitation" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    const copied = writeText.mock.calls[0]?.[0] as string;
+    expect(copied).toContain("You're invited to Mara & Joaquin.");
+    expect(copied).toContain(invitation.genericUrl);
+    expect(copied).not.toContain("RSVP");
+  });
+
+  it("copies the recoverable party invitation from its own row", async () => {
+    const copyText = `Hi Tita Lena!\n${invitation.genericUrl}#g=${"A".repeat(43)}`;
+    vi.mocked(copyGuestInvitationAction).mockResolvedValue({
+      copyText,
+      personalizedUrl: `${invitation.genericUrl}#g=${"A".repeat(43)}`,
+      status: "ready",
+    });
+    renderDesk([party()]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy invitation for Santos household" }));
+    await waitFor(() => expect(copyGuestInvitationAction).toHaveBeenCalledOnce());
+    expect(writeText).toHaveBeenCalledWith(copyText);
+    expect(
+      screen.getByRole("button", { name: "Copied invitation for Santos household" }),
+    ).toBeDefined();
+  });
+
+  it("groups RSVP details into a readable party ledger", () => {
+    renderDesk([
+      party({
+        capacity: 3,
+        response: {
+          attendance: "attending",
+          attendeeCount: 2,
+          message: "We are delighted to celebrate with you.",
+          updatedAt: "2026-07-23T04:00:00+00:00",
+        },
+      }),
+    ]);
+
+    const ledger = screen.getByRole("table", { name: "Guest party response ledger" });
+    expect(
+      within(ledger)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Guest party", "RSVP", "Message", "Invitation", "Actions"]);
+    expect(within(ledger).queryByRole("columnheader", { name: "Seats" })).toBeNull();
+    expect(within(ledger).queryByRole("columnheader", { name: "Updated" })).toBeNull();
+    expect(within(ledger).getByText("2 of 3 attending")).toBeDefined();
+    expect(within(ledger).getByText("We are delighted to celebrate with you.")).toBeDefined();
+    expect(within(ledger).queryByText("Read full message")).toBeNull();
+  });
+
+  it("keeps unusually long RSVP messages available through a disclosure", () => {
+    const longMessage = "Salamat for including our whole family in your celebration. ".repeat(4);
+    renderDesk([
+      party({
+        response: {
+          attendance: "attending",
+          attendeeCount: 2,
+          message: longMessage,
+          updatedAt: "2026-07-23T04:00:00+00:00",
+        },
+      }),
+    ]);
+
+    const disclosure = screen.getByText("Read full message").closest("details");
+    expect(disclosure).not.toBeNull();
+    fireEvent.click(screen.getByText("Read full message"));
+    expect(disclosure?.hasAttribute("open")).toBe(true);
+    expect(disclosure?.querySelector("p")?.textContent).toBe(longMessage);
+  });
+
+  it("selects the complete message when clipboard access fails", async () => {
+    writeText.mockRejectedValue(new Error("Clipboard unavailable"));
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Copy general invitation" }));
+
+    const fallback = await screen.findByRole("textbox", {
+      name: "General invitation message",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(fallback));
+    expect((fallback as HTMLTextAreaElement).value).toContain(invitation.genericUrl);
+  });
+
+  it("edits the complete party while preserving link and response state", async () => {
+    vi.mocked(updateGuestPartyAction).mockResolvedValue({ status: "updated" });
+    renderDesk([party()]);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Santos household" }));
+    const editAction = screen.getByRole("button", { name: "Edit Santos household" });
+    expect(editAction.closest("td")?.dataset.label).toBe("Actions");
+    fireEvent.click(editAction);
+
+    const dialog = screen.getByRole("dialog", { name: "Update Santos household" });
+    expect(within(dialog).queryByRole("button", { name: /Remove Lena Santos/ })).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText("Guest or party name"), {
+      target: { value: "Santos and Reyes household" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Envelope greeting"), {
+      target: { value: "Tita Lena, Paolo, and family" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Seats"), { target: { value: "3" } });
+    fireEvent.change(within(dialog).getByLabelText("Named members"), {
       target: { value: "Lena Santos\nPaolo Santos" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create party & link" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
 
-    await waitFor(() => expect(createGuestPartyAction).toHaveBeenCalledOnce());
-    expect(createGuestPartyAction).toHaveBeenCalledWith({
-      capacity: 4,
+    await waitFor(() => expect(updateGuestPartyAction).toHaveBeenCalledOnce());
+    expect(updateGuestPartyAction).toHaveBeenCalledWith({
+      capacity: 3,
+      expectedRevision: 1,
       guestNames: ["Lena Santos", "Paolo Santos"],
-      internalLabel: "Santos household",
-      invitationId: invitation.invitationId,
-      recipientName: "Tita Lena and family",
-    });
-    expect(screen.getByRole("heading", { name: "Copy this private link now" })).toBeDefined();
-    expect(screen.getByLabelText("New personalized invitation link").getAttribute("value")).toBe(
-      personalizedUrl,
-    );
-    expect(screen.getByRole("status").textContent).toContain("cannot be shown again");
-    expect(refresh).toHaveBeenCalledOnce();
-  });
-
-  it("rejects more named guests than the declared capacity before mutation", () => {
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[]}
-        resultSummary={resultSummary}
-        selectedInvitation={invitation}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Add guest party" }));
-    fireEvent.change(screen.getByLabelText("Internal party label"), { target: { value: "Group" } });
-    fireEvent.change(screen.getByLabelText("Envelope greeting"), { target: { value: "Friends" } });
-    fireEvent.change(screen.getByLabelText("Party capacity"), { target: { value: "1" } });
-    fireEvent.change(screen.getByLabelText(/Named guests/), { target: { value: "One\nTwo" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create party & link" }));
-
-    expect(screen.getByRole("status").textContent).toContain("cannot exceed");
-    expect(createGuestPartyAction).not.toHaveBeenCalled();
-  });
-
-  it("copies the general link without exposing a guest identity", async () => {
-    writeText.mockResolvedValue(undefined);
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[]}
-        resultSummary={resultSummary}
-        selectedInvitation={invitation}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Copy general link" }));
-
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(invitation.genericUrl));
-    const generalLink = screen.getByRole("region", { name: "A welcoming link for every guest" });
-    expect(within(generalLink).getByRole("button", { name: "Copied" })).toBeDefined();
-    expect(within(generalLink).getByRole("status").textContent).toBe(
-      "General link copied to your clipboard.",
-    );
-  });
-
-  it("selects the general link and explains when clipboard access fails", async () => {
-    writeText.mockRejectedValue(new Error("Clipboard unavailable"));
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[]}
-        resultSummary={resultSummary}
-        selectedInvitation={invitation}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Copy general link" }));
-
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(invitation.genericUrl));
-    const link = screen.getByLabelText("General invitation link");
-    expect(document.activeElement).toBe(link);
-    const generalLink = screen.getByRole("region", { name: "A welcoming link for every guest" });
-    expect(within(generalLink).getByRole("status").textContent).toBe(
-      "Copy was unavailable. The link is selected for manual copying.",
-    );
-  });
-
-  it("requires confirmation before revoking an active party link", async () => {
-    vi.mocked(revokeGuestPartyLinkAction).mockResolvedValue({ status: "revoked" });
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[
-          {
-            capacity: 4,
-            createdAt: "2026-07-22T08:00:00+08:00",
-            guestNames: ["Lena Santos"],
-            id: "73000000-0000-4000-8000-000000000001",
-            internalLabel: "Santos household",
-            linkStatus: "active",
-            recipientName: "Tita Lena and family",
-            response: null,
-          },
-        ]}
-        resultSummary={{
-          ...resultSummary,
-          awaitingParties: 1,
-          guestPartyCount: 1,
-          reservedSeats: 4,
-        }}
-        selectedInvitation={invitation}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Revoke link" }));
-    expect(revokeGuestPartyLinkAction).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Revoke this personalized link?" })).toBeDefined();
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Revoke link" }),
-    );
-
-    await waitFor(() => expect(revokeGuestPartyLinkAction).toHaveBeenCalledOnce());
-    expect(revokeGuestPartyLinkAction).toHaveBeenCalledWith({
       guestPartyId: "73000000-0000-4000-8000-000000000001",
+      internalLabel: "Santos and Reyes household",
       invitationId: invitation.invitationId,
+      recipientName: "Tita Lena, Paolo, and family",
     });
     expect(refresh).toHaveBeenCalledOnce();
   });
 
-  it("replaces a link with a new one-time reveal", async () => {
+  it("offers a conventional close button on the add-guests dialog", () => {
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Add guests" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close add guests" }));
+
+    expect(screen.queryByRole("dialog", { name: "Prepare one or many invitations" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add guests" }));
+  });
+
+  it("moves a party to reversible trash and restores it", async () => {
+    vi.mocked(trashGuestPartyAction).mockResolvedValue({ status: "trashed" });
+    vi.mocked(restoreGuestPartyAction).mockResolvedValue({ status: "restored" });
+    const active = party();
+    const trashed = party({ archivedAt: "2026-07-23T08:00:00+08:00", revision: 2 });
+    const view = renderDesk([active]);
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Santos household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move party to trash" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Move to trash" }),
+    );
+    await waitFor(() => expect(trashGuestPartyAction).toHaveBeenCalledOnce());
+
+    view.rerender(
+      <GuestDesk
+        invitations={[invitation]}
+        parties={[]}
+        resultSummary={resultSummary}
+        selectedInvitation={invitation}
+        trashedParties={[trashed]}
+      />,
+    );
+    fireEvent.click(screen.getByText("Recently deleted (1)"));
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(restoreGuestPartyAction).toHaveBeenCalledOnce());
+  });
+
+  it("replaces an active link only after confirmation and copies the new message", async () => {
     const replacement = `${invitation.genericUrl}#g=${"B".repeat(43)}`;
     vi.mocked(replaceGuestPartyLinkAction).mockResolvedValue({
+      copyText: `Ready\n${replacement}`,
       personalizedUrl: replacement,
       status: "replaced",
     });
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[
-          {
-            capacity: 2,
-            createdAt: "2026-07-22T08:00:00+08:00",
-            guestNames: [],
-            id: "73000000-0000-4000-8000-000000000001",
-            internalLabel: "Reyes couple",
-            linkStatus: "active",
-            recipientName: "Ana and Miguel",
-            response: null,
-          },
-        ]}
-        resultSummary={{
-          ...resultSummary,
-          awaitingParties: 1,
-          guestPartyCount: 1,
-          reservedSeats: 2,
-        }}
-        selectedInvitation={invitation}
-      />,
-    );
+    renderDesk([party()]);
 
-    fireEvent.click(screen.getByRole("button", { name: "More actions for Reyes couple" }));
-    fireEvent.click(screen.getByRole("button", { name: "Replace link" }));
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Santos household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace private link" }));
+    expect(replaceGuestPartyLinkAction).not.toHaveBeenCalled();
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Replace link" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Replace & copy" }),
     );
-
     await waitFor(() => expect(replaceGuestPartyLinkAction).toHaveBeenCalledOnce());
-    expect(screen.getByLabelText("New personalized invitation link").getAttribute("value")).toBe(
-      replacement,
-    );
+    expect(writeText).toHaveBeenCalledWith(`Ready\n${replacement}`);
   });
 
-  it("shows real RSVP details and filters the private response ledger", () => {
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[
-          {
-            capacity: 4,
-            createdAt: "2026-07-22T08:00:00+08:00",
-            guestNames: ["Lena Santos", "Paolo Santos"],
-            id: "73000000-0000-4000-8000-000000000001",
-            internalLabel: "Santos household",
-            linkStatus: "active",
-            recipientName: "Tita Lena and family",
-            response: {
-              attendance: "attending",
-              attendeeCount: 3,
-              message: "We are delighted to celebrate.",
-              updatedAt: "2026-07-23T04:00:00+00:00",
-            },
-          },
-          {
-            capacity: 2,
-            createdAt: "2026-07-22T09:00:00+08:00",
-            guestNames: [],
-            id: "73000000-0000-4000-8000-000000000002",
-            internalLabel: "Reyes couple",
-            linkStatus: "revoked",
-            recipientName: "Ana and Miguel",
-            response: null,
-          },
-        ]}
-        resultSummary={{
-          ...resultSummary,
-          attendingGuests: 3,
-          attendingParties: 1,
-          awaitingParties: 1,
-          guestPartyCount: 2,
-          reservedSeats: 6,
-          viewCount: 12,
-        }}
-        selectedInvitation={invitation}
-      />,
-    );
-
-    const ledger = screen.getByRole("table", { name: "Guest party response ledger" });
-    expect(within(ledger).getByText("We are delighted to celebrate.")).toBeDefined();
-    expect(within(ledger).getByText("3 attending")).toBeDefined();
-    expect(within(ledger).getByText("Link revoked")).toBeDefined();
+  it("keeps search and response filtering on the real party ledger", () => {
+    renderDesk([
+      party({
+        response: {
+          attendance: "attending",
+          attendeeCount: 2,
+          message: "We are delighted to celebrate.",
+          updatedAt: "2026-07-23T04:00:00+00:00",
+        },
+      }),
+      party({
+        guestMembers: [],
+        id: "73000000-0000-4000-8000-000000000002",
+        internalLabel: "Reyes couple",
+        recipientName: "Ana and Miguel",
+      }),
+    ]);
 
     fireEvent.click(screen.getByRole("combobox", { name: /Response/ }));
     fireEvent.click(screen.getByRole("option", { name: "Attending" }));
-    expect(within(ledger).getByText("Santos household")).toBeDefined();
-    expect(within(ledger).queryByText("Reyes couple")).toBeNull();
-
-    fireEvent.change(screen.getByLabelText("Search parties or guests"), {
-      target: { value: "not present" },
-    });
-    expect(screen.getByText("No matching guest parties")).toBeDefined();
-  });
-
-  it("keeps keyboard focus inside the create dialog and restores its trigger", () => {
-    render(
-      <GuestDesk
-        invitations={[invitation]}
-        parties={[]}
-        resultSummary={resultSummary}
-        selectedInvitation={invitation}
-      />,
-    );
-    const trigger = screen.getByRole("button", { name: "Add guest party" });
-    fireEvent.click(trigger);
-
-    const dialog = screen.getByRole("dialog");
-    const firstField = within(dialog).getByLabelText("Internal party label");
-    const submit = within(dialog).getByRole("button", { name: "Create party & link" });
-    firstField.focus();
-    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
-    expect(document.activeElement).toBe(submit);
-
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.activeElement).toBe(trigger);
+    expect(screen.getByText("Santos household")).toBeDefined();
+    expect(screen.queryByText("Reyes couple")).toBeNull();
   });
 });

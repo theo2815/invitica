@@ -226,3 +226,30 @@ export function Plus({ className }: IconProps) {
     </svg>
   );
 }
+
+export function Trash({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M4.5 7h15M9 3.5h6l1 3.5H8l1-3.5Zm-2 3.5.7 13h8.6L17 7M10 10.5v6M14 10.5v6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+export function Close({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="m6.5 6.5 11 11m0-11-11 11"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}

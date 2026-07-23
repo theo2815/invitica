@@ -15,7 +15,6 @@
   background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface));
 }
 
-.catalogNotice p,
 .resultsHeading p,
 .noResults > p,
 .previewDetails > p {
@@ -168,7 +167,16 @@
   justify-content: center;
   overflow: hidden;
   padding: 2rem;
+  border: 0;
+  color: inherit;
+  font: inherit;
   text-align: center;
+  cursor: pointer;
+}
+
+.cardArtwork:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -0.45rem;
 }
 
 .cardArtwork::before {
@@ -184,6 +192,17 @@
 .cardArtwork strong {
   position: relative;
   z-index: 1;
+}
+
+.cardArtwork .quickPreviewLabel {
+  position: absolute;
+  z-index: 2;
+  right: 1.35rem;
+  bottom: 1.35rem;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  font-size: 0.54rem;
 }
 
 .cardArtwork span,
@@ -292,7 +311,7 @@
   padding-top: 1.2rem;
 }
 
-.cardActions button {
+.cardPreviewLink {
   display: inline-flex;
   min-height: 2.65rem;
   align-items: center;
@@ -304,112 +323,18 @@
   color: var(--text);
   font-size: 0.68rem;
   font-weight: 740;
-}
-
-.cardActions button:first-child {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.cardActions button:first-child:hover {
-  background: var(--accent-hover);
-}
-
-.cardActions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.mobileActionLabel {
-  display: none;
-}
-
-.creationForm {
-  display: grid;
-  min-width: 0;
-  gap: 0.45rem;
-}
-
-.cardActions .creationFormExpanded {
-  grid-column: 1 / -1;
-}
-
-.creationForm button:not(:disabled) {
-  cursor: pointer;
-}
-
-.creationForm button:not(:disabled):hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.creationError,
-.creationNote {
-  color: var(--muted);
-  font-size: 0.62rem;
-  line-height: 1.45;
-}
-
-.creationError {
-  color: var(--danger);
-}
-
-.reuseConfirmation {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  border-radius: 0.35rem;
-  background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface));
-}
-
-.reuseConfirmation p {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.7rem;
-  line-height: 1.55;
-}
-
-.reuseConfirmation > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.reuseConfirmation button,
-.reuseConfirmation a {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 0.3rem;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.66rem;
-  font-weight: 740;
   text-decoration: none;
 }
 
-.reuseConfirmation button:first-child {
+.cardPreviewLink {
   border-color: var(--accent);
   background: var(--accent);
   color: #ffffff;
+  cursor: pointer;
 }
 
-.reuseConfirmation button:last-child {
-  border-color: transparent;
-  background: transparent;
-  color: var(--muted);
-}
-
-.reuseConfirmation button:focus-visible,
-.reuseConfirmation a:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.cardPreviewLink:hover {
+  background: var(--accent-hover);
 }
 
 .cardActions svg {
@@ -569,6 +494,30 @@
   opacity: 0.62;
 }
 
+.fullPreviewLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding-inline: 0.8rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.66rem;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+.fullPreviewLink:hover {
+  background: var(--accent-hover);
+}
+
+.fullPreviewLink svg {
+  width: 0.9rem;
+}
+
 .previewStage {
   width: min(100%, 24rem);
   height: min(68dvh, 44rem);
@@ -636,33 +585,8 @@
   content: "—";
 }
 
-.previewDetails > .creationForm {
+.previewCreation {
   margin-top: auto;
-}
-
-.previewDetails > .creationForm > button {
-  min-height: 3rem;
-  border: 1px solid var(--border);
-  border-radius: 0.3rem;
-  background: var(--surface-muted);
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 750;
-}
-
-.previewDetails > .creationForm > button:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #ffffff;
-}
-
-.previewDetails > .creationForm > button:not(:disabled):hover {
-  background: var(--accent-hover);
-  color: #ffffff;
-}
-
-.previewDetails > .creationForm > small {
-  text-align: center;
 }
 
 @media (max-width: 1120px) {
@@ -684,25 +608,8 @@
     padding-block: 1.25rem;
   }
 
-  .catalogNotice,
   .resultsHeading {
     gap: 0.6rem;
-  }
-
-  .catalogNotice {
-    display: block;
-    margin-bottom: 0.8rem;
-    padding: 0.75rem 0.8rem;
-  }
-
-  .catalogNotice strong {
-    margin-top: 0.2rem;
-    font-size: 0.68rem;
-    line-height: 1.4;
-  }
-
-  .catalogNotice > span {
-    display: none;
   }
 
   .controls {
@@ -897,14 +804,6 @@
     font-size: 0.62rem;
   }
 
-  .desktopActionLabel {
-    display: none;
-  }
-
-  .mobileActionLabel {
-    display: inline;
-  }
-
   .filterBackdrop {
     position: fixed;
     z-index: 60;
@@ -1066,23 +965,44 @@
     grid-template-columns: 1fr;
   }
 
-  .previewStage {
+  .deviceControl {
+    display: none;
+  }
+
+  .previewToolbar {
+    flex-wrap: wrap;
+  }
+
+  .previewStage[data-device] {
+    width: min(100%, 24rem);
     height: 34rem;
   }
 
   .previewDetails {
-    min-height: 25rem;
+    min-height: auto;
+    padding: 1.25rem;
     border-top: 1px solid var(--border);
     border-left: 0;
   }
 }
 
-@media (max-width: 420px) {
-  .cardActions {
+@media (max-width: 520px) {
+  .templateGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .reuseConfirmation > div {
-    display: grid;
+  .cardActions {
+    grid-template-columns: 1fr;
+  }
+
+  .cardPreviewLink {
+    gap: 0.25rem;
+    padding-inline: 0.35rem;
+    font-size: 0.6rem;
+  }
+
+  .cardActions svg {
+    width: 0.75rem;
+    height: 0.75rem;
   }
 }

@@ -11,11 +11,13 @@ const deliveredAliasSchema = z.strictObject({
 });
 const draftTitleSchema = z.strictObject({ document: z.unknown(), invitation_id: uuidSchema });
 const guestPartySchema = z.strictObject({
+  archived_at: z.string().datetime({ offset: true }).nullable(),
   capacity: z.number().int().min(1).max(50),
   created_at: z.string().datetime({ offset: true }),
   id: uuidSchema,
   internal_label: z.string().trim().min(1).max(120),
   recipient_name: z.string().trim().min(1).max(120),
+  revision: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 });
 const namedGuestSchema = z.strictObject({
   guest_party_id: uuidSchema,
@@ -38,6 +40,13 @@ const guestRsvpRowSchema = z.strictObject({
   updated_at: z.string().datetime({ offset: true }),
 });
 const resolvedGuestSchema = z.strictObject({ recipient_name: z.string().trim().min(1).max(120) });
+const recoverableGuestLinkSchema = z.strictObject({
+  encryption_key_version: z.number().int().positive(),
+  link_id: uuidSchema,
+  recipient_name: z.string().trim().min(1).max(120),
+  token_ciphertext: z.string().regex(/^[A-Za-z0-9_-]{79}$/),
+  token_nonce: z.string().regex(/^[A-Za-z0-9_-]{16}$/),
+});
 
 export interface GuestInvitationSummary {
   readonly genericUrl: string;
@@ -47,13 +56,15 @@ export interface GuestInvitationSummary {
 }
 
 export interface GuestPartySummary {
+  readonly archivedAt: string | null;
   readonly capacity: number;
   readonly createdAt: string;
-  readonly guestNames: readonly string[];
+  readonly guestMembers: readonly { readonly id: string; readonly name: string }[];
   readonly id: string;
   readonly internalLabel: string;
   readonly linkStatus: "active" | "revoked";
   readonly recipientName: string;
+  readonly revision: number;
   readonly response: {
     readonly attendance: "attending" | "declined";
     readonly attendeeCount: number;
@@ -67,6 +78,14 @@ export class GuestPersistenceError extends Error {
     super("Guest information could not be saved.");
     this.name = "GuestPersistenceError";
   }
+}
+
+export interface RecoverableGuestLink {
+  readonly ciphertext: string;
+  readonly keyVersion: number;
+  readonly linkId: string;
+  readonly nonce: string;
+  readonly recipientName: string;
 }
 
 function invitationOrigin(): string {
@@ -168,22 +187,28 @@ export async function listDeliveredGuestInvitations(
     .sort((left, right) => left.title.localeCompare(right.title));
 }
 
-export async function listGuestParties(
+async function listGuestPartiesByArchiveState(
   supabase: SupabaseClient,
   workspaceId: string,
   invitationId: string,
+  archived: boolean,
 ): Promise<GuestPartySummary[]> {
   const parsedWorkspaceId = uuidSchema.parse(workspaceId);
   const parsedInvitationId = uuidSchema.parse(invitationId);
-  const parties = await supabase
+  const parties = supabase
     .from("guest_parties")
-    .select("id, internal_label, recipient_name, capacity, created_at")
+    .select("id, internal_label, recipient_name, capacity, created_at, archived_at, revision")
     .eq("workspace_id", parsedWorkspaceId)
     .eq("invitation_id", parsedInvitationId)
     .order("created_at", { ascending: true });
 
-  if (parties.error) throw new GuestPersistenceError();
-  const parsedParties = z.array(guestPartySchema).parse(parties.data ?? []);
+  const filteredParties = archived
+    ? parties.not("archived_at", "is", null)
+    : parties.is("archived_at", null);
+
+  const partiesResult = await filteredParties;
+  if (partiesResult.error) throw new GuestPersistenceError();
+  const parsedParties = z.array(guestPartySchema).parse(partiesResult.data ?? []);
   if (parsedParties.length === 0) return [];
   const partyIds = parsedParties.map((party) => party.id);
   const [guests, links, responses] = await Promise.all([
@@ -219,11 +244,12 @@ export async function listGuestParties(
   return parsedParties.map((party) => {
     const response = responseByParty.get(party.id);
     return {
+      archivedAt: party.archived_at,
       capacity: party.capacity,
       createdAt: party.created_at,
-      guestNames: namedGuests
+      guestMembers: namedGuests
         .filter((guest) => guest.guest_party_id === party.id)
-        .map((guest) => guest.name),
+        .map((guest) => ({ id: guest.id, name: guest.name })),
       id: party.id,
       internalLabel: party.internal_label,
       linkStatus: linkStates.some(
@@ -232,6 +258,7 @@ export async function listGuestParties(
         ? "active"
         : "revoked",
       recipientName: party.recipient_name,
+      revision: party.revision,
       response: response
         ? {
             attendance: response.attendance,
@@ -244,30 +271,59 @@ export async function listGuestParties(
   });
 }
 
-export async function createGuestParty(
+export async function listGuestParties(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  invitationId: string,
+): Promise<GuestPartySummary[]> {
+  return listGuestPartiesByArchiveState(supabase, workspaceId, invitationId, false);
+}
+
+export async function listTrashedGuestParties(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  invitationId: string,
+): Promise<GuestPartySummary[]> {
+  return listGuestPartiesByArchiveState(supabase, workspaceId, invitationId, true);
+}
+
+export async function createGuestPartiesBulk(
   supabase: SupabaseClient,
   input: {
-    capacity: number;
-    guestNames: string[];
-    internalLabel: string;
     invitationId: string;
-    linkId: string;
-    partyId: string;
-    recipientName: string;
-    tokenHash: string;
+    mutationId: string;
+    parties: Array<{
+      capacity: number;
+      encryptionKeyVersion: number;
+      guestNames: string[];
+      internalLabel: string;
+      linkId: string;
+      partyId: string;
+      recipientName: string;
+      tokenCiphertext: string;
+      tokenHash: string;
+      tokenNonce: string;
+    }>;
+    requestHash: string;
   },
 ): Promise<void> {
-  const { error } = await supabase.rpc("create_guest_party", {
-    p_capacity: input.capacity,
-    p_guest_names: input.guestNames,
-    p_internal_label: input.internalLabel,
-    p_invitation_id: input.invitationId,
-    p_link_id: input.linkId,
-    p_party_id: input.partyId,
-    p_recipient_name: input.recipientName,
-    p_token_hash: input.tokenHash,
+  const { error } = await supabase.rpc("create_guest_parties_bulk", {
+    p_invitation_id: uuidSchema.parse(input.invitationId),
+    p_mutation_id: uuidSchema.parse(input.mutationId),
+    p_parties: input.parties,
+    p_request_hash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .parse(input.requestHash),
   });
-  if (error) throw new GuestPersistenceError();
+  if (error) {
+    console.error("[Guest Desk] create_guest_parties_bulk failed", {
+      code: error.code,
+      hint: error.hint || undefined,
+      message: error.message,
+    });
+    throw new GuestPersistenceError();
+  }
 }
 
 export async function replaceGuestPartyLink(
@@ -275,11 +331,82 @@ export async function replaceGuestPartyLink(
   guestPartyId: string,
   linkId: string,
   tokenHash: string,
+  encrypted: { ciphertext: string; keyVersion: number; nonce: string },
 ): Promise<void> {
-  const { error } = await supabase.rpc("replace_guest_party_link", {
+  const { error } = await supabase.rpc("replace_guest_party_link_recoverable", {
+    p_encryption_key_version: encrypted.keyVersion,
     p_guest_party_id: uuidSchema.parse(guestPartyId),
     p_link_id: uuidSchema.parse(linkId),
+    p_token_ciphertext: encrypted.ciphertext,
     p_token_hash: tokenHash,
+    p_token_nonce: encrypted.nonce,
+  });
+  if (error) throw new GuestPersistenceError();
+}
+
+export async function getRecoverableGuestLink(
+  supabase: SupabaseClient,
+  guestPartyId: string,
+): Promise<RecoverableGuestLink | null> {
+  const { data, error } = await supabase.rpc("get_guest_party_link_secret", {
+    p_guest_party_id: uuidSchema.parse(guestPartyId),
+  });
+  if (error) throw new GuestPersistenceError();
+  const rows = z.array(recoverableGuestLinkSchema).parse(data ?? []);
+  const row = rows[0];
+  return row
+    ? {
+        ciphertext: row.token_ciphertext,
+        keyVersion: row.encryption_key_version,
+        linkId: row.link_id,
+        nonce: row.token_nonce,
+        recipientName: row.recipient_name,
+      }
+    : null;
+}
+
+export async function trashGuestParty(
+  supabase: SupabaseClient,
+  guestPartyId: string,
+  expectedRevision: number,
+): Promise<void> {
+  const { error } = await supabase.rpc("trash_guest_party", {
+    p_expected_revision: expectedRevision,
+    p_guest_party_id: uuidSchema.parse(guestPartyId),
+  });
+  if (error) throw new GuestPersistenceError();
+}
+
+export async function updateGuestParty(
+  supabase: SupabaseClient,
+  input: {
+    capacity: number;
+    expectedRevision: number;
+    guestNames: string[];
+    guestPartyId: string;
+    internalLabel: string;
+    recipientName: string;
+  },
+): Promise<void> {
+  const { error } = await supabase.rpc("update_guest_party", {
+    p_capacity: input.capacity,
+    p_expected_revision: input.expectedRevision,
+    p_guest_names: input.guestNames,
+    p_guest_party_id: uuidSchema.parse(input.guestPartyId),
+    p_internal_label: input.internalLabel,
+    p_recipient_name: input.recipientName,
+  });
+  if (error) throw new GuestPersistenceError();
+}
+
+export async function restoreGuestParty(
+  supabase: SupabaseClient,
+  guestPartyId: string,
+  expectedRevision: number,
+): Promise<void> {
+  const { error } = await supabase.rpc("restore_guest_party", {
+    p_expected_revision: expectedRevision,
+    p_guest_party_id: uuidSchema.parse(guestPartyId),
   });
   if (error) throw new GuestPersistenceError();
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AuthPage } from "../../../src/components/auth/AuthPage";
 import { signInWithEmail, signInWithGoogle } from "../../../src/server/auth/actions";
+import { getSafeNextPath } from "../../../src/server/auth/redirects";
 
 export const metadata: Metadata = {
   title: "Sign in — Invitica",
@@ -12,6 +13,7 @@ interface LoginPageProps {
   searchParams: Promise<{
     error?: string | string[];
     message?: string | string[];
+    next?: string | string[];
   }>;
 }
 
@@ -26,9 +28,10 @@ const noticeMessages: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { error, message } = await searchParams;
+  const { error, message, next } = await searchParams;
   const errorCode = typeof error === "string" ? error : undefined;
   const messageCode = typeof message === "string" ? message : undefined;
+  const nextPath = getSafeNextPath(typeof next === "string" ? next : null);
 
   return (
     <AuthPage
@@ -37,6 +40,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       initialError={errorCode ? errorMessages[errorCode] : undefined}
       initialNotice={messageCode ? noticeMessages[messageCode] : undefined}
       mode="login"
+      nextPath={nextPath === "/dashboard" ? undefined : nextPath}
     />
   );
 }

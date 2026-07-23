@@ -20,6 +20,7 @@ interface AuthPageProps {
   initialError?: string | undefined;
   initialNotice?: string | undefined;
   mode: AuthMode;
+  nextPath?: string | undefined;
 }
 
 interface AuthValues {
@@ -119,6 +120,7 @@ export function AuthPage({
   initialError,
   initialNotice,
   mode,
+  nextPath,
 }: AuthPageProps) {
   const copy = pageCopy[mode];
   const [state, formAction] = useActionState(emailAction, {
@@ -130,6 +132,9 @@ export function AuthPage({
   const fieldErrors = { ...state.fieldErrors, ...clientErrors };
   const headingId = `${mode}-heading`;
   const errorId = `${mode}-form-error`;
+  const alternateHref = nextPath
+    ? `${copy.alternateHref}?next=${encodeURIComponent(nextPath)}`
+    : copy.alternateHref;
 
   function updateValue(name: keyof AuthValues, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -172,6 +177,7 @@ export function AuthPage({
       }}
     >
       <form action={googleAction} aria-label="Continue with Google">
+        {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
         <GoogleButton />
       </form>
 
@@ -187,6 +193,7 @@ export function AuthPage({
         noValidate
         onSubmit={handleSubmit}
       >
+        {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
         {mode === "register" ? (
           <div className={styles.field}>
             <label htmlFor="full-name">Full name</label>
@@ -270,7 +277,7 @@ export function AuthPage({
       </form>
 
       <p className={styles.alternate}>
-        {copy.alternate} <Link href={copy.alternateHref}>{copy.alternateAction}</Link>
+        {copy.alternate} <Link href={alternateHref}>{copy.alternateAction}</Link>
       </p>
     </AuthShell>
   );

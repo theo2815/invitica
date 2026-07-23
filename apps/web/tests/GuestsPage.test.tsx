@@ -5,7 +5,11 @@ import GuestsError from "../app/dashboard/guests/error";
 import GuestsLoading from "../app/dashboard/guests/loading";
 import GuestsPage from "../app/dashboard/guests/page";
 import { ensurePersonalWorkspace } from "../src/server/auth/session";
-import { listDeliveredGuestInvitations, listGuestParties } from "../src/server/guests/guests";
+import {
+  listDeliveredGuestInvitations,
+  listGuestParties,
+  listTrashedGuestParties,
+} from "../src/server/guests/guests";
 import { listInvitationResultSummaries } from "../src/server/guests/results";
 
 const push = vi.fn();
@@ -20,6 +24,7 @@ vi.mock("../src/server/auth/session", () => ({ ensurePersonalWorkspace: vi.fn() 
 vi.mock("../src/server/guests/guests", () => ({
   listDeliveredGuestInvitations: vi.fn(),
   listGuestParties: vi.fn(),
+  listTrashedGuestParties: vi.fn(),
 }));
 vi.mock("../src/server/guests/results", async () => {
   const actual = await vi.importActual<typeof import("../src/server/guests/results")>(
@@ -28,9 +33,13 @@ vi.mock("../src/server/guests/results", async () => {
   return { ...actual, listInvitationResultSummaries: vi.fn() };
 });
 vi.mock("../src/server/guests/actions", () => ({
-  createGuestPartyAction: vi.fn(),
+  copyGuestInvitationAction: vi.fn(),
+  createGuestPartiesAction: vi.fn(),
   replaceGuestPartyLinkAction: vi.fn(),
+  restoreGuestPartyAction: vi.fn(),
   revokeGuestPartyLinkAction: vi.fn(),
+  trashGuestPartyAction: vi.fn(),
+  updateGuestPartyAction: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -39,6 +48,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listDeliveredGuestInvitations).mockResolvedValue([]);
   vi.mocked(listGuestParties).mockResolvedValue([]);
+  vi.mocked(listTrashedGuestParties).mockResolvedValue([]);
   vi.mocked(listInvitationResultSummaries).mockResolvedValue({});
 });
 
@@ -69,7 +79,7 @@ describe("guests and RSVPs page", () => {
     expect(screen.getByRole("link", { name: "View invitations" }).getAttribute("href")).toBe(
       "/dashboard/invitations",
     );
-    expect(screen.queryByRole("button", { name: "Add guest party" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add guests" })).toBeNull();
     expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
@@ -107,11 +117,16 @@ describe("guests and RSVPs page", () => {
     render(await GuestsPage(pageProps(invitationId)));
 
     expect(screen.getByRole("heading", { name: "Mara & Joaquin" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Add guest party" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Add guests" })).toBeDefined();
     expect(screen.getByText("Approximate page loads").previousElementSibling?.textContent).toBe(
       "9",
     );
     expect(listGuestParties).toHaveBeenCalledWith(
+      {},
+      "71000000-0000-4000-8000-000000000001",
+      invitationId,
+    );
+    expect(listTrashedGuestParties).toHaveBeenCalledWith(
       {},
       "71000000-0000-4000-8000-000000000001",
       invitationId,
@@ -132,7 +147,7 @@ describe("guests and RSVPs page", () => {
     render(await GuestsPage(pageProps()));
 
     expect(screen.getByRole("alert").textContent).toContain("Your workspace needs attention");
-    expect(screen.queryByRole("button", { name: "Add guest party" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add guests" })).toBeNull();
   });
 
   it("provides semantic loading and recoverable error states", () => {

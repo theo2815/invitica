@@ -223,3 +223,49 @@ field and section. Direct authenticated updates remain revoked. Migrations 0001 
 cleanly to a fresh disposable local Supabase project, and all 23 focused 0011 pgTAP assertions pass.
 The founder reported applying migration `0011` through the hosted Supabase SQL Editor on
 2026-07-23. Independent hosted catalog or live-behavior verification remains pending.
+
+## Guest-desk bulk management and recoverable sharing
+
+Migration `0012` adds the creator-side guest-management boundary needed for efficient bulk entry
+and repeatable smart-copy actions:
+
+- an idempotent authenticated RPC creates between 1 and 50 RSVP parties, their named members, and
+  one active private link per party in a single transaction;
+- active parties carry monotonic revisions, while reversible trash keeps private RSVP history out
+  of active creator totals without deleting it;
+- named-member removal, party trash, and restore reject stale revisions instead of overwriting
+  newer creator state;
+- raw private tokens remain absent from PostgreSQL: the existing keyed hash stays authoritative for
+  guest resolution, while a separately keyed AES-256-GCM ciphertext supports creator-initiated
+  re-copying through an owner-only RPC;
+- authenticated table reads cannot select ciphertext, nonces, key versions, or batch idempotency
+  metadata; and
+- every revocation path destroys recoverable token material. Restoring a party never reactivates a
+  revoked link, so the creator must explicitly create a fresh capability.
+
+The matching `0012` pgTAP suite contains 29 transaction-wrapped assertions for privileges,
+idempotent retries, conflicting mutation keys, member revisions, reversible trash, token-material
+destruction, and cross-owner denial. It has not yet run against a disposable PostgreSQL instance
+because the local Docker-backed database was unavailable during implementation. Migration `0012`
+was founder-applied through the hosted Supabase SQL Editor on 2026-07-24. PostgREST exposes the
+new bulk RPC with its intended role restriction, but the first authenticated creator call exposed
+the ciphertext-regex defect described below. The new encryption secret is configured only in the
+ignored local web environment, not in a hosted web environment.
+
+Migration `0013_guest_link_ciphertext_regex_hotfix.sql` corrects the initial ciphertext validation
+bound from `{32,256}` to the exact AES-GCM base64url length `{79}`. PostgreSQL rejects repetition
+bounds above 255 only when the expression is evaluated, so `0012` could install successfully but
+the first hosted bulk-creation call failed with SQLSTATE `2201B`. The additive hotfix replaces the
+already-installed table constraint and both affected RPC definitions transactionally. Migration
+`0012` is corrected as well for future clean installations, and the focused `0013` pgTAP catalog
+suite guards all three definitions. The founder applied hosted `0013` and verified successful creator
+guest creation on 2026-07-24.
+
+## Revision-safe guest-party editing
+
+Migration `0014_update_guest_party.sql` adds the authenticated owner-only RPC used by the Guest Desk
+edit dialog. One transaction updates the party label, envelope name, capacity, and ordered named-member
+list while preserving the party's private invitation link and RSVP history. The RPC locks the active
+party, rejects stale revisions, and prevents capacity from dropping below the current attending count.
+Direct authenticated table writes remain denied. The focused `0014` pgTAP catalog suite contains five
+transaction-wrapped assertions; a PostgreSQL-backed run and hosted application remain pending.

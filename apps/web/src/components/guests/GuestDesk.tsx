@@ -2,39 +2,41 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import {
-  createGuestPartyAction,
+  copyGuestInvitationAction,
   replaceGuestPartyLinkAction,
+  restoreGuestPartyAction,
   revokeGuestPartyLinkAction,
+  trashGuestPartyAction,
 } from "../../server/guests/actions";
 import type { GuestInvitationSummary, GuestPartySummary } from "../../server/guests/guests";
 import type { InvitationResultSummary } from "../../server/guests/results";
+import { buildGeneralInvitationMessage } from "../../server/guests/sharing";
 import { Select } from "../forms/Select";
 import { Check, MoreHorizontal, Plus, Users } from "../Icons";
+import { GuestBulkComposer } from "./GuestBulkComposer";
 import styles from "./GuestDesk.module.css";
+import { GuestPartyEditor } from "./GuestPartyEditor";
 
 interface GuestDeskProps {
   invitations: readonly GuestInvitationSummary[];
   parties: readonly GuestPartySummary[];
   resultSummary: InvitationResultSummary | null;
   selectedInvitation: GuestInvitationSummary | null;
+  trashedParties: readonly GuestPartySummary[];
 }
 
-type Confirmation = { guestPartyId: string; kind: "replace" | "revoke" } | null;
+type Confirmation = { kind: "replace" | "revoke" | "trash"; party: GuestPartySummary } | null;
 
 type CopyFeedback = {
-  kind: "general" | "personalized";
   message: string;
   status: "error" | "success";
+  target: string;
 } | null;
 
-function splitGuestNames(value: string): string[] {
-  return value
-    .split(/\r?\n/)
-    .map((name) => name.trim())
-    .filter(Boolean);
-}
+type CopyFallback = { label: string; text: string } | null;
 
 function responseState(party: GuestPartySummary): "attending" | "awaiting" | "declined" {
   return party.response?.attendance ?? "awaiting";
@@ -57,48 +59,85 @@ function formatResponseTime(value: string): string {
   }).format(new Date(value));
 }
 
+function confirmationCopy(confirmation: Exclude<Confirmation, null>): {
+  action: string;
+  description: string;
+  eyebrow: string;
+  title: string;
+} {
+  if (confirmation.kind === "trash") {
+    return {
+      action: "Move to trash",
+      description:
+        "Its private link will stop working and the party will leave active totals. The retained response and party can be restored from Recently deleted.",
+      eyebrow: "Guest party",
+      title: `Move ${confirmation.party.internalLabel} to trash?`,
+    };
+  }
+  if (confirmation.kind === "revoke") {
+    return {
+      action: "Revoke link",
+      description:
+        "The party will lose personalized access immediately. The general invitation will keep working.",
+      eyebrow: "Private link",
+      title: "Revoke this personalized link?",
+    };
+  }
+  return {
+    action: confirmation.party.linkStatus === "active" ? "Replace & copy" : "Create & copy",
+    description:
+      confirmation.party.linkStatus === "active"
+        ? "The current link will stop working immediately. A fresh private invitation message will be copied for you."
+        : "A fresh private link and ready-to-send invitation message will be prepared for this party.",
+    eyebrow: "Private link",
+    title:
+      confirmation.party.linkStatus === "active"
+        ? "Replace this personalized link?"
+        : "Create a personalized link?",
+  };
+}
+
 export function GuestDesk({
   invitations,
   parties,
   resultSummary,
   selectedInvitation,
+  trashedParties,
 }: GuestDeskProps) {
   const router = useRouter();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
+  const [copyFallback, setCopyFallback] = useState<CopyFallback>(null);
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>(null);
+  const [copyingPartyId, setCopyingPartyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingParty, setEditingParty] = useState<GuestPartySummary | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [openPartyMenuId, setOpenPartyMenuId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [revealedLink, setRevealedLink] = useState<string | null>(null);
   const [responseFilter, setResponseFilter] = useState<
     "all" | "attending" | "awaiting" | "declined"
   >("all");
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
-  const firstFieldRef = useRef<HTMLInputElement>(null);
-  const generalLinkInputRef = useRef<HTMLInputElement>(null);
-  const linkInputRef = useRef<HTMLInputElement>(null);
+  const fallbackRef = useRef<HTMLTextAreaElement>(null);
+  const ledgerHeadingRef = useRef<HTMLHeadingElement>(null);
   const openPartyMenuRef = useRef<HTMLDivElement>(null);
   const partyMenuButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  const dialogOpen = createOpen || confirmation !== null;
   useEffect(() => {
-    if (!dialogOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
+    if (!confirmation) return;
+    function handleDialogKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !isPending) {
-        setCreateOpen(false);
+        event.preventDefault();
         setConfirmation(null);
         restoreFocusRef.current?.focus();
         return;
       }
       if (event.key !== "Tab") return;
       const focusable = Array.from(
-        dialogRef.current?.querySelectorAll<HTMLElement>(
-          "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href]",
-        ) ?? [],
+        dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
       );
       const first = focusable[0];
       const last = focusable.at(-1);
@@ -110,29 +149,25 @@ export function GuestDesk({
         event.preventDefault();
         first.focus();
       }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [dialogOpen, isPending]);
+    }
+    window.addEventListener("keydown", handleDialogKeyDown);
+    return () => window.removeEventListener("keydown", handleDialogKeyDown);
+  }, [confirmation, isPending]);
 
   useEffect(() => {
     if (!openPartyMenuId) return;
     const partyMenuId = openPartyMenuId;
-
     function closeOnOutsidePointer(event: PointerEvent) {
       if (event.target instanceof Node && !openPartyMenuRef.current?.contains(event.target)) {
         setOpenPartyMenuId(null);
       }
     }
-
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      const trigger = partyMenuButtonRefs.current.get(partyMenuId);
       setOpenPartyMenuId(null);
-      trigger?.focus();
+      partyMenuButtonRefs.current.get(partyMenuId)?.focus();
     }
-
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
@@ -141,105 +176,88 @@ export function GuestDesk({
     };
   }, [openPartyMenuId]);
 
-  function openCreate() {
-    restoreFocusRef.current = createButtonRef.current;
-    setActionMessage(null);
-    setCreateOpen(true);
-    window.requestAnimationFrame(() => firstFieldRef.current?.focus());
-  }
-
-  function closeDialog() {
-    if (isPending) return;
-    setCreateOpen(false);
-    setConfirmation(null);
-    restoreFocusRef.current?.focus();
-  }
-
-  async function copyLink(value: string, kind: "general" | "personalized") {
-    setActionMessage(null);
+  async function writeCopy(text: string, target: string, fallbackLabel: string): Promise<boolean> {
     setCopyFeedback(null);
+    setCopyFallback(null);
     try {
-      await navigator.clipboard.writeText(value);
-      const message =
-        kind === "general"
-          ? "General link copied to your clipboard."
-          : "Personalized link copied to your clipboard.";
-      setCopyFeedback({ kind, message, status: "success" });
-      setActionMessage(message);
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback({
+        message: "Invitation message copied. It is ready to paste into any messaging app.",
+        status: "success",
+        target,
+      });
+      return true;
     } catch {
-      const input = kind === "general" ? generalLinkInputRef.current : linkInputRef.current;
-      input?.focus();
-      input?.select();
-      const message = "Copy was unavailable. The link is selected for manual copying.";
-      setCopyFeedback({ kind, message, status: "error" });
-      setActionMessage(message);
+      setCopyFallback({ label: fallbackLabel, text });
+      setCopyFeedback({
+        message: "Clipboard access was unavailable. The invitation message is selected below.",
+        status: "error",
+        target,
+      });
+      window.requestAnimationFrame(() => {
+        fallbackRef.current?.focus();
+        fallbackRef.current?.select();
+      });
+      return false;
     }
   }
 
-  async function submitParty(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function copyGeneralInvitation() {
     if (!selectedInvitation) return;
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const capacity = Number(data.get("capacity"));
-    const guestNames = splitGuestNames(String(data.get("guestNames") ?? ""));
-    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 50) {
-      setActionMessage("Party capacity must be between 1 and 50.");
-      return;
-    }
-    if (guestNames.length > capacity) {
-      setActionMessage("Named guests cannot exceed the party capacity.");
-      return;
-    }
-
-    setIsPending(true);
     setActionMessage(null);
-    const result = await createGuestPartyAction({
-      capacity,
-      guestNames,
-      internalLabel: data.get("internalLabel"),
+    await writeCopy(
+      buildGeneralInvitationMessage(selectedInvitation.title, selectedInvitation.genericUrl),
+      "general",
+      "General invitation message",
+    );
+  }
+
+  async function copyPersonalInvitation(party: GuestPartySummary) {
+    if (!selectedInvitation) return;
+    if (party.linkStatus !== "active") {
+      requestConfirmation(party, "replace", partyMenuButtonRefs.current.get(party.id));
+      return;
+    }
+    setActionMessage(null);
+    setCopyingPartyId(party.id);
+    const result = await copyGuestInvitationAction({
+      guestPartyId: party.id,
       invitationId: selectedInvitation.invitationId,
-      recipientName: data.get("recipientName"),
     });
-    setIsPending(false);
+    setCopyingPartyId(null);
     if (result.status === "error") {
       setActionMessage(result.message);
       return;
     }
-    setRevealedLink(result.personalizedUrl);
-    setCreateOpen(false);
-    form.reset();
-    setActionMessage(
-      "Guest party saved. Copy its personalized link now; it cannot be shown again.",
-    );
-    router.refresh();
-    window.requestAnimationFrame(() => linkInputRef.current?.focus());
+    await writeCopy(result.copyText, party.id, `Invitation message for ${party.internalLabel}`);
   }
 
   function requestConfirmation(
-    event: React.MouseEvent<HTMLButtonElement>,
-    guestPartyId: string,
-    kind: "replace" | "revoke",
-    restoreFocus?: HTMLButtonElement,
+    party: GuestPartySummary,
+    kind: "replace" | "revoke" | "trash",
+    restoreFocus?: HTMLElement,
   ) {
-    const usesMobileMenu =
-      typeof window.matchMedia === "function" && window.matchMedia("(max-width: 700px)").matches;
-    restoreFocusRef.current = usesMobileMenu
-      ? (restoreFocus ?? event.currentTarget)
-      : event.currentTarget;
+    restoreFocusRef.current = restoreFocus ?? partyMenuButtonRefs.current.get(party.id) ?? null;
     setOpenPartyMenuId(null);
     setActionMessage(null);
-    setConfirmation({ guestPartyId, kind });
+    setConfirmation({ kind, party });
     window.requestAnimationFrame(() => dialogRef.current?.focus());
   }
 
-  async function confirmLinkAction() {
+  function closeConfirmation() {
+    if (isPending) return;
+    setConfirmation(null);
+    restoreFocusRef.current?.focus();
+  }
+
+  async function confirmAction() {
     if (!confirmation || !selectedInvitation) return;
     setIsPending(true);
     setActionMessage(null);
+
     if (confirmation.kind === "replace") {
       const result = await replaceGuestPartyLinkAction({
-        guestPartyId: confirmation.guestPartyId,
+        guestPartyId: confirmation.party.id,
         invitationId: selectedInvitation.invitationId,
       });
       setIsPending(false);
@@ -247,16 +265,59 @@ export function GuestDesk({
         setActionMessage(result.message);
         return;
       }
-      setRevealedLink(result.personalizedUrl);
-      setActionMessage("A fresh personalized link is ready. The previous link no longer works.");
+      const replacedParty = confirmation.party;
       setConfirmation(null);
+      await writeCopy(
+        result.copyText,
+        replacedParty.id,
+        `Invitation message for ${replacedParty.internalLabel}`,
+      );
+      setActionMessage("A fresh private link is active. The previous link no longer works.");
       router.refresh();
-      window.requestAnimationFrame(() => linkInputRef.current?.focus());
+      partyMenuButtonRefs.current.get(replacedParty.id)?.focus();
       return;
     }
 
-    const result = await revokeGuestPartyLinkAction({
-      guestPartyId: confirmation.guestPartyId,
+    const confirmedParty = confirmation.party;
+    const baseInput = {
+      expectedRevision: confirmedParty.revision,
+      guestPartyId: confirmedParty.id,
+      invitationId: selectedInvitation.invitationId,
+    };
+    const result =
+      confirmation.kind === "revoke"
+        ? await revokeGuestPartyLinkAction({
+            guestPartyId: confirmedParty.id,
+            invitationId: selectedInvitation.invitationId,
+          })
+        : await trashGuestPartyAction(baseInput);
+    setIsPending(false);
+    if (result.status === "error") {
+      setActionMessage(result.message);
+      return;
+    }
+
+    const completedKind = confirmation.kind;
+    setConfirmation(null);
+    setActionMessage(
+      completedKind === "revoke"
+        ? "The private link was revoked. The general invitation remains available."
+        : "The party was moved to Recently deleted and its private link was revoked.",
+    );
+    router.refresh();
+    window.requestAnimationFrame(() => {
+      if (completedKind === "trash") ledgerHeadingRef.current?.focus();
+      else partyMenuButtonRefs.current.get(confirmedParty.id)?.focus();
+    });
+  }
+
+  async function restoreParty(party: GuestPartySummary) {
+    if (!selectedInvitation) return;
+    setIsPending(true);
+    setActionMessage(null);
+    const result = await restoreGuestPartyAction({
+      expectedRevision: party.revision,
+      guestPartyId: party.id,
       invitationId: selectedInvitation.invitationId,
     });
     setIsPending(false);
@@ -264,12 +325,9 @@ export function GuestDesk({
       setActionMessage(result.message);
       return;
     }
-    setConfirmation(null);
-    setActionMessage(
-      "The personalized link was revoked. The general invitation remains available.",
-    );
+    setActionMessage("The guest party was restored. Create a fresh private link when ready.");
     router.refresh();
-    restoreFocusRef.current?.focus();
+    window.requestAnimationFrame(() => ledgerHeadingRef.current?.focus());
   }
 
   const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
@@ -278,9 +336,11 @@ export function GuestDesk({
       const matchesResponse = responseFilter === "all" || responseState(party) === responseFilter;
       if (!matchesResponse) return false;
       if (!normalizedQuery) return true;
-      return [party.internalLabel, party.recipientName, ...party.guestNames].some((value) =>
-        value.toLocaleLowerCase("en-PH").includes(normalizedQuery),
-      );
+      return [
+        party.internalLabel,
+        party.recipientName,
+        ...party.guestMembers.map(({ name }) => name),
+      ].some((value) => value.toLocaleLowerCase("en-PH").includes(normalizedQuery));
     })
     .sort((left, right) => {
       const responseOrder =
@@ -299,7 +359,7 @@ export function GuestDesk({
           </h2>
           <p>
             {selectedInvitation
-              ? "The general link stays welcoming for everyone. Personalized links add one private party greeting."
+              ? "Each party receives one private invitation and responds together."
               : "Guest parties become available after delivery is confirmed."}
           </p>
         </div>
@@ -308,13 +368,13 @@ export function GuestDesk({
             className={styles.invitationPicker}
             id="guest-invitation"
             label="Published invitation"
-            onChange={(invitationId) => {
+            onChange={(invitationId) =>
               router.push(
                 invitationId
                   ? `/dashboard/guests?invitationId=${encodeURIComponent(invitationId)}`
                   : "/dashboard/guests",
-              );
-            }}
+              )
+            }
             options={[
               { label: "Select an invitation", value: "" },
               ...invitations.map((invitation) => ({
@@ -333,39 +393,30 @@ export function GuestDesk({
         <>
           <section aria-labelledby="general-link-heading" className={styles.generalLink}>
             <div>
-              <p className={styles.eyebrow}>General share link</p>
-              <h2 id="general-link-heading">A welcoming link for every guest</h2>
-              <p>
-                It opens with the invitation fallback greeting and does not authorize a party RSVP.
-              </p>
+              <p className={styles.eyebrow}>General invitation</p>
+              <h2 id="general-link-heading">A welcoming message for every guest</h2>
+              <p>It opens the invitation for reading but does not authorize a party RSVP.</p>
             </div>
             <div className={styles.copyStack}>
-              <div className={styles.copyField}>
-                <input
-                  aria-label="General invitation link"
-                  readOnly
-                  ref={generalLinkInputRef}
-                  value={selectedInvitation.genericUrl}
-                />
-                <button
-                  onClick={() => void copyLink(selectedInvitation.genericUrl, "general")}
-                  type="button"
-                >
-                  {copyFeedback?.kind === "general" && copyFeedback.status === "success" ? (
-                    <>
-                      <Check /> Copied
-                    </>
-                  ) : (
-                    "Copy general link"
-                  )}
-                </button>
-              </div>
-              {copyFeedback?.kind === "general" ? (
+              <button
+                className={styles.copyInvitationButton}
+                onClick={() => void copyGeneralInvitation()}
+                type="button"
+              >
+                {copyFeedback?.target === "general" && copyFeedback.status === "success" ? (
+                  <>
+                    <Check /> Copied
+                  </>
+                ) : (
+                  "Copy general invitation"
+                )}
+              </button>
+              {copyFeedback?.target === "general" ? (
                 <p
+                  aria-live="polite"
                   className={
                     copyFeedback.status === "success" ? styles.copySuccess : styles.copyError
                   }
-                  aria-live="polite"
                   role="status"
                 >
                   {copyFeedback.message}
@@ -374,52 +425,22 @@ export function GuestDesk({
             </div>
           </section>
 
-          {revealedLink ? (
-            <section aria-labelledby="new-link-heading" className={styles.linkReveal}>
+          {copyFallback ? (
+            <section aria-labelledby="copy-fallback-heading" className={styles.linkReveal}>
               <span aria-hidden="true">
                 <Check />
               </span>
               <div>
-                <p className={styles.eyebrow}>Personalized link ready</p>
-                <h2 id="new-link-heading">Copy this private link now</h2>
-                <p>
-                  For guest privacy, Invitica stores only its keyed hash and cannot show this exact
-                  link again.
-                </p>
-                <div className={styles.copyStack}>
-                  <div className={styles.copyField}>
-                    <input
-                      aria-label="New personalized invitation link"
-                      readOnly
-                      ref={linkInputRef}
-                      value={revealedLink}
-                    />
-                    <button
-                      onClick={() => void copyLink(revealedLink, "personalized")}
-                      type="button"
-                    >
-                      {copyFeedback?.kind === "personalized" &&
-                      copyFeedback.status === "success" ? (
-                        <>
-                          <Check /> Copied
-                        </>
-                      ) : (
-                        "Copy personalized link"
-                      )}
-                    </button>
-                  </div>
-                  {copyFeedback?.kind === "personalized" ? (
-                    <p
-                      className={
-                        copyFeedback.status === "success" ? styles.copySuccess : styles.copyError
-                      }
-                      aria-live="polite"
-                      role="status"
-                    >
-                      {copyFeedback.message}
-                    </p>
-                  ) : null}
-                </div>
+                <p className={styles.eyebrow}>Manual copy</p>
+                <h2 id="copy-fallback-heading">{copyFallback.label}</h2>
+                <p>Copy the selected plain-text message, including its complete invitation link.</p>
+                <textarea
+                  aria-label={copyFallback.label}
+                  readOnly
+                  ref={fallbackRef}
+                  rows={5}
+                  value={copyFallback.text}
+                />
               </div>
             </section>
           ) : null}
@@ -461,18 +482,21 @@ export function GuestDesk({
             <header>
               <div>
                 <p className={styles.eyebrow}>Private guest ledger</p>
-                <h2 id="party-ledger-heading">Guest parties</h2>
+                <h2 id="party-ledger-heading" ref={ledgerHeadingRef} tabIndex={-1}>
+                  Guest parties
+                </h2>
               </div>
               <button
-                aria-label="Add guest party"
+                aria-label="Add guests"
                 className={styles.primaryAction}
-                onClick={openCreate}
+                onClick={() => {
+                  setActionMessage(null);
+                  setCreateOpen(true);
+                }}
                 ref={createButtonRef}
                 type="button"
               >
-                <Plus />
-                <span className={styles.desktopActionLabel}>Add guest party</span>
-                <span className={styles.mobileActionLabel}>Add party</span>
+                <Plus /> Add guests
               </button>
             </header>
 
@@ -482,9 +506,9 @@ export function GuestDesk({
                   <Users />
                 </span>
                 <h3>No guest parties yet</h3>
-                <p>Add one household or group to prepare its addressed invitation link.</p>
-                <button onClick={openCreate} type="button">
-                  Add the first party
+                <p>Add one person, a family, or paste a full guest list in a single action.</p>
+                <button onClick={() => setCreateOpen(true)} type="button">
+                  Add the first guests
                 </button>
               </div>
             ) : (
@@ -524,138 +548,212 @@ export function GuestDesk({
                     <table aria-label="Guest party response ledger" className={styles.ledgerTable}>
                       <thead>
                         <tr>
-                          <th scope="col">Party</th>
-                          <th scope="col">Response</th>
-                          <th scope="col">Seats</th>
+                          <th scope="col">Guest party</th>
+                          <th scope="col">RSVP</th>
                           <th scope="col">Message</th>
-                          <th scope="col">Updated</th>
-                          <th scope="col">Private link</th>
+                          <th scope="col">Invitation</th>
+                          <th scope="col">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredParties.map((party) => (
-                          <tr key={party.id}>
+                          <tr data-pending={copyingPartyId === party.id} key={party.id}>
                             <td data-label="Party">
                               <div className={styles.partyIdentity}>
                                 <h3>{party.internalLabel}</h3>
                                 <p>Envelope: {party.recipientName}</p>
-                                {party.guestNames.length > 0 ? (
+                                {party.guestMembers.length > 0 ? (
                                   <details>
                                     <summary>
-                                      {party.guestNames.length} named{" "}
-                                      {party.guestNames.length === 1 ? "guest" : "guests"}
+                                      {party.guestMembers.length} named{" "}
+                                      {party.guestMembers.length === 1 ? "guest" : "guests"}
                                     </summary>
-                                    <p>{party.guestNames.join(", ")}</p>
+                                    <ul className={styles.memberList}>
+                                      {party.guestMembers.map((member) => (
+                                        <li key={member.id}>
+                                          <span>{member.name}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
                                   </details>
                                 ) : null}
                               </div>
                             </td>
-                            <td data-label="Response">
-                              <span
-                                className={styles.responseBadge}
-                                data-response={responseState(party)}
-                              >
-                                {responseLabel(party)}
-                              </span>
-                              {party.response?.attendance === "attending" ? (
-                                <small>{party.response.attendeeCount} attending</small>
-                              ) : null}
-                            </td>
-                            <td data-label="Seats">
-                              <span>
-                                {party.response?.attendance === "attending"
-                                  ? `${party.response.attendeeCount} / ${party.capacity}`
-                                  : `0 / ${party.capacity}`}
-                              </span>
+                            <td data-label="RSVP">
+                              <div className={styles.rsvpSummary}>
+                                <span
+                                  className={styles.responseBadge}
+                                  data-response={responseState(party)}
+                                >
+                                  {responseLabel(party)}
+                                </span>
+                                <strong>
+                                  {party.response?.attendance === "attending"
+                                    ? `${party.response.attendeeCount} of ${party.capacity} attending`
+                                    : `0 of ${party.capacity} attending`}
+                                </strong>
+                                {party.response ? (
+                                  <span className={styles.responseUpdated}>
+                                    Updated{" "}
+                                    <time dateTime={party.response.updatedAt}>
+                                      {formatResponseTime(party.response.updatedAt)}
+                                    </time>
+                                  </span>
+                                ) : (
+                                  <span className={styles.mutedValue}>No response yet</span>
+                                )}
+                              </div>
                             </td>
                             <td data-label="Message">
                               {party.response?.message ? (
-                                <details className={styles.messageDetails}>
-                                  <summary>Read message</summary>
-                                  <p>{party.response.message}</p>
-                                </details>
+                                party.response.message.length > 120 ? (
+                                  <details className={styles.messageDetails}>
+                                    <summary>
+                                      <span aria-hidden="true" className={styles.messageExcerpt}>
+                                        {party.response.message}
+                                      </span>
+                                      <span className={styles.messageToggle}>
+                                        <span className={styles.messageOpenLabel}>
+                                          Read full message
+                                        </span>
+                                        <span className={styles.messageCloseLabel}>
+                                          Hide full message
+                                        </span>
+                                      </span>
+                                    </summary>
+                                    <p>{party.response.message}</p>
+                                  </details>
+                                ) : (
+                                  <p className={styles.messageText}>{party.response.message}</p>
+                                )
                               ) : (
                                 <span className={styles.mutedValue}>No message</span>
                               )}
                             </td>
-                            <td data-label="Updated">
-                              {party.response ? (
-                                <time dateTime={party.response.updatedAt}>
-                                  {formatResponseTime(party.response.updatedAt)}
-                                </time>
-                              ) : (
-                                <span className={styles.mutedValue}>Not yet</span>
-                              )}
-                            </td>
-                            <td data-label="Private link">
+                            <td data-label="Invitation">
                               <div className={styles.linkControl}>
                                 <span
                                   className={
                                     party.linkStatus === "active" ? styles.active : styles.revoked
                                   }
                                 >
-                                  {party.linkStatus === "active" ? "Link active" : "Link revoked"}
+                                  {party.linkStatus === "active"
+                                    ? "Private link active"
+                                    : "Link revoked"}
                                 </span>
+                                <button
+                                  aria-label={
+                                    copyingPartyId === party.id
+                                      ? `Preparing invitation for ${party.internalLabel}`
+                                      : copyFeedback?.target === party.id &&
+                                          copyFeedback.status === "success"
+                                        ? `Copied invitation for ${party.internalLabel}`
+                                        : party.linkStatus === "active"
+                                          ? `Copy invitation for ${party.internalLabel}`
+                                          : `Create and copy invitation for ${party.internalLabel}`
+                                  }
+                                  className={`${styles.rowCopyAction} ${styles.invitationCopyAction}`}
+                                  disabled={copyingPartyId === party.id}
+                                  onClick={() => void copyPersonalInvitation(party)}
+                                  type="button"
+                                >
+                                  {copyingPartyId === party.id
+                                    ? "Preparing..."
+                                    : copyFeedback?.target === party.id &&
+                                        copyFeedback.status === "success"
+                                      ? "Copied"
+                                      : party.linkStatus === "active"
+                                        ? "Copy invitation"
+                                        : "Create & copy invitation"}
+                                </button>
+                                {copyFeedback?.target === party.id ? (
+                                  <span aria-live="polite" className={styles.visuallyHidden}>
+                                    {copyFeedback.message}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td data-label="Actions">
+                              <div
+                                className={styles.partyActionMenu}
+                                ref={openPartyMenuId === party.id ? openPartyMenuRef : undefined}
+                              >
+                                <button
+                                  aria-expanded={openPartyMenuId === party.id}
+                                  aria-haspopup="true"
+                                  aria-label={`More actions for ${party.internalLabel}`}
+                                  className={styles.moreAction}
+                                  onClick={() =>
+                                    setOpenPartyMenuId((current) =>
+                                      current === party.id ? null : party.id,
+                                    )
+                                  }
+                                  ref={(element) => {
+                                    if (element) partyMenuButtonRefs.current.set(party.id, element);
+                                    else partyMenuButtonRefs.current.delete(party.id);
+                                  }}
+                                  type="button"
+                                >
+                                  <MoreHorizontal />
+                                  <span>More</span>
+                                </button>
                                 <div
-                                  className={styles.partyActionMenu}
-                                  ref={openPartyMenuId === party.id ? openPartyMenuRef : undefined}
+                                  className={styles.partyActions}
+                                  data-open={openPartyMenuId === party.id}
                                 >
                                   <button
-                                    aria-expanded={openPartyMenuId === party.id}
-                                    aria-haspopup="true"
-                                    aria-label={`More actions for ${party.internalLabel}`}
-                                    className={styles.moreAction}
-                                    onClick={() =>
-                                      setOpenPartyMenuId((current) =>
-                                        current === party.id ? null : party.id,
-                                      )
-                                    }
-                                    ref={(element) => {
-                                      if (element)
-                                        partyMenuButtonRefs.current.set(party.id, element);
-                                      else partyMenuButtonRefs.current.delete(party.id);
+                                    aria-label={`Edit ${party.internalLabel}`}
+                                    onClick={() => {
+                                      setActionMessage(null);
+                                      setOpenPartyMenuId(null);
+                                      setEditingParty(party);
                                     }}
                                     type="button"
                                   >
-                                    <MoreHorizontal />
-                                    <span>More</span>
+                                    Edit party
                                   </button>
-                                  <div
-                                    className={styles.partyActions}
-                                    data-open={openPartyMenuId === party.id}
+                                  <button
+                                    onClick={() =>
+                                      requestConfirmation(
+                                        party,
+                                        "replace",
+                                        partyMenuButtonRefs.current.get(party.id),
+                                      )
+                                    }
+                                    type="button"
                                   >
+                                    {party.linkStatus === "active"
+                                      ? "Replace private link"
+                                      : "Create private link"}
+                                  </button>
+                                  {party.linkStatus === "active" ? (
                                     <button
-                                      onClick={(event) =>
+                                      className={styles.dangerAction}
+                                      onClick={() =>
                                         requestConfirmation(
-                                          event,
-                                          party.id,
-                                          "replace",
+                                          party,
+                                          "revoke",
                                           partyMenuButtonRefs.current.get(party.id),
                                         )
                                       }
                                       type="button"
                                     >
-                                      {party.linkStatus === "active"
-                                        ? "Replace link"
-                                        : "Create new link"}
+                                      Revoke private link
                                     </button>
-                                    {party.linkStatus === "active" ? (
-                                      <button
-                                        className={styles.dangerAction}
-                                        onClick={(event) =>
-                                          requestConfirmation(
-                                            event,
-                                            party.id,
-                                            "revoke",
-                                            partyMenuButtonRefs.current.get(party.id),
-                                          )
-                                        }
-                                        type="button"
-                                      >
-                                        Revoke link
-                                      </button>
-                                    ) : null}
-                                  </div>
+                                  ) : null}
+                                  <button
+                                    className={styles.dangerAction}
+                                    onClick={() =>
+                                      requestConfirmation(
+                                        party,
+                                        "trash",
+                                        partyMenuButtonRefs.current.get(party.id),
+                                      )
+                                    }
+                                    type="button"
+                                  >
+                                    Move party to trash
+                                  </button>
                                 </div>
                               </div>
                             </td>
@@ -668,6 +766,30 @@ export function GuestDesk({
               </>
             )}
           </section>
+
+          {trashedParties.length > 0 ? (
+            <details className={styles.trashPanel}>
+              <summary>Recently deleted ({trashedParties.length})</summary>
+              <p>Restored parties return without an active private link.</p>
+              <ul>
+                {trashedParties.map((party) => (
+                  <li key={party.id}>
+                    <span>
+                      <strong>{party.internalLabel}</strong>
+                      <small>{party.recipientName}</small>
+                    </span>
+                    <button
+                      disabled={isPending}
+                      onClick={() => void restoreParty(party)}
+                      type="button"
+                    >
+                      Restore
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </>
       ) : null}
 
@@ -675,120 +797,76 @@ export function GuestDesk({
         {actionMessage}
       </p>
 
-      {createOpen ? (
-        <div className={styles.backdrop}>
-          <section
-            aria-describedby="create-party-description"
-            aria-labelledby="create-party-title"
-            aria-modal="true"
-            className={styles.dialog}
-            ref={dialogRef}
-            role="dialog"
-            tabIndex={-1}
-          >
-            <p className={styles.eyebrow}>New guest party</p>
-            <h2 id="create-party-title">Prepare one addressed invitation</h2>
-            <p id="create-party-description">
-              The internal label stays in your ledger. The envelope greeting is visible to anyone
-              holding the personalized link.
-            </p>
-            <form onSubmit={(event) => void submitParty(event)}>
-              <label>
-                <span>Internal party label</span>
-                <input
-                  autoComplete="off"
-                  maxLength={120}
-                  name="internalLabel"
-                  placeholder="Santos household"
-                  ref={firstFieldRef}
-                  required
-                />
-              </label>
-              <label>
-                <span>Envelope greeting</span>
-                <input
-                  autoComplete="off"
-                  maxLength={120}
-                  name="recipientName"
-                  placeholder="Tita Lena and family"
-                  required
-                />
-              </label>
-              <label>
-                <span>Party capacity</span>
-                <input
-                  defaultValue="1"
-                  inputMode="numeric"
-                  max={50}
-                  min={1}
-                  name="capacity"
-                  required
-                  type="number"
-                />
-              </label>
-              <label>
-                <span>
-                  Named guests <small>Optional, one per line</small>
-                </span>
-                <textarea
-                  maxLength={6049}
-                  name="guestNames"
-                  placeholder={"Lena Santos\nPaolo Santos"}
-                  rows={4}
-                />
-              </label>
-              {actionMessage ? <p className={styles.dialogStatus}>{actionMessage}</p> : null}
-              <div className={styles.dialogActions}>
-                <button disabled={isPending} onClick={closeDialog} type="button">
-                  Cancel
-                </button>
-                <button disabled={isPending} type="submit">
-                  {isPending ? "Preparing..." : "Create party & link"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+      {createOpen && selectedInvitation ? (
+        <GuestBulkComposer
+          invitation={selectedInvitation}
+          onClose={() => {
+            setCreateOpen(false);
+            createButtonRef.current?.focus();
+          }}
+          onCreated={(count) => {
+            setCreateOpen(false);
+            setActionMessage(
+              `${count} ${count === 1 ? "guest party is" : "guest parties are"} ready to share.`,
+            );
+            router.refresh();
+            window.requestAnimationFrame(() => createButtonRef.current?.focus());
+          }}
+          returnFocusRef={createButtonRef}
+        />
+      ) : null}
+
+      {editingParty && selectedInvitation ? (
+        <GuestPartyEditor
+          invitationId={selectedInvitation.invitationId}
+          onClose={() => {
+            const editedPartyId = editingParty.id;
+            setEditingParty(null);
+            window.requestAnimationFrame(() =>
+              partyMenuButtonRefs.current.get(editedPartyId)?.focus(),
+            );
+          }}
+          onUpdated={() => {
+            const editedPartyId = editingParty.id;
+            setEditingParty(null);
+            setActionMessage(
+              "The guest party was updated. Its private link and RSVP are unchanged.",
+            );
+            router.refresh();
+            window.requestAnimationFrame(() =>
+              partyMenuButtonRefs.current.get(editedPartyId)?.focus(),
+            );
+          }}
+          party={editingParty}
+        />
       ) : null}
 
       {confirmation ? (
         <div className={styles.backdrop}>
           <section
-            aria-describedby="link-confirmation-description"
-            aria-labelledby="link-confirmation-title"
+            aria-describedby="guest-confirmation-description"
+            aria-labelledby="guest-confirmation-title"
             aria-modal="true"
             className={styles.dialog}
             ref={dialogRef}
             role="dialog"
             tabIndex={-1}
           >
-            <p className={styles.eyebrow}>Private link control</p>
-            <h2 id="link-confirmation-title">
-              {confirmation.kind === "replace"
-                ? "Replace this personalized link?"
-                : "Revoke this personalized link?"}
-            </h2>
-            <p id="link-confirmation-description">
-              {confirmation.kind === "replace"
-                ? "The current link will stop working immediately. A fresh link will be shown once and must be copied before leaving."
-                : "The party will lose personalized access immediately. The general invitation link will keep working."}
-            </p>
+            <p className={styles.eyebrow}>{confirmationCopy(confirmation).eyebrow}</p>
+            <h2 id="guest-confirmation-title">{confirmationCopy(confirmation).title}</h2>
+            <p id="guest-confirmation-description">{confirmationCopy(confirmation).description}</p>
             {actionMessage ? <p className={styles.dialogStatus}>{actionMessage}</p> : null}
             <div className={styles.dialogActions}>
-              <button disabled={isPending} onClick={closeDialog} type="button">
-                Keep current link
+              <button disabled={isPending} onClick={closeConfirmation} type="button">
+                Cancel
               </button>
               <button
-                className={confirmation.kind === "revoke" ? styles.confirmDanger : undefined}
+                className={confirmation.kind === "replace" ? undefined : styles.confirmDanger}
                 disabled={isPending}
-                onClick={() => void confirmLinkAction()}
+                onClick={() => void confirmAction()}
                 type="button"
               >
-                {isPending
-                  ? "Working..."
-                  : confirmation.kind === "replace"
-                    ? "Replace link"
-                    : "Revoke link"}
+                {isPending ? "Working..." : confirmationCopy(confirmation).action}
               </button>
             </div>
           </section>

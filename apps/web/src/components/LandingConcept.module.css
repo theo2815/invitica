@@ -11,17 +11,12 @@
   --accent-hover: #5d2632;
   --accent-text: #ffffff;
   --focus: #2457c5;
-  --preview: #dfe4d3;
-  --preview-line: #667159;
-  --letter: #fffaf0;
-  --envelope: #ded1bd;
-  --seal: #7a3442;
   --art-one: #dce4cf;
   --art-two: #ead0c8;
   --art-three: #e7d5a9;
   --display-font: "Fraunces Variable", Georgia, serif;
   min-width: 320px;
-  overflow: hidden;
+  overflow-x: clip;
   background: var(--background);
   color: var(--text);
   font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
@@ -136,9 +131,9 @@
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(25rem, 0.9fr);
+  min-height: clamp(32rem, 72vh, 44rem);
+  grid-template-columns: minmax(0, 48rem);
   align-items: center;
-  gap: clamp(3rem, 7vw, 7rem);
   padding-block: clamp(4.5rem, 8vw, 7.5rem);
 }
 
@@ -227,132 +222,6 @@
   margin: 1rem 0 0;
   color: var(--muted);
   font-size: 0.72rem;
-}
-
-.previewPanel {
-  position: relative;
-  display: flex;
-  min-height: 34rem;
-  overflow: hidden;
-  flex-direction: column;
-  padding: 1.25rem;
-  border: 1px solid var(--preview-line);
-  border-radius: 0.8rem;
-  background:
-    linear-gradient(rgb(255 255 255 / 16%), rgb(255 255 255 / 16%)),
-    repeating-linear-gradient(24deg, transparent 0 12px, rgb(102 113 89 / 5%) 12px 13px),
-    var(--preview);
-}
-
-.previewTopline {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  justify-content: space-between;
-  padding-bottom: 0.8rem;
-  border-bottom: 1px solid var(--preview-line);
-  color: var(--preview-line);
-  font-size: 0.64rem;
-  font-weight: 740;
-}
-
-.marketingEnvelope {
-  flex: 1;
-  margin-top: 1rem;
-}
-
-.marketingEnvelope :global(.ie-opening) {
-  min-height: 25rem;
-  padding: 1rem 0.5rem;
-}
-
-.marketingEnvelope :global(.ie-opening::before) {
-  inset: 0.5rem;
-}
-
-.marketingEnvelope :global(.ie-scene) {
-  min-height: 17rem;
-  margin-block: 0.9rem 0.6rem;
-}
-
-.marketingEnvelope[data-opening-state="opened"] :global(.ie-opening) {
-  min-height: 20rem;
-}
-
-.previewInvitation {
-  display: grid;
-  min-height: 10rem;
-  align-content: center;
-  justify-items: center;
-  padding: 1.5rem;
-  border: 1px solid var(--preview-line);
-  background: color-mix(in srgb, var(--letter) 88%, transparent);
-  text-align: center;
-  outline: 0;
-}
-
-.previewInvitation:focus-visible {
-  outline: 3px solid var(--text);
-  outline-offset: -5px;
-}
-
-.previewInvitation small {
-  color: var(--accent);
-  font-size: 0.58rem;
-  font-weight: 760;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.previewInvitation h2 {
-  margin: 0.7rem 0 0;
-  font-family: var(--display-font);
-  font-size: clamp(1.9rem, 4vw, 3rem);
-  font-weight: 520;
-  letter-spacing: -0.05em;
-  line-height: 1;
-}
-
-.previewInvitation p {
-  margin: 0.65rem 0 0;
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-
-.previewActions {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.8rem;
-  color: var(--preview-line);
-  font-size: 0.65rem;
-  font-weight: 700;
-}
-
-.previewActions button {
-  min-height: 2.75rem;
-  padding-inline: 0.85rem;
-  border: 1px solid var(--preview-line);
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.previewActions button:hover:not(:disabled),
-.previewActions button:focus-visible {
-  border-color: var(--text);
-  outline: 2px solid var(--text);
-  outline-offset: 2px;
-}
-
-.previewActions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .quickBenefits {
@@ -494,11 +363,6 @@
     transform 160ms ease;
 }
 
-.templateCard[data-selected="true"] {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
 .templateCard:hover {
   transform: translateY(-2px);
 }
@@ -581,9 +445,12 @@
   font-size: 1.25rem;
 }
 
-.templateDetails button {
+.templateDetails > a {
+  display: inline-flex;
   min-width: 5rem;
   min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
   padding-inline: 0.85rem;
   border: 1px solid var(--border);
   border-radius: 0.3rem;
@@ -591,29 +458,13 @@
   color: var(--text);
   font-size: 0.7rem;
   font-weight: 740;
-  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
 }
 
-.templateDetails button[aria-pressed="true"] {
+.templateDetails > a:hover {
   border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-.inlineLink {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  width: fit-content;
-  margin-top: 1.5rem;
   color: var(--accent);
-  font-size: 0.76rem;
-  font-weight: 720;
-  text-underline-offset: 0.3rem;
-}
-
-.inlineLink svg {
-  width: 1rem;
 }
 
 .featureSection {
@@ -892,18 +743,8 @@
     color: var(--accent-text);
   }
 
-  .hero {
-    grid-template-columns: 1fr;
-  }
-
   .heroCopy {
     max-width: 44rem;
-  }
-
-  .previewPanel {
-    width: min(100%, 36rem);
-    min-height: 33rem;
-    margin-inline: auto;
   }
 
   .sectionHeading,
@@ -941,7 +782,7 @@
   }
 
   .hero {
-    gap: 3.5rem;
+    min-height: auto;
     padding-block: 3.75rem 4.5rem;
   }
 
@@ -957,11 +798,6 @@
   .primaryButton,
   .secondaryButton {
     width: 100%;
-  }
-
-  .previewPanel {
-    min-height: 27rem;
-    padding: 0.85rem;
   }
 
   .quickBenefits {
@@ -990,9 +826,13 @@
   }
 
   .steps,
-  .templateGrid,
   .featureColumns {
     grid-template-columns: 1fr;
+  }
+
+  .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
   }
 
   .steps li {
@@ -1010,7 +850,47 @@
   }
 
   .templateArtwork {
-    min-height: 25rem;
+    min-height: 12.5rem;
+    padding: 0.75rem;
+  }
+
+  .templateArtwork small {
+    font-size: 0.46rem;
+    letter-spacing: 0.08em;
+  }
+
+  .templateArtwork strong {
+    margin-block: 0.8rem;
+    font-size: clamp(1.2rem, 6vw, 1.6rem);
+    line-height: 1;
+  }
+
+  .templateArtwork span {
+    font-size: 0.48rem;
+  }
+
+  .templateDetails {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .templateDetails p {
+    font-size: 0.54rem;
+  }
+
+  .templateDetails h3 {
+    margin-top: 0.3rem;
+    font-size: 1rem;
+    line-height: 1.1;
+  }
+
+  .templateDetails > a {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.45rem;
+    font-size: 0.62rem;
   }
 
   .pricing,

@@ -1,49 +1,20 @@
 "use client";
 
-import {
-  type InvitationOpeningState,
-  RibbonEnvelopeOpening,
-  type RibbonEnvelopeVariant,
-} from "@invitica/renderer";
-import { resolveTemplateById, type TemplateCatalogEntry } from "@invitica/template-kit";
+import type { TemplateCatalogEntry } from "@invitica/template-kit";
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { useState } from "react";
 
 import { BrandMark } from "./BrandMark";
-import { ArrowRight, ArrowUpRight, Check } from "./Icons";
+import { ArrowRight, Check } from "./Icons";
 import styles from "./LandingConcept.module.css";
 
 interface LandingConceptProps {
+  authenticated?: boolean;
   templates: readonly TemplateCatalogEntry[];
 }
 
-export function LandingConcept({ templates }: LandingConceptProps) {
+export function LandingConcept({ authenticated = false, templates }: LandingConceptProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openingState, setOpeningState] = useState<InvitationOpeningState>("closed");
-  const [openingReplayKey, setOpeningReplayKey] = useState(0);
-  const [selectedTemplate, setSelectedTemplate] = useState(0);
-  const activeTemplate = templates[selectedTemplate] ?? templates[0];
-
-  if (!activeTemplate) {
-    throw new Error("The landing page requires at least one registered template");
-  }
-
-  const activeManifest = resolveTemplateById(activeTemplate.id);
-  const envelopeVariant: RibbonEnvelopeVariant =
-    activeTemplate.id === "garden-promise"
-      ? "garden-promise"
-      : activeTemplate.id === "golden-hour"
-        ? "golden-hour"
-        : activeTemplate.id === "sunday-joy"
-          ? "sunday-joy"
-          : "warm-editorial";
-  const envelopeStyle = {
-    "--ie-background": activeManifest.defaultDocument.theme.colors.background,
-    "--ie-ink": activeManifest.defaultDocument.theme.colors.text,
-    "--ie-paper": activeManifest.defaultDocument.theme.colors.surface,
-    "--ie-ribbon": activeManifest.defaultDocument.theme.colors.accent,
-  } as CSSProperties;
 
   function closeMenu() {
     setMenuOpen(false);
@@ -69,12 +40,20 @@ export function LandingConcept({ templates }: LandingConceptProps) {
         </nav>
 
         <div className={styles.headerActions}>
-          <Link className={styles.loginLink} href="/login">
-            Log in
-          </Link>
-          <Link className={styles.headerCta} href="/register">
-            Create account
-          </Link>
+          {authenticated ? (
+            <Link className={styles.headerCta} href="/dashboard">
+              Home
+            </Link>
+          ) : (
+            <>
+              <Link className={styles.loginLink} href="/login">
+                Log in
+              </Link>
+              <Link className={styles.headerCta} href="/register">
+                Create account
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -110,12 +89,20 @@ export function LandingConcept({ templates }: LandingConceptProps) {
         <Link href="#faq" onClick={closeMenu}>
           FAQ
         </Link>
-        <Link href="/login" onClick={closeMenu}>
-          Log in
-        </Link>
-        <Link className={styles.mobileCta} href="/register" onClick={closeMenu}>
-          Create account
-        </Link>
+        {authenticated ? (
+          <Link className={styles.mobileCta} href="/dashboard" onClick={closeMenu}>
+            Home
+          </Link>
+        ) : (
+          <>
+            <Link href="/login" onClick={closeMenu}>
+              Log in
+            </Link>
+            <Link className={styles.mobileCta} href="/register" onClick={closeMenu}>
+              Create account
+            </Link>
+          </>
+        )}
       </nav>
 
       <main id="main-content">
@@ -136,51 +123,6 @@ export function LandingConcept({ templates }: LandingConceptProps) {
               </a>
             </div>
             <p className={styles.heroNote}>Start for free · Guests do not need an account</p>
-          </div>
-
-          <div className={styles.previewPanel} id="sample-invitation">
-            <div className={styles.previewTopline}>
-              <span>Interactive invitation preview</span>
-              <span>{activeTemplate.occasion}</span>
-            </div>
-            <RibbonEnvelopeOpening
-              className={styles.marketingEnvelope}
-              kicker={`${activeTemplate.occasion} invitation`}
-              letterLead="You are invited"
-              letterNote={activeTemplate.date}
-              mode="preview"
-              onOpeningStateChange={setOpeningState}
-              openingReplayKey={openingReplayKey}
-              recipient={activeManifest.defaultDocument.opening.fallbackRecipientText}
-              recipientLead="Made especially for"
-              style={envelopeStyle}
-              variant={envelopeVariant}
-            >
-              <section
-                className={styles.previewInvitation}
-                data-envelope-focus-target
-                tabIndex={-1}
-              >
-                <small>{activeTemplate.occasion}</small>
-                <h2>{activeTemplate.previewTitle}</h2>
-                <p>{activeTemplate.date}</p>
-              </section>
-            </RibbonEnvelopeOpening>
-            <div className={styles.previewActions}>
-              <span>
-                {openingState === "opened" ? "Sample invitation opened" : "Open the sample above"}
-              </span>
-              <button
-                disabled={openingState !== "opened"}
-                onClick={() => {
-                  setOpeningState("closed");
-                  setOpeningReplayKey((current) => current + 1);
-                }}
-                type="button"
-              >
-                Replay opening
-              </button>
-            </div>
           </div>
         </section>
 
@@ -230,16 +172,12 @@ export function LandingConcept({ templates }: LandingConceptProps) {
               <p className={styles.sectionLabel}>Popular templates</p>
               <h2>Start with a design made for the occasion.</h2>
             </div>
-            <p>Preview a template below. You can change your choice before publishing.</p>
+            <p>Open a complete guest preview, then choose a design when you are ready.</p>
           </div>
 
           <div className={styles.templateGrid}>
             {templates.map((template, index) => (
-              <article
-                className={styles.templateCard}
-                data-selected={selectedTemplate === index}
-                key={template.name}
-              >
+              <article className={styles.templateCard} key={template.name}>
                 <div aria-hidden="true" className={styles.templateArtwork} data-index={index}>
                   <small>{template.occasion}</small>
                   <strong>{template.previewTitle}</strong>
@@ -252,25 +190,18 @@ export function LandingConcept({ templates }: LandingConceptProps) {
                     </p>
                     <h3>{template.name}</h3>
                   </div>
-                  <button
-                    aria-pressed={selectedTemplate === index}
-                    onClick={() => {
-                      setSelectedTemplate(index);
-                      setOpeningState("closed");
-                      setOpeningReplayKey((current) => current + 1);
-                    }}
-                    type="button"
+                  <Link
+                    aria-label={`${template.name} preview invitation (opens in a new tab)`}
+                    href={`/templates/${template.id}/preview`}
+                    rel="noreferrer"
+                    target="_blank"
                   >
-                    {selectedTemplate === index ? "Selected" : "Preview"}
-                  </button>
+                    Preview invitation
+                  </Link>
                 </div>
               </article>
             ))}
           </div>
-
-          <a className={styles.inlineLink} href="#sample-invitation">
-            View the selected invitation preview <ArrowUpRight />
-          </a>
         </section>
 
         <section className={styles.featureSection} id="features">

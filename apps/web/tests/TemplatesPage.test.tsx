@@ -1,4 +1,4 @@
-import { GardenPromiseRenderer } from "@invitica/renderer";
+import { GardenPromiseRenderer, InvitationRenderer } from "@invitica/renderer";
 import { resolveTemplateById, templateCatalog } from "@invitica/template-kit";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -125,22 +125,25 @@ describe("templates page", () => {
   it("enables creation only for the production template with a stable request key", () => {
     render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
 
-    const creationButtons = screen.getAllByRole("button", { name: "Use this template" });
-    const enabledButtons = creationButtons.filter(
-      (button): button is HTMLButtonElement =>
-        button instanceof HTMLButtonElement && !button.hasAttribute("disabled"),
-    );
+    const creationButton = screen.getByRole("button", { name: "Use this template" });
+    const previewOnlyButtons = screen.getAllByRole("button", { name: "Preview only" });
 
-    expect(creationButtons).toHaveLength(3);
-    expect(enabledButtons).toHaveLength(1);
+    if (!(creationButton instanceof HTMLButtonElement)) {
+      throw new Error("Expected the production template action to be a button.");
+    }
+
+    expect(previewOnlyButtons).toHaveLength(2);
+    expect(previewOnlyButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(
-      enabledButtons[0]?.form?.querySelector<HTMLInputElement>('input[name="invitationId"]')?.value,
+      creationButton.form?.querySelector<HTMLInputElement>('input[name="invitationId"]')?.value,
     ).toBe(creationRequestIds["garden-promise"]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview Golden Hour" }));
-    expect(screen.getByText("Preview only — production creation is unavailable.")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Quick preview Golden Hour" }));
     expect(
-      screen.getAllByRole("button", { name: "Use this template" }).at(-1)?.hasAttribute("disabled"),
+      screen.getByText("Interactive concept preview — production creation is unavailable."),
+    ).toBeDefined();
+    expect(
+      screen.getAllByRole("button", { name: "Preview only" }).at(-1)?.hasAttribute("disabled"),
     ).toBe(true);
   });
 
@@ -183,7 +186,7 @@ describe("templates page", () => {
       <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview Garden Promise" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quick preview Garden Promise" }));
     expect(screen.getByRole("dialog", { name: "Preview Garden Promise" })).toBeDefined();
     expect(screen.getByText("Production renderer")).toBeDefined();
     expect(screen.getByRole("button", { name: /Open invitation for/ })).toBeDefined();
@@ -194,6 +197,12 @@ describe("templates page", () => {
     expect(screen.getByRole("button", { name: "Replay opening" }).hasAttribute("disabled")).toBe(
       true,
     );
+    const fullPreviewLink = screen.getByRole("link", {
+      name: "Open Garden Promise full invitation in a new tab",
+    });
+    expect(fullPreviewLink.getAttribute("href")).toBe("/templates/garden-promise/preview");
+    expect(fullPreviewLink.getAttribute("target")).toBe("_blank");
+    expect(fullPreviewLink.getAttribute("rel")).toBe("noreferrer");
     fireEvent.click(screen.getByRole("button", { name: "Desktop preview" }));
     expect(screen.getByTestId("template-preview-stage").getAttribute("data-device")).toBe(
       "desktop",
@@ -223,6 +232,42 @@ describe("templates page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(screen.getByRole("alert").textContent).toContain("Templates could not be loaded");
     expect(reset).toHaveBeenCalledOnce();
+  });
+});
+
+describe("standard template cinematic takeover", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("hands Golden Hour and Sunday Joy directly from the opener into their real hero", () => {
+    vi.useFakeTimers();
+
+    for (const templateId of ["golden-hour", "sunday-joy"]) {
+      const manifest = resolveTemplateById(templateId);
+      const { container, unmount } = render(
+        <InvitationRenderer document={manifest.defaultDocument} mode="preview" />,
+      );
+      const invitation = container.querySelector("[data-opening-state]");
+      const content = container.querySelector<HTMLElement>("[data-envelope-gated]");
+      const opening = container.querySelector("[data-envelope-opening]");
+
+      fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
+      act(() => vi.advanceTimersByTime(620));
+      act(() => vi.advanceTimersByTime(700));
+
+      expect(invitation?.getAttribute("data-opening-state")).toBe("letter-revealing");
+      expect(content?.getAttribute("data-envelope-visual-gated")).toBe("false");
+      expect(content?.hasAttribute("inert")).toBe(true);
+
+      act(() => vi.advanceTimersByTime(760));
+      act(() => vi.advanceTimersByTime(0));
+
+      expect(invitation?.getAttribute("data-opening-state")).toBe("opened");
+      expect(opening?.hasAttribute("hidden")).toBe(true);
+      expect(content?.hasAttribute("inert")).toBe(false);
+      unmount();
+    }
   });
 });
 

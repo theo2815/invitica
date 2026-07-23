@@ -108,8 +108,9 @@ export function RibbonEnvelopeOpening({
   const contentIsGated = hydrated && openingState !== "opened";
   const shouldLockPage = contentIsGated && mode === "published";
   const gardenPromise = variant === "garden-promise";
+  const cinematicTakeover = gardenPromise || variant === "golden-hour" || variant === "sunday-joy";
   const contentIsVisuallyGated =
-    contentIsGated && !(gardenPromise && openingState === "letter-revealing");
+    contentIsGated && !(cinematicTakeover && openingState === "letter-revealing");
 
   useEffect(() => setHydrated(true), []);
 
@@ -249,6 +250,7 @@ export function RibbonEnvelopeOpening({
     <div
       className={`ie-root${className ? ` ${className}` : ""}`}
       data-envelope-hydrated={hydrated}
+      data-envelope-takeover={cinematicTakeover}
       data-envelope-variant={variant}
       data-motion-enabled={!shouldReduceMotion}
       data-opening-state={openingState}
@@ -259,7 +261,7 @@ export function RibbonEnvelopeOpening({
         aria-labelledby={openingHeadingId}
         className={gardenClass("opening", gardenPromise)}
         data-envelope-opening="true"
-        hidden={gardenPromise && openingState === "opened"}
+        hidden={cinematicTakeover && openingState === "opened"}
       >
         <h2 className={gardenClass("visually-hidden", gardenPromise)} id={openingHeadingId}>
           Invitation for {recipient}
@@ -377,11 +379,13 @@ export function RibbonEnvelopeOpening({
 
 export const ribbonEnvelopeStyles = `
 .ie-root {
+  position: relative;
   container-type: inline-size;
   width: 100%;
   min-width: 0;
   color: var(--ie-ink);
 }
+.ie-opening[hidden] { display: none; }
 .ie-root *,
 .ie-root *::before,
 .ie-root *::after { box-sizing: border-box; }
@@ -671,6 +675,38 @@ export const ribbonEnvelopeStyles = `
   visibility: hidden;
 }
 .ie-content[data-envelope-visual-gated="false"] { animation: ie-content-arrive 360ms ease-out both; }
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-opening {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-opening::before,
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-opening-kicker,
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-recipient-line,
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-opening-hint {
+  opacity: 0;
+}
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-envelope-back,
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-envelope-front {
+  opacity: 0;
+  transform: translateY(8%) scale(0.95);
+}
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-envelope-flap {
+  opacity: 0;
+}
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-letter {
+  opacity: 0;
+  transform: translateY(-34%) scale(1.12);
+}
+.ie-root[data-envelope-takeover="true"][data-opening-state="letter-revealing"] .ie-content {
+  animation: ie-content-takeover 760ms ease-out both;
+}
+.ie-root[data-envelope-takeover="true"][data-opening-state="opened"] .ie-content {
+  animation: none;
+}
 .ie-root[data-envelope-variant="golden-hour"] .ie-opening::after {
   position: absolute;
   width: min(64cqi, 19rem);
@@ -702,6 +738,10 @@ export const ribbonEnvelopeStyles = `
 @keyframes ie-content-arrive {
   from { opacity: 0; transform: translateY(0.55rem); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ie-content-takeover {
+  0%, 36% { opacity: 0; transform: translateY(0.65rem); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ie-root *,

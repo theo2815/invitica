@@ -44,8 +44,8 @@ describe("Invitica authentication pages", () => {
     expect(screen.getByRole("link", { name: "Invitica home" }).getAttribute("href")).toBe("/");
   });
 
-  it("renders the registration route with all required account fields", () => {
-    render(createElement(RegisterPage));
+  it("renders the registration route with all required account fields", async () => {
+    render(await RegisterPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Create your account" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeDefined();
@@ -56,8 +56,8 @@ describe("Invitica authentication pages", () => {
     expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/login");
   });
 
-  it("replaces generic browser required messages with friendly inline guidance", () => {
-    render(createElement(RegisterPage));
+  it("replaces generic browser required messages with friendly inline guidance", async () => {
+    render(await RegisterPage({ searchParams: Promise.resolve({}) }));
 
     fireEvent.submit(screen.getByRole("form", { name: "Create an account with email" }));
 
@@ -68,8 +68,8 @@ describe("Invitica authentication pages", () => {
     expect(screen.getByLabelText("Full name").getAttribute("aria-invalid")).toBe("true");
   });
 
-  it("keeps registration values and shows friendly field errors for mismatched passwords", () => {
-    render(createElement(RegisterPage));
+  it("keeps registration values and shows friendly field errors for mismatched passwords", async () => {
+    render(await RegisterPage({ searchParams: Promise.resolve({}) }));
 
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Maria Santos" } });
     fireEvent.change(screen.getByLabelText("Email address"), {
@@ -95,8 +95,8 @@ describe("Invitica authentication pages", () => {
     expect(screen.getByLabelText("Confirm password").getAttribute("aria-invalid")).toBe("true");
   });
 
-  it("uses accessible password visibility controls", () => {
-    render(createElement(RegisterPage));
+  it("uses accessible password visibility controls", async () => {
+    render(await RegisterPage({ searchParams: Promise.resolve({}) }));
 
     const password = screen.getByLabelText("Password");
     expect(password.getAttribute("type")).toBe("password");
@@ -136,6 +136,31 @@ describe("Invitica authentication pages", () => {
 
     render(await LoginPage({ searchParams: Promise.resolve({ error: "arbitrary user text" }) }));
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("preserves a safe template-preview return path across login and registration", async () => {
+    const next = "/templates/garden-promise/preview?intent=use";
+    const login = render(await LoginPage({ searchParams: Promise.resolve({ next }) }));
+
+    expect(
+      screen
+        .getByRole("form", { name: "Sign in with email" })
+        .querySelector<HTMLInputElement>('input[name="next"]')?.value,
+    ).toBe(next);
+    expect(screen.getByRole("link", { name: "Create an account" }).getAttribute("href")).toBe(
+      `/register?next=${encodeURIComponent(next)}`,
+    );
+    login.unmount();
+
+    render(await RegisterPage({ searchParams: Promise.resolve({ next }) }));
+    expect(
+      screen
+        .getByRole("form", { name: "Create an account with email" })
+        .querySelector<HTMLInputElement>('input[name="next"]')?.value,
+    ).toBe(next);
+    expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe(
+      `/login?next=${encodeURIComponent(next)}`,
+    );
   });
 
   it("shows generic email confirmation guidance without personal data", () => {

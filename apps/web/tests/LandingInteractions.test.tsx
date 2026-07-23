@@ -1,13 +1,12 @@
 import { templateCatalog } from "@invitica/template-kit";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { LandingConcept } from "../src/components/LandingConcept";
 
 afterEach(() => {
   cleanup();
-  vi.useRealTimers();
 });
 
 describe("Invitica marketing landing interactions", () => {
@@ -26,22 +25,45 @@ describe("Invitica marketing landing interactions", () => {
     ).toBe(true);
   });
 
-  it("opens and replays the invitation sample through the shared lifecycle", () => {
-    vi.useFakeTimers();
+  it("replaces authentication actions with Home for signed-in visitors", () => {
+    render(createElement(LandingConcept, { authenticated: true, templates: templateCatalog }));
+
+    expect(screen.queryByRole("link", { name: "Log in" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Create account" })).toBeNull();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Home" })
+        .every((link) => link.getAttribute("href") === "/dashboard"),
+    ).toBe(true);
+  });
+
+  it("keeps the hero focused and sends each template to its full preview", () => {
     render(createElement(LandingConcept, { templates: templateCatalog }));
 
-    fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
-    act(() => vi.advanceTimersByTime(900));
-    act(() => vi.advanceTimersByTime(1_050));
-    act(() => vi.advanceTimersByTime(1_400));
-    act(() => vi.advanceTimersByTime(0));
-
-    expect(screen.getByText("Sample invitation opened")).toBeDefined();
-    const replay = screen.getByRole("button", { name: "Replay opening" });
-    expect(replay.hasAttribute("disabled")).toBe(false);
-    fireEvent.click(replay);
-    act(() => vi.advanceTimersByTime(0));
-    expect(screen.getByRole("button", { name: /Open invitation for/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Open invitation for/ })).toBeNull();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Make your invitation feel as special as the event.",
+      }),
+    ).toBeDefined();
+    expect(
+      screen
+        .getAllByRole("link", { name: /preview invitation \(opens in a new tab\)/i })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual([
+      "/templates/garden-promise/preview",
+      "/templates/golden-hour/preview",
+      "/templates/sunday-joy/preview",
+    ]);
+    expect(
+      screen
+        .getAllByRole("link", { name: /preview invitation \(opens in a new tab\)/i })
+        .every(
+          (link) =>
+            link.getAttribute("target") === "_blank" && link.getAttribute("rel") === "noreferrer",
+        ),
+    ).toBe(true);
   });
 
   it("opens and closes the mobile navigation", () => {
@@ -56,18 +78,5 @@ describe("Invitica marketing landing interactions", () => {
     expect(screen.getByRole("button", { name: "Open menu" }).getAttribute("aria-expanded")).toBe(
       "false",
     );
-  });
-
-  it("loads a selected template into the invitation preview", () => {
-    render(createElement(LandingConcept, { templates: templateCatalog }));
-
-    const previewButton = screen.getAllByRole("button", { name: "Preview" })[0];
-    if (!previewButton) {
-      throw new Error("Expected a template preview button");
-    }
-    fireEvent.click(previewButton);
-
-    expect(screen.getAllByText("Sam turns XVIII").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Selected" })).toHaveLength(1);
   });
 });

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createClient } from "../../lib/supabase/server";
-import { getSiteOrigin } from "./redirects";
+import { getSafeNextPath, getSiteOrigin } from "./redirects";
 import { ensurePersonalWorkspace } from "./session";
 import type { AuthActionState } from "./types";
 import {
@@ -33,6 +33,8 @@ export async function signInWithEmail(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  const nextValue = formData.get("next");
+  const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
   const result = validateEmailLogin(formData);
 
   if (!result.ok) {
@@ -51,13 +53,15 @@ export async function signInWithEmail(
     return { error: "Your account is signed in, but its workspace could not be prepared." };
   }
 
-  redirect("/dashboard");
+  redirect(nextPath);
 }
 
 export async function signUpWithEmail(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  const nextValue = formData.get("next");
+  const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
   const result = validateEmailRegistration(formData);
 
   if (!result.ok) {
@@ -71,7 +75,7 @@ export async function signUpWithEmail(
     password: result.data.password,
     options: {
       data: { full_name: result.data.fullName },
-      emailRedirectTo: `${origin}/auth/confirm`,
+      emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`,
     },
   });
 
@@ -84,23 +88,25 @@ export async function signUpWithEmail(
     if (workspace.error) {
       return { error: "Your account was created, but its workspace could not be prepared." };
     }
-    redirect("/dashboard");
+    redirect(nextPath);
   }
 
   redirect("/register/check-email");
 }
 
-export async function signInWithGoogle(_formData: FormData): Promise<void> {
+export async function signInWithGoogle(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const origin = getSiteOrigin();
-  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/dashboard")}`;
+  const nextValue = formData.get("next");
+  const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo, skipBrowserRedirect: true },
   });
 
   if (error || !data.url) {
-    redirect("/login?error=oauth");
+    redirect(`/login?error=oauth&next=${encodeURIComponent(nextPath)}`);
   }
 
   redirect(data.url);

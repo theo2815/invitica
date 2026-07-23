@@ -1,0 +1,128 @@
+.creationForm {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+.creationFormExpanded {
+  grid-column: 1 / -1;
+}
+
+.primaryButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 740;
+}
+
+.primaryButton:not(:disabled) {
+  cursor: pointer;
+}
+
+.primaryButton:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.primaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.creationError,
+.creationNote {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.creationError {
+  color: var(--danger);
+}
+
+.reuseConfirmation {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface));
+}
+
+.reuseConfirmation p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.reuseConfirmation > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.reuseConfirmation button,
+.reuseConfirmation a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.66rem;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+.reuseConfirmation button:first-child {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.reuseConfirmation button:last-child {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.reuseConfirmation button:focus-visible,
+.reuseConfirmation a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.creationForm[data-variant="preview"] {
+  width: 100%;
+}
+
+.creationForm[data-variant="preview"] .primaryButton {
+  min-height: 2.75rem;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.7rem;
+}
+
+.creationForm[data-variant="preview"] .primaryButton:not(:disabled):hover {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
+
+@media (max-width: 520px) {
+  .reuseConfirmation > div {
+    display: grid;
+  }
+}

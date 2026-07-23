@@ -1,18 +1,14 @@
 "use client";
 
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
-import {
-  resolveTemplateById,
-  type TemplateCatalogEntry,
-  type TemplateManifest,
-} from "@invitica/template-kit";
+import { resolveTemplateById, type TemplateCatalogEntry } from "@invitica/template-kit";
 import Link from "next/link";
-import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { createInvitationDraftAction } from "../../server/invitations/actions";
 import { Select } from "../forms/Select";
 import { ArrowRight, SlidersHorizontal } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
+import { UseTemplateForm } from "./UseTemplateForm";
 
 type Device = "desktop" | "mobile";
 type Tier = "All" | TemplateCatalogEntry["tier"];
@@ -21,96 +17,6 @@ interface TemplateCatalogProps {
   creationRequestIds: Readonly<Record<string, string>>;
   templates: readonly TemplateCatalogEntry[];
   usedTemplateVersionIds?: readonly string[];
-}
-
-interface UseTemplateFormProps {
-  creationRequestId: string;
-  manifest: TemplateManifest;
-  showAvailability?: boolean;
-  usedBefore: boolean;
-}
-
-function UseTemplateForm({
-  creationRequestId,
-  manifest,
-  showAvailability = false,
-  usedBefore,
-}: UseTemplateFormProps) {
-  const [state, formAction, pending] = useActionState(createInvitationDraftAction, {
-    error: null,
-  });
-  const [confirmingReuse, setConfirmingReuse] = useState(false);
-  const confirmationId = useId();
-  const confirmButtonRef = useRef<HTMLButtonElement>(null);
-  const reuseButtonRef = useRef<HTMLButtonElement>(null);
-  const hadConfirmationRef = useRef(false);
-  const available = manifest.qualityStatus === "production";
-
-  useEffect(() => {
-    if (confirmingReuse) {
-      hadConfirmationRef.current = true;
-      confirmButtonRef.current?.focus();
-    } else if (hadConfirmationRef.current) {
-      hadConfirmationRef.current = false;
-      reuseButtonRef.current?.focus();
-    }
-  }, [confirmingReuse]);
-
-  return (
-    <form
-      action={formAction}
-      className={`${styles.creationForm} ${confirmingReuse ? styles.creationFormExpanded : ""}`}
-    >
-      <input name="invitationId" type="hidden" value={creationRequestId} />
-      <input name="templateVersionId" type="hidden" value={manifest.templateVersionId} />
-      <button
-        aria-label={pending ? "Creating draft" : "Use this template"}
-        aria-controls={usedBefore ? confirmationId : undefined}
-        aria-expanded={usedBefore ? confirmingReuse : undefined}
-        disabled={!available || pending}
-        onClick={usedBefore ? () => setConfirmingReuse(true) : undefined}
-        ref={reuseButtonRef}
-        title={available ? undefined : "This renderer-backed fixture is not available for creation"}
-        type={usedBefore ? "button" : "submit"}
-      >
-        {pending ? (
-          "Creating draft…"
-        ) : (
-          <>
-            <span className={styles.desktopActionLabel}>Use this template</span>
-            <span className={styles.mobileActionLabel}>Use</span>
-          </>
-        )}
-      </button>
-      {confirmingReuse ? (
-        <div className={styles.reuseConfirmation} id={confirmationId}>
-          <p aria-live="polite">
-            You have already started an invitation with {manifest.listing.name}. Create another one
-            for a different event?
-          </p>
-          <div>
-            <button ref={confirmButtonRef} type="submit">
-              Create another
-            </button>
-            <Link href="/dashboard/invitations">View invitations</Link>
-            <button onClick={() => setConfirmingReuse(false)} type="button">
-              Not now
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {state.error ? (
-        <small className={styles.creationError} role="alert">
-          {state.error}
-        </small>
-      ) : null}
-      {showAvailability && !available ? (
-        <small className={styles.creationNote}>
-          Preview only — production creation is unavailable.
-        </small>
-      ) : null}
-    </form>
-  );
 }
 
 export function TemplateCatalog({
@@ -284,16 +190,6 @@ export function TemplateCatalog({
 
   return (
     <section aria-labelledby="preview-collection-heading" className={styles.catalog}>
-      <div className={styles.catalogNotice}>
-        <div>
-          <p>Preview collection</p>
-          <strong>Explore the art direction already established in Invitica.</strong>
-        </div>
-        <span>
-          {templates.length} renderer-backed templates · Garden Promise production preview
-        </span>
-      </div>
-
       <div className={styles.mobileSearchBar}>
         <label htmlFor="mobile-template-search">Search templates</label>
         <div>
@@ -415,16 +311,18 @@ export function TemplateCatalog({
         <div className={styles.templateGrid}>
           {filteredTemplates.map((template) => (
             <article className={styles.templateCard} key={template.id}>
-              <div
-                aria-label={`${template.name} invitation artwork`}
+              <button
+                aria-label={`Quick preview ${template.name}`}
                 className={styles.cardArtwork}
                 data-template={template.id}
-                role="img"
+                onClick={() => openPreview(template)}
+                type="button"
               >
                 <span>{template.occasion}</span>
                 <strong>{template.previewTitle}</strong>
                 <small>{template.date}</small>
-              </div>
+                <span className={styles.quickPreviewLabel}>Quick preview</span>
+              </button>
               <div className={styles.cardDetails}>
                 <div className={styles.cardMeta}>
                   <p>
@@ -435,15 +333,16 @@ export function TemplateCatalog({
                 <h2>{template.name}</h2>
                 <p>{template.description}</p>
                 <div className={styles.cardActions}>
-                  <button
-                    aria-label={`Preview ${template.name}`}
-                    onClick={() => openPreview(template)}
-                    type="button"
+                  <Link
+                    aria-label={`Preview ${template.name} invitation in a new tab`}
+                    className={styles.cardPreviewLink}
+                    href={`/templates/${template.id}/preview`}
+                    rel="noreferrer"
+                    target="_blank"
                   >
-                    <span className={styles.desktopActionLabel}>Preview</span>
-                    <span className={styles.mobileActionLabel}>View</span>
+                    <span>Preview invitation</span>
                     <ArrowRight />
-                  </button>
+                  </Link>
                   <UseTemplateForm
                     creationRequestId={creationRequestIds[template.id] ?? ""}
                     manifest={resolveTemplateById(template.id)}
@@ -523,6 +422,15 @@ export function TemplateCatalog({
                   >
                     Replay opening
                   </button>
+                  <Link
+                    aria-label={`Open ${preview.name} full invitation in a new tab`}
+                    className={styles.fullPreviewLink}
+                    href={`/templates/${preview.id}/preview`}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open full invitation <ArrowRight />
+                  </Link>
                 </div>
                 {PreviewRenderer && previewManifest ? (
                   <div
@@ -558,12 +466,15 @@ export function TemplateCatalog({
                   </ul>
                 </div>
                 {previewManifest ? (
-                  <UseTemplateForm
-                    creationRequestId={creationRequestIds[preview.id] ?? ""}
-                    manifest={previewManifest}
-                    showAvailability
-                    usedBefore={usedTemplateVersions.has(previewManifest.templateVersionId)}
-                  />
+                  <div className={styles.previewCreation}>
+                    <UseTemplateForm
+                      creationRequestId={creationRequestIds[preview.id] ?? ""}
+                      manifest={previewManifest}
+                      showAvailability
+                      usedBefore={usedTemplateVersions.has(previewManifest.templateVersionId)}
+                      variant="preview"
+                    />
+                  </div>
                 ) : null}
               </aside>
             </div>

@@ -1,0 +1,170 @@
+.previewPage {
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --accent-hover: #5d2632;
+  --danger: #9f2f2f;
+  --focus: #2457c5;
+  container-type: inline-size;
+  min-width: 320px;
+  background: var(--background);
+  color: var(--text);
+}
+
+.actionBar {
+  position: fixed;
+  z-index: 50;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: grid;
+  width: min(calc(100% - 2rem), 22rem);
+  grid-template-columns: minmax(4rem, 1fr) auto 2.75rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 0.75rem 2.5rem rgb(41 35 31 / 18%);
+}
+
+.actionBar[hidden] {
+  display: none;
+}
+
+.actionCopy {
+  display: grid;
+  min-width: 0;
+  gap: 0.18rem;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.actionCopy strong {
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: 0.88rem;
+  font-weight: 560;
+}
+
+.dismissAction {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  grid-column: 3;
+  grid-row: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  place-items: center;
+}
+
+.dismissAction span {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.dismissAction:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.dismissAction:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.actionCopy small {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.loginAction,
+.unavailableAction {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.actionBar > form {
+  width: auto;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.loginAction:hover {
+  background: var(--accent-hover);
+}
+
+.unavailableAction {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.noScriptAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.noScriptAction p {
+  margin: 0;
+}
+
+.noScriptAction a {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+@media (max-width: 640px) {
+  .actionBar {
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    width: min(calc(100% - 1.5rem), 21rem);
+  }
+}
+
+@container (max-width: 12rem) {
+  .actionBar {
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+  }
+
+  .dismissAction {
+    grid-column: 2;
+  }
+
+  .loginAction,
+  .unavailableAction,
+  .actionBar > form {
+    width: 100%;
+    white-space: normal;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

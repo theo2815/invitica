@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getSafeNextPath } from "../../server/auth/redirects";
 import { getSupabaseConfig } from "./config";
 
 const protectedPrefixes = ["/dashboard"] as const;
@@ -50,8 +51,13 @@ export async function updateSession(request: NextRequest) {
 
   if (claims && authPaths.has(pathname)) {
     const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard";
-    dashboardUrl.search = "";
+    const next = new URL(
+      getSafeNextPath(request.nextUrl.searchParams.get("next")),
+      request.nextUrl.origin,
+    );
+    dashboardUrl.pathname = next.pathname;
+    dashboardUrl.search = next.search;
+    dashboardUrl.hash = next.hash;
     return NextResponse.redirect(dashboardUrl);
   }
 

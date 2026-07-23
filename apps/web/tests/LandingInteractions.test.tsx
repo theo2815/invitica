@@ -1,14 +1,18 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { templateCatalog } from "@invitica/template-kit";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LandingConcept } from "../src/components/LandingConcept";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("Invitica marketing landing interactions", () => {
   it("links desktop and mobile visitors to authentication", () => {
-    render(createElement(LandingConcept));
+    render(createElement(LandingConcept, { templates: templateCatalog }));
 
     expect(
       screen
@@ -22,19 +26,26 @@ describe("Invitica marketing landing interactions", () => {
     ).toBe(true);
   });
 
-  it("opens the invitation sample", () => {
-    render(createElement(LandingConcept));
+  it("opens and replays the invitation sample through the shared lifecycle", () => {
+    vi.useFakeTimers();
+    render(createElement(LandingConcept, { templates: templateCatalog }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Open sample invitation" }));
+    fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(1_050));
+    act(() => vi.advanceTimersByTime(1_400));
+    act(() => vi.advanceTimersByTime(0));
 
-    expect(
-      screen.getByRole("button", { name: "Close sample invitation" }).getAttribute("aria-expanded"),
-    ).toBe("true");
-    expect(screen.getByText(/Invitation opened/)).toBeDefined();
+    expect(screen.getByText("Sample invitation opened")).toBeDefined();
+    const replay = screen.getByRole("button", { name: "Replay opening" });
+    expect(replay.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(replay);
+    act(() => vi.advanceTimersByTime(0));
+    expect(screen.getByRole("button", { name: /Open invitation for/ })).toBeDefined();
   });
 
   it("opens and closes the mobile navigation", () => {
-    render(createElement(LandingConcept));
+    render(createElement(LandingConcept, { templates: templateCatalog }));
 
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
     expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
@@ -48,7 +59,7 @@ describe("Invitica marketing landing interactions", () => {
   });
 
   it("loads a selected template into the invitation preview", () => {
-    render(createElement(LandingConcept));
+    render(createElement(LandingConcept, { templates: templateCatalog }));
 
     const previewButton = screen.getAllByRole("button", { name: "Preview" })[0];
     if (!previewButton) {

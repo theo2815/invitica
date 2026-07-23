@@ -1,0 +1,198 @@
+.panel {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+.heading {
+  display: grid;
+  gap: 0.65rem;
+}
+.heading p,
+.dialogEyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.58rem;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.heading h3,
+.dialog h3 {
+  margin: 0.28rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.25rem;
+  font-weight: 570;
+  letter-spacing: -0.035em;
+}
+.heading > span {
+  width: fit-content;
+  padding: 0.34rem 0.52rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.57rem;
+  font-weight: 700;
+}
+.heading > span[data-status="delivered"] {
+  border-color: color-mix(in srgb, #527050 42%, var(--border));
+  color: #3f613d;
+}
+.heading > span[data-status="failed"] {
+  border-color: color-mix(in srgb, #a54838 42%, var(--border));
+  color: #8c382b;
+}
+.checklist {
+  display: grid;
+  gap: 0.48rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.checklist li {
+  display: grid;
+  grid-template-columns: 0.75rem 1fr;
+  align-items: center;
+  gap: 0.52rem;
+  color: var(--muted);
+  font-size: 0.63rem;
+}
+.checklist span {
+  width: 0.68rem;
+  height: 0.68rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+.checklist li[data-ready="true"] span {
+  border-color: #527050;
+  background: #527050;
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+.statusMessage,
+.statusMessage p,
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.5;
+}
+.statusMessage {
+  display: grid;
+  gap: 0.3rem;
+}
+.statusMessage [role="alert"] {
+  color: #8c382b;
+}
+.publishButton,
+.nextStep a,
+.dialogActions button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.28rem;
+  font-size: 0.66rem;
+  font-weight: 760;
+  text-decoration: none;
+  cursor: pointer;
+}
+.publishButton {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.nextStep {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.28rem;
+  background: var(--surface-muted);
+}
+.nextStep p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.63rem;
+  line-height: 1.55;
+}
+.nextStep a {
+  padding-inline: 0.8rem;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+}
+.publishButton:focus-visible,
+.nextStep a:focus-visible,
+.dialogActions button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  outline-offset: 2px;
+}
+.publishButton:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.dialogBackdrop {
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --focus: #2457c5;
+  --display-font: "Fraunces Variable", Georgia, serif;
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgb(41 35 31 / 58%);
+  color: var(--text);
+}
+.dialog {
+  width: min(100%, 30rem);
+  padding: clamp(1.5rem, 5vw, 2.4rem);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 2rem 5rem rgb(41 35 31 / 22%);
+}
+.dialog h3 {
+  margin: 0.6rem 0 0;
+  font-size: clamp(1.9rem, 6vw, 2.7rem);
+  font-weight: 540;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+.dialog > p:not(.dialogEyebrow) {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+.dialogActions button {
+  padding-inline: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+}
+.dialogActions button:last-child {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+@media (max-width: 480px) {
+  .dialogActions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}

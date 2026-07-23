@@ -23,6 +23,8 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-arm64@2.10.5'
   - turbo@2.10.5
 allowBuilds:
+  esbuild: true
   sharp: true
+  workerd: true
 patchedDependencies:
   '@supabase/auth-js@2.105.3': patches/@supabase__auth-js@2.105.3.patch

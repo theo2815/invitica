@@ -1,31 +1,162 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
+import {
+  resolveTemplateById,
+  type TemplateCatalogEntry,
+  type TemplateManifest,
+} from "@invitica/template-kit";
+import Link from "next/link";
+import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { type TemplatePreview, templatePreviews } from "../../data/templatePreviews";
-import { ArrowRight } from "../Icons";
+import { createInvitationDraftAction } from "../../server/invitations/actions";
+import { Select } from "../forms/Select";
+import { ArrowRight, SlidersHorizontal } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
 
 type Device = "desktop" | "mobile";
-type Tier = "All" | TemplatePreview["tier"];
+type Tier = "All" | TemplateCatalogEntry["tier"];
 
-const occasions = ["All", ...new Set(templatePreviews.map((template) => template.occasion))];
-const stylesList = ["All", ...new Set(templatePreviews.map((template) => template.style))];
+interface TemplateCatalogProps {
+  creationRequestIds: Readonly<Record<string, string>>;
+  templates: readonly TemplateCatalogEntry[];
+  usedTemplateVersionIds?: readonly string[];
+}
 
-export function TemplateCatalog() {
+interface UseTemplateFormProps {
+  creationRequestId: string;
+  manifest: TemplateManifest;
+  showAvailability?: boolean;
+  usedBefore: boolean;
+}
+
+function UseTemplateForm({
+  creationRequestId,
+  manifest,
+  showAvailability = false,
+  usedBefore,
+}: UseTemplateFormProps) {
+  const [state, formAction, pending] = useActionState(createInvitationDraftAction, {
+    error: null,
+  });
+  const [confirmingReuse, setConfirmingReuse] = useState(false);
+  const confirmationId = useId();
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const reuseButtonRef = useRef<HTMLButtonElement>(null);
+  const hadConfirmationRef = useRef(false);
+  const available = manifest.qualityStatus === "production";
+
+  useEffect(() => {
+    if (confirmingReuse) {
+      hadConfirmationRef.current = true;
+      confirmButtonRef.current?.focus();
+    } else if (hadConfirmationRef.current) {
+      hadConfirmationRef.current = false;
+      reuseButtonRef.current?.focus();
+    }
+  }, [confirmingReuse]);
+
+  return (
+    <form
+      action={formAction}
+      className={`${styles.creationForm} ${confirmingReuse ? styles.creationFormExpanded : ""}`}
+    >
+      <input name="invitationId" type="hidden" value={creationRequestId} />
+      <input name="templateVersionId" type="hidden" value={manifest.templateVersionId} />
+      <button
+        aria-label={pending ? "Creating draft" : "Use this template"}
+        aria-controls={usedBefore ? confirmationId : undefined}
+        aria-expanded={usedBefore ? confirmingReuse : undefined}
+        disabled={!available || pending}
+        onClick={usedBefore ? () => setConfirmingReuse(true) : undefined}
+        ref={reuseButtonRef}
+        title={available ? undefined : "This renderer-backed fixture is not available for creation"}
+        type={usedBefore ? "button" : "submit"}
+      >
+        {pending ? (
+          "Creating draft…"
+        ) : (
+          <>
+            <span className={styles.desktopActionLabel}>Use this template</span>
+            <span className={styles.mobileActionLabel}>Use</span>
+          </>
+        )}
+      </button>
+      {confirmingReuse ? (
+        <div className={styles.reuseConfirmation} id={confirmationId}>
+          <p aria-live="polite">
+            You have already started an invitation with {manifest.listing.name}. Create another one
+            for a different event?
+          </p>
+          <div>
+            <button ref={confirmButtonRef} type="submit">
+              Create another
+            </button>
+            <Link href="/dashboard/invitations">View invitations</Link>
+            <button onClick={() => setConfirmingReuse(false)} type="button">
+              Not now
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {state.error ? (
+        <small className={styles.creationError} role="alert">
+          {state.error}
+        </small>
+      ) : null}
+      {showAvailability && !available ? (
+        <small className={styles.creationNote}>
+          Preview only — production creation is unavailable.
+        </small>
+      ) : null}
+    </form>
+  );
+}
+
+export function TemplateCatalog({
+  creationRequestIds,
+  templates,
+  usedTemplateVersionIds = [],
+}: TemplateCatalogProps) {
   const [query, setQuery] = useState("");
   const [occasion, setOccasion] = useState("All");
   const [style, setStyle] = useState("All");
   const [tier, setTier] = useState<Tier>("All");
   const [sort, setSort] = useState("featured");
-  const [preview, setPreview] = useState<TemplatePreview | null>(null);
+  const [preview, setPreview] = useState<TemplateCatalogEntry | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [device, setDevice] = useState<Device>("mobile");
+  const [previewOpeningState, setPreviewOpeningState] = useState<InvitationOpeningState>("closed");
+  const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const filterSheetId = useId();
+  const filterSheetRef = useRef<HTMLDivElement>(null);
+  const filterCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const usedTemplateVersions = useMemo(
+    () => new Set(usedTemplateVersionIds),
+    [usedTemplateVersionIds],
+  );
+  const occasions = useMemo(
+    () => ["All", ...new Set(templates.map((template) => template.occasion))],
+    [templates],
+  );
+  const stylesList = useMemo(
+    () => ["All", ...new Set(templates.map((template) => template.style))],
+    [templates],
+  );
+  const previewManifest = useMemo(
+    () => (preview ? resolveTemplateById(preview.id) : null),
+    [preview],
+  );
+  const PreviewRenderer = previewManifest
+    ? resolveTemplateRenderer(previewManifest.rendererKey)
+    : null;
 
   const filteredTemplates = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
-    const filtered = templatePreviews.filter((template) => {
+    const filtered = templates.filter((template) => {
       const searchable =
         `${template.name} ${template.occasion} ${template.style}`.toLocaleLowerCase("en-PH");
 
@@ -42,7 +173,53 @@ export function TemplateCatalog() {
     }
 
     return filtered;
-  }, [occasion, query, sort, style, tier]);
+  }, [occasion, query, sort, style, templates, tier]);
+  const activeFilterCount = [
+    occasion !== "All",
+    style !== "All",
+    tier !== "All",
+    sort !== "featured",
+  ].filter(Boolean).length;
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    filterCloseButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || !filterSheetRef.current) return;
+
+      const controls = Array.from(
+        filterSheetRef.current.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled])",
+        ),
+      );
+      const first = controls[0];
+      const last = controls.at(-1);
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      filterTriggerRef.current?.focus();
+    };
+  }, [filtersOpen]);
 
   useEffect(() => {
     if (!preview) {
@@ -98,8 +275,10 @@ export function TemplateCatalog() {
     setSort("featured");
   }
 
-  function openPreview(template: TemplatePreview) {
+  function openPreview(template: TemplateCatalogEntry) {
     setDevice("mobile");
+    setPreviewOpeningState("closed");
+    setPreviewReplayKey(0);
     setPreview(template);
   }
 
@@ -110,8 +289,61 @@ export function TemplateCatalog() {
           <p>Preview collection</p>
           <strong>Explore the art direction already established in Invitica.</strong>
         </div>
-        <span>3 concept previews · Creation integration follows</span>
+        <span>
+          {templates.length} renderer-backed templates · Garden Promise production preview
+        </span>
       </div>
+
+      <div className={styles.mobileSearchBar}>
+        <label htmlFor="mobile-template-search">Search templates</label>
+        <div>
+          <input
+            aria-label="Search templates on mobile"
+            id="mobile-template-search"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search templates"
+            type="search"
+            value={query}
+          />
+          <button
+            aria-controls={filterSheetId}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+            ref={filterTriggerRef}
+            type="button"
+          >
+            <SlidersHorizontal />
+            <span>Filters</span>
+            {activeFilterCount > 0 ? <small>{activeFilterCount}</small> : null}
+          </button>
+        </div>
+      </div>
+
+      {activeFilterCount > 0 ? (
+        <fieldset className={styles.activeFilters}>
+          <legend>Active template filters</legend>
+          {occasion !== "All" ? (
+            <button onClick={() => setOccasion("All")} type="button">
+              Occasion: {occasion} <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+          {style !== "All" ? (
+            <button onClick={() => setStyle("All")} type="button">
+              Style: {style} <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+          {tier !== "All" ? (
+            <button onClick={() => setTier("All")} type="button">
+              Tier: {tier} <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+          {sort !== "featured" ? (
+            <button onClick={() => setSort("featured")} type="button">
+              Sort: Name <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+        </fieldset>
+      ) : null}
 
       <div className={styles.controls}>
         <div className={styles.searchField}>
@@ -125,35 +357,23 @@ export function TemplateCatalog() {
           />
         </div>
 
-        <div className={styles.selectField}>
-          <label htmlFor="template-occasion">Occasion</label>
-          <select
-            id="template-occasion"
-            onChange={(event) => setOccasion(event.target.value)}
-            value={occasion}
-          >
-            {occasions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          className={styles.selectField}
+          id="template-occasion"
+          label="Occasion"
+          onChange={setOccasion}
+          options={occasions.map((option) => ({ label: option, value: option }))}
+          value={occasion}
+        />
 
-        <div className={styles.selectField}>
-          <label htmlFor="template-style">Style</label>
-          <select
-            id="template-style"
-            onChange={(event) => setStyle(event.target.value)}
-            value={style}
-          >
-            {stylesList.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          className={styles.selectField}
+          id="template-style"
+          label="Style"
+          onChange={setStyle}
+          options={stylesList.map((option) => ({ label: option, value: option }))}
+          value={style}
+        />
 
         <fieldset aria-label="Access tier" className={styles.tierControl}>
           {(["All", "Free", "Premium"] as const).map((option) => (
@@ -168,13 +388,17 @@ export function TemplateCatalog() {
           ))}
         </fieldset>
 
-        <div className={styles.selectField}>
-          <label htmlFor="template-sort">Sort</label>
-          <select id="template-sort" onChange={(event) => setSort(event.target.value)} value={sort}>
-            <option value="featured">Featured</option>
-            <option value="name">Name</option>
-          </select>
-        </div>
+        <Select
+          className={styles.selectField}
+          id="template-sort"
+          label="Sort"
+          onChange={setSort}
+          options={[
+            { label: "Featured", value: "featured" },
+            { label: "Name", value: "name" },
+          ]}
+          value={sort}
+        />
       </div>
 
       <div className={styles.resultsHeading}>
@@ -216,11 +440,17 @@ export function TemplateCatalog() {
                     onClick={() => openPreview(template)}
                     type="button"
                   >
-                    Preview <ArrowRight />
+                    <span className={styles.desktopActionLabel}>Preview</span>
+                    <span className={styles.mobileActionLabel}>View</span>
+                    <ArrowRight />
                   </button>
-                  <button disabled title="Invitation creation is not available yet" type="button">
-                    Use this template
-                  </button>
+                  <UseTemplateForm
+                    creationRequestId={creationRequestIds[template.id] ?? ""}
+                    manifest={resolveTemplateById(template.id)}
+                    usedBefore={usedTemplateVersions.has(
+                      resolveTemplateById(template.id).templateVersionId,
+                    )}
+                  />
                 </div>
               </div>
             </article>
@@ -265,37 +495,58 @@ export function TemplateCatalog() {
 
             <div className={styles.dialogBody}>
               <div className={styles.previewColumn}>
-                <fieldset aria-label="Preview device" className={styles.deviceControl}>
+                <div className={styles.previewToolbar}>
+                  <fieldset aria-label="Preview device" className={styles.deviceControl}>
+                    <button
+                      aria-pressed={device === "mobile"}
+                      onClick={() => setDevice("mobile")}
+                      type="button"
+                    >
+                      Mobile preview
+                    </button>
+                    <button
+                      aria-pressed={device === "desktop"}
+                      onClick={() => setDevice("desktop")}
+                      type="button"
+                    >
+                      Desktop preview
+                    </button>
+                  </fieldset>
                   <button
-                    aria-pressed={device === "mobile"}
-                    onClick={() => setDevice("mobile")}
+                    className={styles.replayButton}
+                    disabled={previewOpeningState !== "opened"}
+                    onClick={() => {
+                      setPreviewOpeningState("closed");
+                      setPreviewReplayKey((current) => current + 1);
+                    }}
                     type="button"
                   >
-                    Mobile preview
+                    Replay opening
                   </button>
-                  <button
-                    aria-pressed={device === "desktop"}
-                    onClick={() => setDevice("desktop")}
-                    type="button"
-                  >
-                    Desktop preview
-                  </button>
-                </fieldset>
-                <div
-                  className={styles.previewStage}
-                  data-device={device}
-                  data-testid="template-preview-stage"
-                >
-                  <div className={styles.previewArtwork} data-template={preview.id}>
-                    <span>You are invited</span>
-                    <strong>{preview.previewTitle}</strong>
-                    <small>{preview.date}</small>
-                  </div>
                 </div>
+                {PreviewRenderer && previewManifest ? (
+                  <div
+                    className={styles.previewStage}
+                    data-device={device}
+                    data-testid="template-preview-stage"
+                  >
+                    <PreviewRenderer
+                      document={previewManifest.defaultDocument}
+                      key={previewManifest.templateVersionId}
+                      mode="preview"
+                      onOpeningStateChange={setPreviewOpeningState}
+                      openingReplayKey={previewReplayKey}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <aside className={styles.previewDetails}>
-                <p>Concept preview</p>
+                <p>
+                  {previewManifest?.qualityStatus === "production"
+                    ? "Production renderer"
+                    : "Renderer-backed fixture"}
+                </p>
                 <h3>{preview.style}</h3>
                 <span>{preview.description}</span>
                 <div>
@@ -306,12 +557,100 @@ export function TemplateCatalog() {
                     ))}
                   </ul>
                 </div>
-                <button disabled type="button">
-                  Use this template
-                </button>
-                <small>Available after invitation creation is connected.</small>
+                {previewManifest ? (
+                  <UseTemplateForm
+                    creationRequestId={creationRequestIds[preview.id] ?? ""}
+                    manifest={previewManifest}
+                    showAvailability
+                    usedBefore={usedTemplateVersions.has(previewManifest.templateVersionId)}
+                  />
+                ) : null}
               </aside>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {filtersOpen ? (
+        <div className={styles.filterBackdrop}>
+          <button
+            aria-label="Close template filters"
+            className={styles.filterDismiss}
+            onClick={() => setFiltersOpen(false)}
+            type="button"
+          />
+          <div
+            aria-labelledby="mobile-filter-title"
+            aria-modal="true"
+            className={styles.filterSheet}
+            id={filterSheetId}
+            ref={filterSheetRef}
+            role="dialog"
+          >
+            <header>
+              <div>
+                <p>Template collection</p>
+                <h2 id="mobile-filter-title">Filter templates</h2>
+              </div>
+              <button
+                aria-label="Close template filters"
+                onClick={() => setFiltersOpen(false)}
+                ref={filterCloseButtonRef}
+                type="button"
+              >
+                Close
+              </button>
+            </header>
+
+            <div className={styles.filterFields}>
+              <Select
+                id="mobile-template-occasion"
+                label="Occasion"
+                onChange={setOccasion}
+                options={occasions.map((option) => ({ label: option, value: option }))}
+                value={occasion}
+              />
+              <Select
+                id="mobile-template-style"
+                label="Style"
+                onChange={setStyle}
+                options={stylesList.map((option) => ({ label: option, value: option }))}
+                value={style}
+              />
+              <fieldset>
+                <legend>Access tier</legend>
+                {(["All", "Free", "Premium"] as const).map((option) => (
+                  <button
+                    aria-pressed={tier === option}
+                    key={option}
+                    onClick={() => setTier(option)}
+                    type="button"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </fieldset>
+              <Select
+                id="mobile-template-sort"
+                label="Sort"
+                onChange={setSort}
+                options={[
+                  { label: "Featured", value: "featured" },
+                  { label: "Name", value: "name" },
+                ]}
+                value={sort}
+              />
+            </div>
+
+            <footer>
+              <button onClick={clearFilters} type="button">
+                Clear all
+              </button>
+              <button onClick={() => setFiltersOpen(false)} type="button">
+                Show {filteredTemplates.length}{" "}
+                {filteredTemplates.length === 1 ? "template" : "templates"}
+              </button>
+            </footer>
           </div>
         </div>
       ) : null}

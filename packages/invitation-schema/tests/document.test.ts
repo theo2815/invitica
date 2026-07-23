@@ -61,4 +61,46 @@ describe("invitation document schema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("allows only HTTP and HTTPS venue links", () => {
+    const sections = invitationFixture.sections.map((section) =>
+      section.type === "venue"
+        ? { ...section, props: { ...section.props, mapUrl: "javascript:alert('unsafe')" } }
+        : section,
+    );
+
+    expect(safeParseInvitationDocument({ ...invitationFixture, sections }).success).toBe(false);
+  });
+
+  it("accepts the maximum supported Garden Promise field lengths", () => {
+    const sections = invitationFixture.sections.map((section) => {
+      if (section.type === "hero") {
+        return {
+          ...section,
+          props: {
+            ...section.props,
+            dateLabel: "D".repeat(120),
+            subtitle: "S".repeat(240),
+            title: "T".repeat(120),
+          },
+        };
+      }
+      if (section.type === "venue") {
+        return {
+          ...section,
+          props: {
+            ...section.props,
+            address: "A".repeat(500),
+            venueName: "V".repeat(120),
+          },
+        };
+      }
+      if (section.type === "rsvp") {
+        return { ...section, props: { ...section.props, message: "R".repeat(500) } };
+      }
+      return section;
+    });
+
+    expect(safeParseInvitationDocument({ ...invitationFixture, sections }).success).toBe(true);
+  });
 });

@@ -12,13 +12,17 @@
   "scripts": {
     "build": "turbo run build",
     "check": "biome check . && turbo run typecheck test build",
+    "dev": "pnpm --parallel --filter @invitica/web --filter @invitica/viewer dev",
     "format": "biome check --write .",
     "lint": "biome check .",
     "test": "turbo run test",
+    "test:e2e": "turbo run build --filter=@invitica/renderer... && pnpm --filter @invitica/viewer run build:client && pnpm --filter @invitica/viewer exec esbuild ../../tests/e2e/render-fixture.ts --bundle --platform=node --format=esm --target=node24 --outfile=../../tests/e2e/render-fixture.generated.mjs && playwright test",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@biomejs/biome": "2.5.3",
+    "@playwright/test": "1.61.1",
     "turbo": "2.10.5",
     "typescript": "6.0.3"
   }

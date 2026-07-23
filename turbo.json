@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalPassThroughEnv": ["INVITICA_VIEWER_TEST_ORIGIN"],
   "tasks": {
     "build": {
       "dependsOn": ["^build", "typecheck"],

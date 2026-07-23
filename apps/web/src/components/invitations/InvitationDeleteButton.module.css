@@ -1,0 +1,106 @@
+.deleteButton {
+  min-height: 2.75rem;
+  padding-inline: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+
+.deleteButton:focus-visible,
+.actions button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  padding: 1.25rem;
+  background: rgb(41 35 31 / 58%);
+  place-items: center;
+}
+
+.dialog {
+  width: min(100%, 30rem);
+  padding: clamp(1.5rem, 5vw, 2.4rem);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--danger);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 2rem 5rem rgb(41 35 31 / 22%);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.6rem;
+  font-weight: 780;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dialog h2 {
+  margin: 0.6rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.9rem, 6vw, 2.7rem);
+  font-weight: 540;
+  letter-spacing: -0.05em;
+}
+
+.dialog > p:not(.eyebrow) {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.dialog > p[role="alert"] {
+  color: var(--danger);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+.actions button {
+  min-height: 2.75rem;
+  padding-inline: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.actions button:last-child {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 480px) {
+  .actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}

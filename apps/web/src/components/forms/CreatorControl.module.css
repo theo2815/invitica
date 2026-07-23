@@ -1,0 +1,347 @@
+.field {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 0.42rem;
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text, #29231f);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.label small {
+  color: var(--muted, #6d655e);
+  font-size: 0.56rem;
+  font-weight: 560;
+}
+
+.selectTrigger,
+.dateInput,
+.calendarTrigger {
+  min-height: 2.75rem;
+  border: 1px solid var(--border, #d5cbbd);
+  background: var(--surface, #fffdf8);
+  color: var(--text, #29231f);
+}
+
+.selectTrigger {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 1rem;
+  align-items: center;
+  gap: 0.65rem;
+  padding-inline: 0.75rem;
+  border-radius: 0.3rem;
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selectTrigger:hover,
+.calendarTrigger:hover {
+  border-color: color-mix(in srgb, var(--accent, #7a3442) 55%, var(--border, #d5cbbd));
+  background: color-mix(in srgb, var(--surface-muted, #eee7da) 28%, var(--surface, #fffdf8));
+}
+
+.selectTrigger:focus-visible,
+.dateInput:focus-visible,
+.calendarTrigger:focus-visible {
+  border-color: var(--accent, #7a3442);
+  outline: 2px solid var(--focus, #2457c5);
+  outline-offset: 2px;
+}
+
+.selectTrigger:disabled,
+.dateInput:disabled,
+.calendarTrigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.selectValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectTrigger svg {
+  width: 0.9rem;
+  color: var(--muted, #6d655e);
+  transition: transform 140ms ease;
+}
+
+.selectTrigger[aria-expanded="true"] svg {
+  color: var(--accent, #7a3442);
+  transform: rotate(180deg);
+}
+
+.selectPopover,
+.calendarPopover {
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --focus: #2457c5;
+  --danger: #9d2d2d;
+  --display-font: "Fraunces Variable", Georgia, serif;
+  position: fixed;
+  z-index: 120;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 16%);
+}
+
+.selectPopover {
+  overflow-y: auto;
+  padding: 0.35rem;
+}
+
+.selectOption {
+  display: grid;
+  width: 100%;
+  min-height: 2.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-radius: 0.28rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selectOption:hover,
+.selectOption[data-active="true"] {
+  background: var(--surface-muted);
+  color: var(--accent);
+}
+
+.selectOption[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--accent);
+  font-weight: 760;
+}
+
+.selectOption:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.selectOption:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.optionCheck {
+  width: 0.9rem;
+  font-size: 0.72rem;
+}
+
+.dateControl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.75rem;
+}
+
+.dateInput {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 0.75rem;
+  border-radius: 0.3rem 0 0 0.3rem;
+  font-size: 0.72rem;
+}
+
+.dateInput[aria-invalid="true"] {
+  border-color: var(--danger, #9d2d2d);
+}
+
+.calendarTrigger {
+  display: grid;
+  width: 2.75rem;
+  padding: 0;
+  border-left: 0;
+  border-radius: 0 0.3rem 0.3rem 0;
+  cursor: pointer;
+  place-items: center;
+}
+
+.calendarTrigger svg {
+  width: 1.05rem;
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--danger, #9d2d2d);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.calendarPopover {
+  overflow-y: auto;
+  padding: 0.8rem;
+}
+
+.calendarHeader {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.calendarHeader h2 {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: 1.15rem;
+  font-weight: 560;
+  text-align: center;
+}
+
+.monthButton,
+.dayButton,
+.calendarFooter button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.monthButton {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  place-items: center;
+}
+
+.monthButton:hover,
+.dayButton:hover,
+.calendarFooter button:hover {
+  background: var(--surface-muted);
+  color: var(--accent);
+}
+
+.calendarFooter button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.monthButton:focus-visible,
+.dayButton:focus-visible,
+.calendarFooter button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.monthButton svg {
+  width: 1rem;
+}
+
+.weekdayRow,
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.dayFieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dayFieldset legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.weekdayRow {
+  margin-top: 0.6rem;
+}
+
+.weekdayRow span {
+  padding-block: 0.35rem;
+  color: var(--muted);
+  font-size: 0.54rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.dayGrid {
+  gap: 0.15rem;
+}
+
+.daySpacer,
+.dayButton {
+  aspect-ratio: 1;
+  min-width: 0;
+}
+
+.dayButton {
+  display: grid;
+  border-radius: 50%;
+  font-size: 0.66rem;
+  font-weight: 680;
+  place-items: center;
+}
+
+.dayButton[data-today="true"] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.dayButton[aria-pressed="true"] {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.dayButton:disabled {
+  color: color-mix(in srgb, var(--muted) 48%, transparent);
+  cursor: not-allowed;
+}
+
+.calendarFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.calendarFooter button {
+  min-height: 2.75rem;
+  padding-inline: 0.75rem;
+  border-radius: 0.3rem;
+  font-size: 0.64rem;
+  font-weight: 750;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selectTrigger svg {
+    transition: none;
+  }
+}

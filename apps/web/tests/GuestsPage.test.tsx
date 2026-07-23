@@ -5,19 +5,45 @@ import GuestsError from "../app/dashboard/guests/error";
 import GuestsLoading from "../app/dashboard/guests/loading";
 import GuestsPage from "../app/dashboard/guests/page";
 import { ensurePersonalWorkspace } from "../src/server/auth/session";
+import { listDeliveredGuestInvitations, listGuestParties } from "../src/server/guests/guests";
+import { listInvitationResultSummaries } from "../src/server/guests/results";
 
-vi.mock("../src/server/auth/actions", () => ({
-  signOut: vi.fn(),
+const push = vi.fn();
+const refresh = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, refresh }),
 }));
 
-vi.mock("../src/server/auth/session", () => ({
-  ensurePersonalWorkspace: vi.fn(),
+vi.mock("../src/server/auth/actions", () => ({ signOut: vi.fn() }));
+vi.mock("../src/server/auth/session", () => ({ ensurePersonalWorkspace: vi.fn() }));
+vi.mock("../src/server/guests/guests", () => ({
+  listDeliveredGuestInvitations: vi.fn(),
+  listGuestParties: vi.fn(),
+}));
+vi.mock("../src/server/guests/results", async () => {
+  const actual = await vi.importActual<typeof import("../src/server/guests/results")>(
+    "../src/server/guests/results",
+  );
+  return { ...actual, listInvitationResultSummaries: vi.fn() };
+});
+vi.mock("../src/server/guests/actions", () => ({
+  createGuestPartyAction: vi.fn(),
+  replaceGuestPartyLinkAction: vi.fn(),
+  revokeGuestPartyLinkAction: vi.fn(),
 }));
 
 afterEach(cleanup);
 
 beforeEach(() => {
-  vi.mocked(ensurePersonalWorkspace).mockReset();
+  vi.clearAllMocks();
+  vi.mocked(listDeliveredGuestInvitations).mockResolvedValue([]);
+  vi.mocked(listGuestParties).mockResolvedValue([]);
+  vi.mocked(listInvitationResultSummaries).mockResolvedValue({});
+});
+
+const pageProps = (invitationId?: string) => ({
+  searchParams: Promise.resolve(invitationId ? { invitationId } : {}),
 });
 
 describe("guests and RSVPs page", () => {
@@ -29,31 +55,70 @@ describe("guests and RSVPs page", () => {
         email: "maria@example.com",
         user_metadata: { full_name: "Maria Santos" },
       } as never,
-      workspaceId: "workspace-id",
+      workspaceId: "71000000-0000-4000-8000-000000000001",
     });
 
-    render(await GuestsPage());
+    render(await GuestsPage(pageProps()));
 
     expect(screen.getByRole("heading", { level: 1, name: "Guests & RSVPs" })).toBeDefined();
     const desktopNavigation = screen.getByRole("navigation", { name: "Creator workspace" });
     const guestsLink = within(desktopNavigation).getByRole("link", { name: "Guests & RSVPs" });
     expect(guestsLink.getAttribute("href")).toBe("/dashboard/guests");
     expect(guestsLink.getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("table", { name: "Guest ledger" })).toBeDefined();
-    expect(screen.getByText("No invitation selected")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Add guest party" }).hasAttribute("disabled")).toBe(
-      true,
-    );
-    expect(screen.getByRole("button", { name: "Import guest list" }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    expect(screen.getByText("Choose a published invitation")).toBeDefined();
     expect(screen.getByRole("link", { name: "View invitations" }).getAttribute("href")).toBe(
       "/dashboard/invitations",
     );
-    expect(screen.getByText("maria@example.com")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Add guest party" })).toBeNull();
+    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("shows the workspace failure instead of the guest ledger", async () => {
+  it("loads only the requested delivered invitation context", async () => {
+    const invitationId = "72000000-0000-4000-8000-000000000001";
+    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
+      error: null,
+      supabase: {} as never,
+      user: { email: "maria@example.com", user_metadata: {} } as never,
+      workspaceId: "71000000-0000-4000-8000-000000000001",
+    });
+    vi.mocked(listDeliveredGuestInvitations).mockResolvedValue([
+      {
+        genericUrl: `http://localhost:3000/i/mara-and-joaquin-${"a".repeat(32)}`,
+        invitationId,
+        publicIdentifier: "a".repeat(32),
+        title: "Mara & Joaquin",
+      },
+    ]);
+    vi.mocked(listInvitationResultSummaries).mockResolvedValue({
+      [invitationId]: {
+        attendingGuests: 3,
+        attendingParties: 1,
+        awaitingParties: 1,
+        declinedParties: 0,
+        guestPartyCount: 2,
+        invitationId,
+        lastResponseAt: "2026-07-23T04:00:00+00:00",
+        lastViewedAt: "2026-07-23T05:00:00+00:00",
+        reservedSeats: 5,
+        viewCount: 9,
+      },
+    });
+
+    render(await GuestsPage(pageProps(invitationId)));
+
+    expect(screen.getByRole("heading", { name: "Mara & Joaquin" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Add guest party" })).toBeDefined();
+    expect(screen.getByText("Approximate page loads").previousElementSibling?.textContent).toBe(
+      "9",
+    );
+    expect(listGuestParties).toHaveBeenCalledWith(
+      {},
+      "71000000-0000-4000-8000-000000000001",
+      invitationId,
+    );
+  });
+
+  it("shows the workspace failure instead of private guest controls", async () => {
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
       error: { message: "Migration missing" } as never,
       supabase: {} as never,
@@ -64,10 +129,10 @@ describe("guests and RSVPs page", () => {
       workspaceId: null,
     });
 
-    render(await GuestsPage());
+    render(await GuestsPage(pageProps()));
 
     expect(screen.getByRole("alert").textContent).toContain("Your workspace needs attention");
-    expect(screen.queryByRole("table", { name: "Guest ledger" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add guest party" })).toBeNull();
   });
 
   it("provides semantic loading and recoverable error states", () => {

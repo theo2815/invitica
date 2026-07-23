@@ -1,18 +1,49 @@
 "use client";
 
+import {
+  type InvitationOpeningState,
+  RibbonEnvelopeOpening,
+  type RibbonEnvelopeVariant,
+} from "@invitica/renderer";
+import { resolveTemplateById, type TemplateCatalogEntry } from "@invitica/template-kit";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 
-import { templatePreviews } from "../data/templatePreviews";
 import { BrandMark } from "./BrandMark";
 import { ArrowRight, ArrowUpRight, Check } from "./Icons";
 import styles from "./LandingConcept.module.css";
 
-export function LandingConcept() {
+interface LandingConceptProps {
+  templates: readonly TemplateCatalogEntry[];
+}
+
+export function LandingConcept({ templates }: LandingConceptProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [invitationOpen, setInvitationOpen] = useState(false);
+  const [openingState, setOpeningState] = useState<InvitationOpeningState>("closed");
+  const [openingReplayKey, setOpeningReplayKey] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState(0);
-  const activeTemplate = templatePreviews[selectedTemplate] ?? templatePreviews[0];
+  const activeTemplate = templates[selectedTemplate] ?? templates[0];
+
+  if (!activeTemplate) {
+    throw new Error("The landing page requires at least one registered template");
+  }
+
+  const activeManifest = resolveTemplateById(activeTemplate.id);
+  const envelopeVariant: RibbonEnvelopeVariant =
+    activeTemplate.id === "garden-promise"
+      ? "garden-promise"
+      : activeTemplate.id === "golden-hour"
+        ? "golden-hour"
+        : activeTemplate.id === "sunday-joy"
+          ? "sunday-joy"
+          : "warm-editorial";
+  const envelopeStyle = {
+    "--ie-background": activeManifest.defaultDocument.theme.colors.background,
+    "--ie-ink": activeManifest.defaultDocument.theme.colors.text,
+    "--ie-paper": activeManifest.defaultDocument.theme.colors.surface,
+    "--ie-ribbon": activeManifest.defaultDocument.theme.colors.accent,
+  } as CSSProperties;
 
   function closeMenu() {
     setMenuOpen(false);
@@ -112,29 +143,44 @@ export function LandingConcept() {
               <span>Interactive invitation preview</span>
               <span>{activeTemplate.occasion}</span>
             </div>
-            <button
-              aria-expanded={invitationOpen}
-              aria-label={invitationOpen ? "Close sample invitation" : "Open sample invitation"}
-              className={styles.envelopeButton}
-              data-open={invitationOpen}
-              onClick={() => setInvitationOpen((current) => !current)}
-              type="button"
+            <RibbonEnvelopeOpening
+              className={styles.marketingEnvelope}
+              kicker={`${activeTemplate.occasion} invitation`}
+              letterLead="You are invited"
+              letterNote={activeTemplate.date}
+              mode="preview"
+              onOpeningStateChange={setOpeningState}
+              openingReplayKey={openingReplayKey}
+              recipient={activeManifest.defaultDocument.opening.fallbackRecipientText}
+              recipientLead="Made especially for"
+              style={envelopeStyle}
+              variant={envelopeVariant}
             >
-              <span className={styles.envelopeBack} />
-              <span className={styles.envelopeLetter}>
-                <small>You are invited</small>
-                <strong>{activeTemplate.previewTitle}</strong>
-                <span>{activeTemplate.date}</span>
+              <section
+                className={styles.previewInvitation}
+                data-envelope-focus-target
+                tabIndex={-1}
+              >
+                <small>{activeTemplate.occasion}</small>
+                <h2>{activeTemplate.previewTitle}</h2>
+                <p>{activeTemplate.date}</p>
+              </section>
+            </RibbonEnvelopeOpening>
+            <div className={styles.previewActions}>
+              <span>
+                {openingState === "opened" ? "Sample invitation opened" : "Open the sample above"}
               </span>
-              <span className={styles.envelopeFront} />
-              <span className={styles.envelopeFlap} />
-              <span className={styles.envelopeSeal}>I</span>
-            </button>
-            <p aria-live="polite" className={styles.previewHint}>
-              {invitationOpen
-                ? "Invitation opened · Tap again to close"
-                : "Tap the envelope to open"}
-            </p>
+              <button
+                disabled={openingState !== "opened"}
+                onClick={() => {
+                  setOpeningState("closed");
+                  setOpeningReplayKey((current) => current + 1);
+                }}
+                type="button"
+              >
+                Replay opening
+              </button>
+            </div>
           </div>
         </section>
 
@@ -188,7 +234,7 @@ export function LandingConcept() {
           </div>
 
           <div className={styles.templateGrid}>
-            {templatePreviews.map((template, index) => (
+            {templates.map((template, index) => (
               <article
                 className={styles.templateCard}
                 data-selected={selectedTemplate === index}
@@ -210,7 +256,8 @@ export function LandingConcept() {
                     aria-pressed={selectedTemplate === index}
                     onClick={() => {
                       setSelectedTemplate(index);
-                      setInvitationOpen(true);
+                      setOpeningState("closed");
+                      setOpeningReplayKey((current) => current + 1);
                     }}
                     type="button"
                   >

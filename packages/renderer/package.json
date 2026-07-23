@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -13,6 +16,7 @@
   },
   "dependencies": {
     "@invitica/invitation-schema": "workspace:*",
+    "@invitica/template-kit": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

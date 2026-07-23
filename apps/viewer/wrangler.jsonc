@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "invitica-viewer",
+  "main": "src/index.ts",
+  "tsconfig": "./tsconfig.json",
+  "compatibility_date": "2026-07-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/client",
+    "run_worker_first": ["/i/*"]
+  },
+  "r2_buckets": [
+    {
+      "binding": "PUBLICATION_BUCKET",
+      "bucket_name": "invitica-storage"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "env": {
+    "production": {
+      "name": "invitica-viewer-production",
+      "r2_buckets": [
+        {
+          "binding": "PUBLICATION_BUCKET",
+          "bucket_name": "invitica-storage"
+        }
+      ]
+    }
+  }
+}

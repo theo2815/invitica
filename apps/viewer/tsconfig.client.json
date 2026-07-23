@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["react", "react-dom"]
+  },
+  "include": ["src/client.tsx", "src/published-renderer.ts", "src/styles.d.ts"]
+}

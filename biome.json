@@ -5,6 +5,9 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
+  "files": {
+    "includes": ["**", "!!apps/viewer/worker-configuration.d.ts"]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

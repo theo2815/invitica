@@ -585,8 +585,20 @@
 }
 
 @media (max-width: 700px) {
+  .pageHeader {
+    padding-bottom: 1.25rem;
+  }
+
   .pageHeader h1 {
-    font-size: clamp(3rem, 15vw, 4.5rem);
+    margin-top: 0.4rem;
+    font-size: clamp(2.2rem, 10vw, 2.85rem);
+    line-height: 1;
+  }
+
+  .pageDescription {
+    margin-top: 0.55rem;
+    font-size: 0.76rem;
+    line-height: 1.45;
   }
 
   .headerActions {
@@ -619,6 +631,17 @@
   .privacyNote {
     grid-template-columns: 1fr;
     gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .privacyNote h2 {
+    margin-top: 0;
+    font-size: 1.2rem;
+  }
+
+  .privacyNote div p {
+    font-size: 0.68rem;
+    line-height: 1.5;
   }
 
   .footer {

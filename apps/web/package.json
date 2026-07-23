@@ -11,11 +11,16 @@
   "dependencies": {
     "@fontsource-variable/fraunces": "5.2.9",
     "@fontsource-variable/instrument-sans": "5.2.8",
+    "@invitica/invitation-schema": "workspace:*",
+    "@invitica/renderer": "workspace:*",
+    "@invitica/template-kit": "workspace:*",
     "@supabase/ssr": "0.10.0",
     "@supabase/supabase-js": "2.105.3",
+    "@trigger.dev/sdk": "4.5.4",
     "next": "16.2.10",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.2",

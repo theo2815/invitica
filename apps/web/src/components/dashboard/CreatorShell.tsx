@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { signOut } from "../../server/auth/actions";
 import { BrandMark } from "../BrandMark";
-import { Envelope, Grid, Home, Settings, Users } from "../Icons";
+import { Envelope, Grid, Home, Users } from "../Icons";
 import styles from "./CreatorShell.module.css";
+import { ProfileMenu } from "./ProfileMenu";
 
 type CreatorPage = "guests" | "invitations" | "overview" | "templates";
 
@@ -72,34 +72,16 @@ export function CreatorShell({ activePage, children, email, metadata }: CreatorS
             <Users />
             Guests & RSVPs
           </Link>
-          <span aria-disabled="true" className={styles.disabledNavItem}>
-            <Settings />
-            Settings
-            <small>Soon</small>
-          </span>
         </nav>
 
-        <div className={styles.account}>
-          <span aria-hidden="true" className={styles.avatar}>
-            {(creatorName ?? email ?? "C").charAt(0).toUpperCase()}
-          </span>
-          <div>
-            <strong>{creatorName ?? "Creator"}</strong>
-            <span>{email}</span>
-          </div>
-          <form action={signOut}>
-            <button type="submit">Sign out</button>
-          </form>
-        </div>
+        <ProfileMenu creatorName={creatorName} email={email} variant="desktop" />
       </aside>
 
       <header className={styles.mobileHeader}>
         <Link aria-label="Invitica home" className={styles.brand} href="/">
           <BrandMark />
         </Link>
-        <form action={signOut}>
-          <button type="submit">Sign out</button>
-        </form>
+        <ProfileMenu creatorName={creatorName} email={email} variant="mobile" />
       </header>
 
       <div className={styles.content} id="creator-content" tabIndex={-1}>

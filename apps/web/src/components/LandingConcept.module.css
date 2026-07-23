@@ -256,141 +256,103 @@
   font-weight: 740;
 }
 
-.envelopeButton {
-  position: relative;
-  display: block;
-  width: min(86%, 25rem);
-  aspect-ratio: 1.42;
-  margin: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  perspective: 1000px;
+.marketingEnvelope {
+  flex: 1;
+  margin-top: 1rem;
 }
 
-.envelopeBack,
-.envelopeLetter,
-.envelopeFront,
-.envelopeFlap,
-.envelopeSeal {
-  position: absolute;
-  display: block;
+.marketingEnvelope :global(.ie-opening) {
+  min-height: 25rem;
+  padding: 1rem 0.5rem;
 }
 
-.envelopeBack {
-  inset: 0;
-  border: 1px solid color-mix(in srgb, var(--text) 26%, transparent);
-  background: var(--envelope);
-  box-shadow: 0 1.4rem 3rem rgb(31 25 22 / 14%);
+.marketingEnvelope :global(.ie-opening::before) {
+  inset: 0.5rem;
 }
 
-.envelopeLetter {
-  z-index: 2;
-  inset: 7% 7%;
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  justify-content: center;
-  padding: 1rem;
-  border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
-  background: var(--letter);
-  box-shadow: 0 0.7rem 2rem rgb(31 25 22 / 12%);
+.marketingEnvelope :global(.ie-scene) {
+  min-height: 17rem;
+  margin-block: 0.9rem 0.6rem;
+}
+
+.marketingEnvelope[data-opening-state="opened"] :global(.ie-opening) {
+  min-height: 20rem;
+}
+
+.previewInvitation {
+  display: grid;
+  min-height: 10rem;
+  align-content: center;
+  justify-items: center;
+  padding: 1.5rem;
+  border: 1px solid var(--preview-line);
+  background: color-mix(in srgb, var(--letter) 88%, transparent);
   text-align: center;
-  transition: transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  outline: 0;
 }
 
-.envelopeLetter small {
+.previewInvitation:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: -5px;
+}
+
+.previewInvitation small {
   color: var(--accent);
-  font-size: 0.5rem;
+  font-size: 0.58rem;
   font-weight: 760;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.envelopeLetter strong {
-  margin: 1.2rem 0 0.75rem;
+.previewInvitation h2 {
+  margin: 0.7rem 0 0;
   font-family: var(--display-font);
-  font-size: clamp(1.7rem, 3.6vw, 3.3rem);
+  font-size: clamp(1.9rem, 4vw, 3rem);
   font-weight: 520;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.05em;
+  line-height: 1;
 }
 
-.envelopeLetter > span {
-  max-width: 13rem;
+.previewInvitation p {
+  margin: 0.65rem 0 0;
   color: var(--muted);
-  font-size: 0.55rem;
-  line-height: 1.4;
+  font-size: 0.7rem;
 }
 
-.envelopeFront {
-  z-index: 3;
-  inset: 0;
-  background:
-    linear-gradient(150deg, transparent 49.5%, color-mix(in srgb, var(--envelope) 88%, #000000) 50%)
-    0 0 / 51% 100% no-repeat,
-    linear-gradient(210deg, transparent 49.5%, var(--envelope) 50%) 100% 0 / 51% 100% no-repeat;
-  pointer-events: none;
-}
-
-.envelopeFlap {
-  z-index: 4;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 53%;
-  background: color-mix(in srgb, var(--envelope) 88%, #ffffff);
-  clip-path: polygon(0 0, 50% 100%, 100% 0);
-  transform-origin: top;
-  transition:
-    transform 480ms ease,
-    z-index 0s 240ms;
-}
-
-.envelopeSeal {
-  z-index: 5;
-  top: calc(50% - 1.7rem);
-  left: calc(50% - 1.7rem);
-  display: grid;
-  width: 3.4rem;
-  aspect-ratio: 1;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--seal);
-  box-shadow: 0 0.4rem 1rem rgb(31 25 22 / 20%);
-  color: var(--accent-text);
-  font-family: var(--display-font);
-  font-size: 1.3rem;
-  pointer-events: none;
-  transition:
-    opacity 200ms ease,
-    transform 200ms ease;
-}
-
-.envelopeButton[data-open="true"] .envelopeLetter {
-  z-index: 5;
-  transform: translateY(-38%);
-}
-
-.envelopeButton[data-open="true"] .envelopeFlap {
-  z-index: 1;
-  transform: rotateX(180deg);
-}
-
-.envelopeButton[data-open="true"] .envelopeSeal {
-  opacity: 0;
-  transform: scale(0.75);
-}
-
-.previewHint {
+.previewActions {
   position: relative;
-  z-index: 6;
-  margin: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
   color: var(--preview-line);
-  font-size: 0.66rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  text-align: center;
+}
+
+.previewActions button {
+  min-height: 2.75rem;
+  padding-inline: 0.85rem;
+  border: 1px solid var(--preview-line);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.previewActions button:hover:not(:disabled),
+.previewActions button:focus-visible {
+  border-color: var(--text);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.previewActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .quickBenefits {
@@ -1002,14 +964,6 @@
     padding: 0.85rem;
   }
 
-  .envelopeButton {
-    width: 92%;
-  }
-
-  .envelopeButton[data-open="true"] .envelopeLetter {
-    transform: translateY(-32%);
-  }
-
   .quickBenefits {
     grid-template-columns: 1fr;
   }
@@ -1091,9 +1045,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .envelopeLetter,
-  .envelopeFlap,
-  .envelopeSeal,
   .templateCard,
   .primaryButton {
     transition: none;

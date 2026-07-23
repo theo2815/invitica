@@ -7,11 +7,13 @@ coverage/
 .vercel/
 .wrangler/
 .open-next/
+.trigger/
 .env
 .env.*
 !.env.example
 *.tsbuildinfo
 playwright-report/
 test-results/
+tests/e2e/render-fixture.generated.mjs
 .DS_Store
 Thumbs.db

@@ -4,7 +4,7 @@
 
 Invitica is a Philippines-first platform for creating premium, interactive digital invitation websites. It is designed around mobile-first editing, curated templates, expressive motion, media, and fast account-free guest experiences.
 
-> **Project status:** Foundation and walking skeleton. The invitation document contract, shared renderer, responsive marketing landing page, and first authentication/tenancy slice are implemented. Publishing, RSVP operations, and payments are not yet production-ready.
+> **Project status:** Foundation and walking skeleton. Creator drafts, the shared renderer, an edge guest viewer, the local retry-safe publication pipeline, privacy-safe personalized links, and account-free RSVP are implemented. Provider configuration and deployment remain deliberate release work; RSVP is not deployed and payments are not production-ready.
 
 ## Current foundation
 
@@ -14,12 +14,15 @@ Invitica is a Philippines-first platform for creating premium, interactive digit
 - Responsive marketing interactions with keyboard and reduced-motion support
 - Supabase email/password and Google OAuth flows with protected creator routes
 - Workspace-based ownership and row-level security migration with negative cross-user policy tests
+- Party-scoped personalized links and retry-safe account-free RSVP with no raw-token persistence
 - TypeScript monorepo with pnpm workspaces, Turborepo, Biome, Vitest, and GitHub Actions
 
 ## Repository structure
 
 ```text
 apps/
+  jobs/                Trigger.dev publication orchestration
+  viewer/              Cloudflare Worker guest invitation viewer
   web/                 Next.js marketing and creator surface
 packages/
   database/            Reviewed SQL migrations and database policy tests
@@ -43,10 +46,27 @@ Additional applications and packages are added through verified vertical slices 
 corepack enable
 pnpm install --frozen-lockfile
 Copy-Item apps/web/.env.example apps/web/.env.local
-pnpm --filter @invitica/web dev
+pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the current landing page and interactive invitation preview.
+Open [http://localhost:3000](http://localhost:3000) to view the creator application. During
+development, `/i/*` and the Viewer assets are proxied to the separate local Viewer on port 8787,
+so creator and guest URLs share the visible `localhost:3000` origin without merging deployables.
+
+### Inspect a published development invitation
+
+A publication delivered to private R2 must be copied into Wrangler's ignored local R2 store before
+the local Viewer can read it. Authenticate Wrangler, seed only the required invitation, then run
+both development applications:
+
+```bash
+pnpm --filter @invitica/viewer exec wrangler login
+pnpm --filter @invitica/viewer seed -- http://localhost:3000/i/invitation-<32-character-token>
+pnpm dev
+```
+
+The seed command reads and validates the alias and immutable artifact from remote R2, then writes
+only to local Wrangler storage. It does not deploy the Viewer or mutate remote R2.
 
 ### Authentication setup
 

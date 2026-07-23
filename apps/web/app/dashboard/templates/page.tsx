@@ -1,12 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { templateCatalog } from "@invitica/template-kit";
 
 import { CreatorShell } from "../../../src/components/dashboard/CreatorShell";
 import { TemplateCatalog } from "../../../src/components/templates/TemplateCatalog";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
+import { listInvitationDrafts } from "../../../src/server/invitations/drafts";
 import styles from "./Templates.module.css";
 
 export default async function TemplatesPage() {
-  const { error, user } = await ensurePersonalWorkspace();
+  const { error, supabase, user, workspaceId } = await ensurePersonalWorkspace();
+  const creationRequestIds = Object.fromEntries(
+    templateCatalog.map((template) => [template.id, randomUUID()]),
+  );
+  const drafts = !error && workspaceId ? await listInvitationDrafts(supabase, workspaceId) : [];
 
   return (
     <CreatorShell activePage="templates" email={user.email} metadata={user.user_metadata}>
@@ -19,7 +25,7 @@ export default async function TemplatesPage() {
         </p>
       </header>
 
-      {error ? (
+      {error || !workspaceId ? (
         <section className={styles.workspaceError} role="alert">
           <p className={styles.label}>Workspace unavailable</p>
           <h2>Your workspace needs attention</h2>
@@ -29,7 +35,11 @@ export default async function TemplatesPage() {
           </p>
         </section>
       ) : (
-        <TemplateCatalog templates={templateCatalog} />
+        <TemplateCatalog
+          creationRequestIds={creationRequestIds}
+          templates={templateCatalog}
+          usedTemplateVersionIds={drafts.map((draft) => draft.templateVersionId)}
+        />
       )}
 
       <footer className={styles.footer}>

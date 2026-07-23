@@ -71,6 +71,176 @@
   padding-block: clamp(2rem, 4vw, 3.75rem);
 }
 
+.workspaceSummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: clamp(2rem, 4vw, 3rem);
+}
+
+.workspaceSummary article {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.workspaceSummary span,
+.invitationMetrics dt {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 720;
+}
+
+.workspaceSummary strong {
+  font-family: var(--display-font);
+  font-size: 2.25rem;
+  font-weight: 520;
+  line-height: 1;
+}
+
+.workspaceSummary small {
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.45;
+}
+
+.invitationList {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.invitationRow {
+  display: grid;
+  gap: 1.2rem;
+  padding: clamp(1.2rem, 3vw, 1.7rem);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 4%);
+}
+
+.invitationIdentity {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.invitationIdentity h3 {
+  margin: 0.45rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 550;
+  letter-spacing: -0.035em;
+}
+
+.invitationIdentity > div > p:last-child {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.lifecycle {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+  text-align: right;
+}
+
+.lifecycle > span {
+  padding: 0.28rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 780;
+}
+
+.lifecycle > span[data-tone="published"] {
+  color: #3f653e;
+}
+
+.lifecycle > span[data-tone="attention"] {
+  color: var(--danger);
+}
+
+.lifecycle > span[data-tone="publishing"] {
+  color: #795b16;
+}
+
+.lifecycle > span[data-tone="draft"] {
+  color: var(--muted);
+}
+
+.lifecycle small {
+  max-width: 12rem;
+  color: var(--muted);
+  font-size: 0.6rem;
+  line-height: 1.45;
+}
+
+.invitationMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-block: 1px solid var(--border);
+}
+
+.invitationMetrics > div {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0;
+}
+
+.invitationMetrics > div + div {
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--border);
+}
+
+.invitationMetrics dd {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: 1.45rem;
+  font-weight: 550;
+}
+
+.invitationActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.invitationActions > small {
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.invitationActions > div {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.9rem;
+}
+
+.invitationActions a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 760;
+  text-underline-offset: 0.25em;
+}
+
+.invitationActions svg {
+  width: 0.9rem;
+}
+
 .dashboardGrid > section,
 .responses {
   scroll-margin-top: 2rem;
@@ -393,6 +563,10 @@
   .rail {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .workspaceSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -411,6 +585,44 @@
   .sectionHeading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .workspaceSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invitationIdentity,
+  .invitationActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lifecycle {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .invitationMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invitationMetrics > div:nth-child(3) {
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .invitationMetrics > div:nth-child(4) {
+    border-top: 1px solid var(--border);
+  }
+
+  .invitationActions > div {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .invitationActions a {
+    justify-content: center;
   }
 
   .emptyState {
@@ -446,5 +658,9 @@
 @media (max-width: 380px) {
   .emptyCopy {
     padding-inline: 1.5rem;
+  }
+
+  .workspaceSummary {
+    grid-template-columns: 1fr;
   }
 }

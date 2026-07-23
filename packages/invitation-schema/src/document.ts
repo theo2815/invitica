@@ -6,6 +6,13 @@ const idSchema = z.string().uuid();
 const shortTextSchema = z.string().trim().min(1).max(120);
 const bodyTextSchema = z.string().trim().min(1).max(10_000);
 const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Expected a six-digit hex color");
+const httpUrlSchema = z
+  .string()
+  .url()
+  .refine((value) => {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  }, "Expected an HTTP or HTTPS URL");
 
 export const animationPresetSchema = z.enum([
   "none",
@@ -51,7 +58,7 @@ export const venueSectionSchema = z.strictObject({
     heading: z.string().trim().max(120).optional(),
     venueName: shortTextSchema,
     address: z.string().trim().min(1).max(500),
-    mapUrl: z.string().url().optional(),
+    mapUrl: httpUrlSchema.optional(),
   }),
 });
 

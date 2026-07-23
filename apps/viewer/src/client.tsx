@@ -1,0 +1,32 @@
+import "@fontsource-variable/fraunces/index.css";
+import "@fontsource-variable/instrument-sans/index.css";
+import "./rsvp-form.css";
+
+import { parsePublicationArtifact } from "@invitica/invitation-schema";
+import { hydrateRoot } from "react-dom/client";
+
+import { publicIdentifierFromInvitationPath } from "./invitation-path";
+import { PersonalizedPublication } from "./personalized-publication";
+import { recordPublicationView } from "./view-tracking";
+
+function hydratePublication(): void {
+  const root = document.getElementById("viewer-root");
+  const data = document.getElementById("publication-artifact");
+
+  if (!root || !data?.textContent) {
+    return;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(data.textContent);
+    const artifact = parsePublicationArtifact(parsed);
+
+    hydrateRoot(root, <PersonalizedPublication artifact={artifact} />);
+    const publicIdentifier = publicIdentifierFromInvitationPath(window.location.pathname);
+    if (publicIdentifier) void recordPublicationView(publicIdentifier);
+  } catch {
+    console.error(JSON.stringify({ event: "viewer_hydration_failed" }));
+  }
+}
+
+hydratePublication();

@@ -1,0 +1,36 @@
+{
+  "name": "@invitica/viewer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm run build:client && wrangler deploy --dry-run --minify --outdir dist/worker --env=\"\"",
+    "build:client": "esbuild src/client.tsx --bundle --minify --format=esm --target=es2022 --outdir=dist/client --entry-names=viewer --asset-names=fonts/[name]-[hash] --loader:.woff2=file",
+    "dev": "pnpm run build:client && wrangler dev --env=\"\"",
+    "seed": "node scripts/seed-publication.mjs",
+    "test": "pnpm run build:client && vitest run",
+    "test:browser": "pnpm run build:client && turbo run build --filter=@invitica/template-kit... && node tests/browser-check.mjs",
+    "typecheck": "wrangler types --check && tsc --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "5.2.9",
+    "@fontsource-variable/instrument-sans": "5.2.8",
+    "@invitica/invitation-schema": "workspace:*",
+    "@invitica/renderer": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.6",
+    "@invitica/template-kit": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "esbuild": "0.28.1",
+    "playwright-core": "1.61.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "4.112.0"
+  }
+}

@@ -167,8 +167,7 @@
   text-align: center;
 }
 
-.cardArtwork::before,
-.previewArtwork::before {
+.cardArtwork::before {
   position: absolute;
   inset: 1rem;
   border: 1px solid currentColor;
@@ -178,18 +177,13 @@
 
 .cardArtwork span,
 .cardArtwork small,
-.cardArtwork strong,
-.previewArtwork span,
-.previewArtwork small,
-.previewArtwork strong {
+.cardArtwork strong {
   position: relative;
   z-index: 1;
 }
 
 .cardArtwork span,
-.cardArtwork small,
-.previewArtwork span,
-.previewArtwork small {
+.cardArtwork small {
   font-size: 0.58rem;
   font-weight: 720;
   letter-spacing: 0.12em;
@@ -206,20 +200,17 @@
   line-height: 0.96;
 }
 
-.cardArtwork[data-template="garden-promise"],
-.previewArtwork[data-template="garden-promise"] {
+.cardArtwork[data-template="garden-promise"] {
   background: #dfe4d3;
   color: #48513f;
 }
 
-.cardArtwork[data-template="golden-hour"],
-.previewArtwork[data-template="golden-hour"] {
+.cardArtwork[data-template="golden-hour"] {
   background: #2e2730;
   color: #e5c67b;
 }
 
-.cardArtwork[data-template="golden-hour"]::after,
-.previewArtwork[data-template="golden-hour"]::after {
+.cardArtwork[data-template="golden-hour"]::after {
   position: absolute;
   width: 8rem;
   height: 8rem;
@@ -229,14 +220,12 @@
   transform: rotate(45deg);
 }
 
-.cardArtwork[data-template="sunday-joy"],
-.previewArtwork[data-template="sunday-joy"] {
+.cardArtwork[data-template="sunday-joy"] {
   background: #f2c95f;
   color: #562e2d;
 }
 
-.cardArtwork[data-template="sunday-joy"]::after,
-.previewArtwork[data-template="sunday-joy"]::after {
+.cardArtwork[data-template="sunday-joy"]::after {
   position: absolute;
   top: -3rem;
   right: -3rem;
@@ -327,6 +316,92 @@
 .cardActions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.creationForm {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+.cardActions .creationFormExpanded {
+  grid-column: 1 / -1;
+}
+
+.creationForm button:not(:disabled) {
+  cursor: pointer;
+}
+
+.creationForm button:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.creationError,
+.creationNote {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.creationError {
+  color: var(--danger);
+}
+
+.reuseConfirmation {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface));
+}
+
+.reuseConfirmation p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.reuseConfirmation > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.reuseConfirmation button,
+.reuseConfirmation a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.66rem;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+.reuseConfirmation button:first-child {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.reuseConfirmation button:last-child {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.reuseConfirmation button:focus-visible,
+.reuseConfirmation a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .cardActions svg {
@@ -449,51 +524,60 @@
   background: var(--background);
 }
 
+.previewToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
 .deviceControl {
   width: fit-content;
-  margin: 0 auto 1rem;
+}
+
+.replayButton {
+  min-height: 2.75rem;
+  padding-inline: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.replayButton:hover:not(:disabled),
+.replayButton:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.replayButton:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .previewStage {
-  display: grid;
-  min-height: 29rem;
-  padding: 1.5rem;
+  width: min(100%, 24rem);
+  height: min(68dvh, 44rem);
+  margin-inline: auto;
+  overflow: auto;
   border: 1px solid var(--border);
-  background: #e7e0d4;
-  transition: padding 180ms ease;
-  place-items: center;
-}
-
-.previewArtwork {
-  position: relative;
-  display: flex;
-  width: min(100%, 18rem);
-  aspect-ratio: 4 / 5;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 2rem;
-  text-align: center;
   box-shadow: 0 1.3rem 3rem rgb(52 43 37 / 18%);
-  transition:
-    width 180ms ease,
-    aspect-ratio 180ms ease;
+  overscroll-behavior: contain;
+  transition: width 180ms ease;
 }
 
-.previewStage[data-device="desktop"] .previewArtwork {
-  width: min(100%, 32rem);
-  aspect-ratio: 16 / 10;
+.previewStage[data-device="desktop"] {
+  width: min(100%, 48rem);
 }
 
-.previewArtwork strong {
-  max-width: 18rem;
-  margin-block: 1.5rem;
-  font-family: var(--display-font);
-  font-size: clamp(2.6rem, 6vw, 5rem);
-  font-weight: 510;
-  letter-spacing: -0.06em;
-  line-height: 0.94;
+.previewStage > article {
+  min-height: 100%;
 }
 
 .previewDetails {
@@ -544,24 +628,32 @@
   content: "—";
 }
 
-.previewDetails > button {
-  min-height: 3rem;
+.previewDetails > .creationForm {
   margin-top: auto;
+}
+
+.previewDetails > .creationForm > button {
+  min-height: 3rem;
   border: 1px solid var(--border);
   border-radius: 0.3rem;
   background: var(--surface-muted);
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 750;
-  cursor: not-allowed;
-  opacity: 0.7;
 }
 
-.previewDetails > small {
-  margin-top: 0.65rem;
-  color: var(--muted);
-  font-size: 0.62rem;
-  line-height: 1.5;
+.previewDetails > .creationForm > button:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.previewDetails > .creationForm > button:not(:disabled):hover {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
+
+.previewDetails > .creationForm > small {
   text-align: center;
 }
 
@@ -629,12 +721,7 @@
   }
 
   .previewStage {
-    min-height: 26rem;
-    padding: 1rem;
-  }
-
-  .previewStage[data-device="desktop"] .previewArtwork {
-    aspect-ratio: 16 / 11;
+    height: 34rem;
   }
 
   .previewDetails {
@@ -656,5 +743,9 @@
 
   .cardActions {
     grid-template-columns: 1fr;
+  }
+
+  .reuseConfirmation > div {
+    display: grid;
   }
 }

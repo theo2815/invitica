@@ -5,19 +5,37 @@ import InvitationsError from "../app/dashboard/invitations/error";
 import InvitationsLoading from "../app/dashboard/invitations/loading";
 import InvitationsPage from "../app/dashboard/invitations/page";
 import { ensurePersonalWorkspace } from "../src/server/auth/session";
+import { listInvitationDrafts } from "../src/server/invitations/drafts";
+import { listInvitationPublicationStatuses } from "../src/server/invitations/publications";
 
 vi.mock("../src/server/auth/actions", () => ({
   signOut: vi.fn(),
+}));
+
+vi.mock("../src/components/invitations/InvitationDeleteButton", () => ({
+  InvitationDeleteButton: () => <button type="button">Delete</button>,
 }));
 
 vi.mock("../src/server/auth/session", () => ({
   ensurePersonalWorkspace: vi.fn(),
 }));
 
+vi.mock("../src/server/invitations/drafts", () => ({
+  listInvitationDrafts: vi.fn(),
+}));
+
+vi.mock("../src/server/invitations/publications", () => ({
+  listInvitationPublicationStatuses: vi.fn(),
+}));
+
 afterEach(cleanup);
 
 beforeEach(() => {
   vi.mocked(ensurePersonalWorkspace).mockReset();
+  vi.mocked(listInvitationDrafts).mockReset();
+  vi.mocked(listInvitationDrafts).mockResolvedValue([]);
+  vi.mocked(listInvitationPublicationStatuses).mockReset();
+  vi.mocked(listInvitationPublicationStatuses).mockResolvedValue({});
 });
 
 describe("invitations page", () => {
@@ -29,7 +47,7 @@ describe("invitations page", () => {
         email: "maria@example.com",
         user_metadata: { full_name: "Maria Santos" },
       } as never,
-      workspaceId: "workspace-id",
+      workspaceId: "72000000-0000-4000-8000-000000000001",
     });
 
     render(await InvitationsPage());
@@ -49,6 +67,82 @@ describe("invitations page", () => {
       "/dashboard/invitations",
     );
     expect(screen.getByText("maria@example.com")).toBeDefined();
+  });
+
+  it("lists saved drafts with direct links back to their editors", async () => {
+    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
+      error: null,
+      supabase: {} as never,
+      user: {
+        email: "maria@example.com",
+        user_metadata: { full_name: "Maria Santos" },
+      } as never,
+      workspaceId: "72000000-0000-4000-8000-000000000001",
+    });
+    vi.mocked(listInvitationDrafts).mockResolvedValue([
+      {
+        dateLabel: "December 20, 2026",
+        invitationId: "71000000-0000-4000-8000-000000000001",
+        manifest: {
+          listing: {
+            id: "garden-promise",
+            name: "Garden Promise",
+            occasion: "Wedding",
+          },
+        },
+        revision: 2,
+        templateVersionId: "40000000-0000-4000-8000-000000000001",
+        title: "Mara & Joaquin",
+        updatedAt: "2026-07-19T04:00:00+00:00",
+      },
+    ] as never);
+
+    render(await InvitationsPage());
+
+    expect(screen.getByText("1 saved invitation")).toBeDefined();
+    expect(screen.getByText("Draft")).toBeDefined();
+    expect(screen.getByRole("heading", { level: 3, name: "Mara & Joaquin" })).toBeDefined();
+    expect(screen.queryByText("Your first invitation begins here.")).toBeNull();
+    expect(screen.getByRole("link", { name: "Continue editing" }).getAttribute("href")).toBe(
+      "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
+    );
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
+  });
+
+  it("labels a delivered current revision as published", async () => {
+    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
+      error: null,
+      supabase: {} as never,
+      user: { email: "maria@example.com", user_metadata: {} } as never,
+      workspaceId: "72000000-0000-4000-8000-000000000001",
+    });
+    vi.mocked(listInvitationDrafts).mockResolvedValue([
+      {
+        dateLabel: null,
+        invitationId: "71000000-0000-4000-8000-000000000001",
+        manifest: {
+          listing: { id: "garden-promise", name: "Garden Promise", occasion: "Wedding" },
+        },
+        revision: 4,
+        templateVersionId: "40000000-0000-4000-8000-000000000001",
+        title: "Mara & Joaquin",
+        updatedAt: "2026-07-19T04:00:00+00:00",
+      },
+    ] as never);
+    vi.mocked(listInvitationPublicationStatuses).mockResolvedValue({
+      "71000000-0000-4000-8000-000000000001": {
+        errorCode: null,
+        livePublicIdentifier: "0123456789abcdef0123456789abcdef",
+        publicationId: "92000000-0000-4000-8000-000000000001",
+        publishedRevision: 4,
+        status: "delivered",
+      },
+    });
+
+    render(await InvitationsPage());
+
+    expect(screen.getByText("Published")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
   });
 
   it("shows the workspace provisioning failure without claiming an empty library", async () => {

@@ -89,6 +89,197 @@
   font-size: 0.72rem;
 }
 
+.invitationGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.savedCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 6%);
+}
+
+.savedArtwork {
+  position: relative;
+  display: flex;
+  min-height: 16rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 2rem;
+  background: #eee7dc;
+  color: #5b4d43;
+  text-align: center;
+}
+
+.savedArtwork::before {
+  position: absolute;
+  inset: 1rem;
+  border: 1px solid currentColor;
+  content: "";
+  opacity: 0.22;
+}
+
+.savedArtwork[data-template="garden-promise"] {
+  background: linear-gradient(145deg, rgb(255 255 255 / 30%), transparent 44%), #dfe4d3;
+  color: #48513f;
+}
+
+.savedArtwork > span,
+.savedArtwork > p,
+.savedArtwork > strong,
+.savedArtwork > small {
+  position: relative;
+  z-index: 1;
+}
+
+.savedArtwork > span {
+  position: absolute;
+  top: 1.4rem;
+  left: 1.5rem;
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+.savedArtwork > p,
+.savedArtwork > small {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 720;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.savedArtwork > strong {
+  max-width: 16rem;
+  margin-block: 1.15rem;
+  font-family: var(--display-font);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 510;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.savedDetails {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  padding: 1.25rem;
+}
+
+.savedMeta,
+.savedActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.savedMeta > span {
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+  font-size: 0.6rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.savedMeta > span[data-status="published"] {
+  background: color-mix(in srgb, #527050 12%, var(--surface));
+  color: #3f613d;
+}
+
+.savedMeta > span[data-status="publishing"] {
+  background: color-mix(in srgb, #8a6a31 12%, var(--surface));
+  color: #73541f;
+}
+
+.savedMeta > span[data-status="attention"] {
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+  color: var(--danger);
+}
+
+.savedMeta > small,
+.savedActions > span {
+  color: var(--muted);
+  font-size: 0.63rem;
+}
+
+.savedDetails > .label {
+  margin-top: 1.2rem;
+}
+
+.savedDetails h3 {
+  margin: 0.55rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.8rem;
+  font-weight: 540;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.savedDetails > p:not(.label) {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.savedActions {
+  margin-top: auto;
+  padding-top: 1.25rem;
+}
+
+.savedActionButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.savedActions a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding-inline: 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.savedActions a:hover {
+  background: var(--accent-hover);
+}
+
+.savedActions a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.savedActions svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
 .emptyState {
   display: grid;
   grid-template-columns: minmax(18rem, 0.9fr) minmax(0, 1.1fr);
@@ -491,6 +682,21 @@
   .libraryHeading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .savedActions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .savedActions a {
+    width: 100%;
+  }
+
+  .savedActionButtons {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column-reverse;
   }
 
   .emptyState {

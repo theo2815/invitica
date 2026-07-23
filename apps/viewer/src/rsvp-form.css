@@ -1,0 +1,171 @@
+.rsvp-card,
+.rsvp-card * {
+  box-sizing: border-box;
+}
+
+.rsvp-card {
+  width: 100%;
+  padding: clamp(1.15rem, 5vw, 1.75rem);
+  color: inherit;
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.rsvp-card--centered,
+.rsvp-card__notice {
+  text-align: center;
+}
+
+.rsvp-card fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rsvp-card legend,
+.rsvp-card h3 {
+  width: 100%;
+  margin: 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 520;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.rsvp-card__choices {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+}
+
+.rsvp-card__choices label {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  cursor: pointer;
+}
+
+.rsvp-card input[type="radio"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--gp-sage, var(--ie-ribbon, currentColor));
+}
+
+.rsvp-card__field {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.15rem;
+  font-weight: 650;
+}
+
+.rsvp-card__field small,
+.rsvp-card__note,
+.rsvp-card__deadline {
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  font-size: 0.75rem;
+  font-weight: 450;
+}
+
+.rsvp-card input[type="number"],
+.rsvp-card textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, white 70%, transparent);
+  color: inherit;
+  font: inherit;
+}
+
+.rsvp-card input[type="number"] {
+  max-width: 7rem;
+}
+
+.rsvp-card textarea {
+  resize: vertical;
+}
+
+.rsvp-card input:focus-visible,
+.rsvp-card textarea:focus-visible,
+.rsvp-card button:focus-visible {
+  outline: 3px solid var(--gp-sage, var(--ie-ribbon, currentColor));
+  outline-offset: 3px;
+}
+
+.rsvp-card__deadline,
+.rsvp-card__error {
+  margin: 1rem 0 0;
+  text-align: center;
+}
+
+.rsvp-card__error {
+  color: #8a2f27;
+  font-weight: 650;
+}
+
+.rsvp-card__actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.rsvp-card button {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  font: inherit;
+  font-weight: 720;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.rsvp-card__primary {
+  background: var(--gp-sage, var(--ie-ribbon, currentColor));
+  color: var(--gp-sage-contrast, var(--invitation-accent-contrast, white));
+}
+
+.rsvp-card__secondary {
+  background: transparent;
+  color: inherit;
+}
+
+.rsvp-card button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.rsvp-card__eyebrow {
+  margin: 0 0 0.55rem;
+  color: var(--gp-sage, var(--ie-ribbon, currentColor));
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rsvp-card--centered h3 + p {
+  margin: 0.75rem 0 0;
+}
+
+.rsvp-card__notice {
+  margin: 0;
+  padding: 1rem;
+}
+
+@media (min-width: 28rem) {
+  .rsvp-card__actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

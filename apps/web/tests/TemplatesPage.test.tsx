@@ -1,5 +1,6 @@
-import { templateCatalog } from "@invitica/template-kit";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { GardenPromiseRenderer } from "@invitica/renderer";
+import { resolveTemplateById, templateCatalog } from "@invitica/template-kit";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TemplatesError from "../app/dashboard/templates/error";
@@ -7,6 +8,7 @@ import TemplatesLoading from "../app/dashboard/templates/loading";
 import TemplatesPage from "../app/dashboard/templates/page";
 import { TemplateCatalog } from "../src/components/templates/TemplateCatalog";
 import { ensurePersonalWorkspace } from "../src/server/auth/session";
+import { listInvitationDrafts } from "../src/server/invitations/drafts";
 
 vi.mock("../src/server/auth/actions", () => ({
   signOut: vi.fn(),
@@ -16,10 +18,26 @@ vi.mock("../src/server/auth/session", () => ({
   ensurePersonalWorkspace: vi.fn(),
 }));
 
+vi.mock("../src/server/invitations/drafts", () => ({
+  listInvitationDrafts: vi.fn(),
+}));
+
+vi.mock("../src/server/invitations/actions", () => ({
+  createInvitationDraftAction: vi.fn(async (state) => state),
+}));
+
+const creationRequestIds = {
+  "garden-promise": "71000000-0000-4000-8000-000000000001",
+  "golden-hour": "71000000-0000-4000-8000-000000000002",
+  "sunday-joy": "71000000-0000-4000-8000-000000000003",
+};
+
 afterEach(cleanup);
 
 beforeEach(() => {
   vi.mocked(ensurePersonalWorkspace).mockReset();
+  vi.mocked(listInvitationDrafts).mockReset();
+  vi.mocked(listInvitationDrafts).mockResolvedValue([]);
 });
 
 describe("templates page", () => {
@@ -31,7 +49,7 @@ describe("templates page", () => {
         email: "maria@example.com",
         user_metadata: { full_name: "Maria Santos" },
       } as never,
-      workspaceId: "workspace-id",
+      workspaceId: "72000000-0000-4000-8000-000000000001",
     });
 
     render(await TemplatesPage());
@@ -63,7 +81,7 @@ describe("templates page", () => {
   });
 
   it("searches and filters the preview collection", () => {
-    render(<TemplateCatalog templates={templateCatalog} />);
+    render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search templates" }), {
       target: { value: "debut" },
@@ -79,11 +97,78 @@ describe("templates page", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "Sunday Joy" })).toBeNull();
   });
 
+  it("enables creation only for the production template with a stable request key", () => {
+    render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
+
+    const creationButtons = screen.getAllByRole("button", { name: "Use this template" });
+    const enabledButtons = creationButtons.filter(
+      (button): button is HTMLButtonElement =>
+        button instanceof HTMLButtonElement && !button.hasAttribute("disabled"),
+    );
+
+    expect(creationButtons).toHaveLength(3);
+    expect(enabledButtons).toHaveLength(1);
+    expect(
+      enabledButtons[0]?.form?.querySelector<HTMLInputElement>('input[name="invitationId"]')?.value,
+    ).toBe(creationRequestIds["garden-promise"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview Golden Hour" }));
+    expect(screen.getByText("Preview only — production creation is unavailable.")).toBeDefined();
+    expect(
+      screen.getAllByRole("button", { name: "Use this template" }).at(-1)?.hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("asks before reusing a template and offers the existing invitation library", () => {
+    render(
+      <TemplateCatalog
+        creationRequestIds={creationRequestIds}
+        templates={templateCatalog}
+        usedTemplateVersionIds={[resolveTemplateById("garden-promise").templateVersionId]}
+      />,
+    );
+
+    const reuseButton = screen
+      .getAllByRole("button", { name: "Use this template" })
+      .find((button) => !button.hasAttribute("disabled"));
+
+    if (!reuseButton) {
+      throw new Error("Expected the production template action to be enabled.");
+    }
+
+    fireEvent.click(reuseButton);
+
+    expect(
+      screen.getByText(
+        "You have already started an invitation with Garden Promise. Create another one for a different event?",
+      ),
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "Create another" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "View invitations" }).getAttribute("href")).toBe(
+      "/dashboard/invitations",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(screen.queryByRole("button", { name: "Create another" })).toBeNull();
+    expect(document.activeElement).toBe(reuseButton);
+  });
+
   it("opens and closes an accessible responsive preview", () => {
-    render(<TemplateCatalog templates={templateCatalog} />);
+    const { container } = render(
+      <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Preview Garden Promise" }));
     expect(screen.getByRole("dialog", { name: "Preview Garden Promise" })).toBeDefined();
+    expect(screen.getByText("Production renderer")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Open invitation for/ })).toBeDefined();
+    expect(screen.queryByRole("heading", { level: 1, name: "Mara & Joaquin" })).toBeNull();
+    expect(container.querySelector('[data-envelope-gated="true"]')?.hasAttribute("inert")).toBe(
+      true,
+    );
+    expect(screen.getByRole("button", { name: "Replay opening" }).hasAttribute("disabled")).toBe(
+      true,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Desktop preview" }));
     expect(screen.getByTestId("template-preview-stage").getAttribute("data-device")).toBe(
       "desktop",
@@ -93,7 +178,9 @@ describe("templates page", () => {
   });
 
   it("handles no matches, loading, and unexpected errors", () => {
-    const { unmount } = render(<TemplateCatalog templates={templateCatalog} />);
+    const { unmount } = render(
+      <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
+    );
     fireEvent.change(screen.getByRole("searchbox", { name: "Search templates" }), {
       target: { value: "not a real template" },
     });
@@ -111,5 +198,121 @@ describe("templates page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(screen.getByRole("alert").textContent).toContain("Templates could not be loaded");
     expect(reset).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Garden Promise invitation interaction", () => {
+  const gardenPromise = resolveTemplateById("garden-promise");
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("moves through the explicit opening states, gates content, and ignores repeated input", () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <GardenPromiseRenderer document={gardenPromise.defaultDocument} mode="preview" />,
+    );
+    const invitation = container.querySelector("[data-opening-state]");
+    const content = container.querySelector<HTMLElement>("[data-envelope-gated]");
+    const opener = screen.getByRole("button", { name: /Open invitation for/ });
+
+    expect(invitation?.getAttribute("data-opening-state")).toBe("closed");
+    expect(content?.getAttribute("data-envelope-gated")).toBe("true");
+    expect(content?.hasAttribute("inert")).toBe(true);
+    fireEvent.click(opener);
+    expect(invitation?.getAttribute("data-opening-state")).toBe("untying");
+    fireEvent.click(opener);
+    expect(invitation?.getAttribute("data-opening-state")).toBe("untying");
+
+    expect(screen.getByRole("button", { name: "Skip opening" })).toBeDefined();
+    act(() => vi.advanceTimersByTime(900));
+    expect(invitation?.getAttribute("data-opening-state")).toBe("opening");
+    act(() => vi.advanceTimersByTime(1_050));
+    expect(invitation?.getAttribute("data-opening-state")).toBe("letter-revealing");
+    expect(content?.getAttribute("data-envelope-visual-gated")).toBe("false");
+    act(() => vi.advanceTimersByTime(1_400));
+    act(() => vi.advanceTimersByTime(0));
+    expect(invitation?.getAttribute("data-opening-state")).toBe("opened");
+    expect(content?.getAttribute("data-envelope-gated")).toBe("false");
+    expect(content?.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(content?.querySelector("main"));
+    expect(container.querySelector("[data-envelope-opening]")?.hasAttribute("hidden")).toBe(true);
+    expect(screen.queryByRole("button", { name: /Invitation for .* opened/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip opening" })).toBeNull();
+  });
+
+  it("lets a guest skip the extended Garden Promise opening", () => {
+    const { container } = render(
+      <GardenPromiseRenderer document={gardenPromise.defaultDocument} mode="preview" />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip opening" }));
+
+    expect(
+      container.querySelector("[data-opening-state]")?.getAttribute("data-opening-state"),
+    ).toBe("opened");
+    expect(container.querySelector("[data-envelope-gated]")?.hasAttribute("inert")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Skip opening" })).toBeNull();
+  });
+
+  it("keeps creator preview gating scoped and restores a published lock on unmount", () => {
+    const preview = render(
+      <GardenPromiseRenderer document={gardenPromise.defaultDocument} mode="preview" />,
+    );
+    expect(document.documentElement.hasAttribute("data-invitation-scroll-lock")).toBe(false);
+    preview.unmount();
+
+    const published = render(
+      <GardenPromiseRenderer document={gardenPromise.defaultDocument} mode="published" />,
+    );
+    expect(document.documentElement.getAttribute("data-invitation-scroll-lock")).toBe("true");
+    published.unmount();
+    expect(document.documentElement.hasAttribute("data-invitation-scroll-lock")).toBe(false);
+    expect(document.body.style.position).toBe("");
+  });
+
+  it("locks scrolling only for the hydrated published invitation and restores it", () => {
+    vi.useFakeTimers();
+    const { container, unmount } = render(
+      <GardenPromiseRenderer document={gardenPromise.defaultDocument} mode="published" />,
+    );
+
+    expect(document.documentElement.getAttribute("data-invitation-scroll-lock")).toBe("true");
+    expect(document.body.style.position).toBe("fixed");
+    fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(1_050));
+    act(() => vi.advanceTimersByTime(1_400));
+    act(() => vi.advanceTimersByTime(0));
+
+    expect(
+      container.querySelector("[data-opening-state]")?.getAttribute("data-opening-state"),
+    ).toBe("opened");
+    expect(document.documentElement.hasAttribute("data-invitation-scroll-lock")).toBe(false);
+    expect(document.body.style.position).toBe("");
+    unmount();
+    expect(document.documentElement.hasAttribute("data-invitation-scroll-lock")).toBe(false);
+  });
+
+  it("opens immediately with reduced motion while keeping the invitation readable", () => {
+    const { container } = render(
+      <GardenPromiseRenderer
+        document={gardenPromise.defaultDocument}
+        mode="preview"
+        recipientName="The Villanueva and de la Cruz Family"
+        reducedMotion
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
+
+    expect(
+      container.querySelector("[data-opening-state]")?.getAttribute("data-opening-state"),
+    ).toBe("opened");
+    expect(screen.getAllByText("The Villanueva and de la Cruz Family").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 1, name: "Mara & Joaquin" })).toBeDefined();
+    expect(screen.getByText("Hiraya Garden Pavilion")).toBeDefined();
   });
 });

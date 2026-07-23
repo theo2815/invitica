@@ -1,8 +1,15 @@
 "use client";
 
-import type { TemplateCatalogEntry } from "@invitica/template-kit";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
+import {
+  resolveTemplateById,
+  type TemplateCatalogEntry,
+  type TemplateManifest,
+} from "@invitica/template-kit";
+import Link from "next/link";
+import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { createInvitationDraftAction } from "../../server/invitations/actions";
 import { ArrowRight } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
 
@@ -10,10 +17,98 @@ type Device = "desktop" | "mobile";
 type Tier = "All" | TemplateCatalogEntry["tier"];
 
 interface TemplateCatalogProps {
+  creationRequestIds: Readonly<Record<string, string>>;
   templates: readonly TemplateCatalogEntry[];
+  usedTemplateVersionIds?: readonly string[];
 }
 
-export function TemplateCatalog({ templates }: TemplateCatalogProps) {
+interface UseTemplateFormProps {
+  creationRequestId: string;
+  manifest: TemplateManifest;
+  showAvailability?: boolean;
+  usedBefore: boolean;
+}
+
+function UseTemplateForm({
+  creationRequestId,
+  manifest,
+  showAvailability = false,
+  usedBefore,
+}: UseTemplateFormProps) {
+  const [state, formAction, pending] = useActionState(createInvitationDraftAction, {
+    error: null,
+  });
+  const [confirmingReuse, setConfirmingReuse] = useState(false);
+  const confirmationId = useId();
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const reuseButtonRef = useRef<HTMLButtonElement>(null);
+  const hadConfirmationRef = useRef(false);
+  const available = manifest.qualityStatus === "production";
+
+  useEffect(() => {
+    if (confirmingReuse) {
+      hadConfirmationRef.current = true;
+      confirmButtonRef.current?.focus();
+    } else if (hadConfirmationRef.current) {
+      hadConfirmationRef.current = false;
+      reuseButtonRef.current?.focus();
+    }
+  }, [confirmingReuse]);
+
+  return (
+    <form
+      action={formAction}
+      className={`${styles.creationForm} ${confirmingReuse ? styles.creationFormExpanded : ""}`}
+    >
+      <input name="invitationId" type="hidden" value={creationRequestId} />
+      <input name="templateVersionId" type="hidden" value={manifest.templateVersionId} />
+      <button
+        aria-controls={usedBefore ? confirmationId : undefined}
+        aria-expanded={usedBefore ? confirmingReuse : undefined}
+        disabled={!available || pending}
+        onClick={usedBefore ? () => setConfirmingReuse(true) : undefined}
+        ref={reuseButtonRef}
+        title={available ? undefined : "This renderer-backed fixture is not available for creation"}
+        type={usedBefore ? "button" : "submit"}
+      >
+        {pending ? "Creating draft…" : "Use this template"}
+      </button>
+      {confirmingReuse ? (
+        <div className={styles.reuseConfirmation} id={confirmationId}>
+          <p aria-live="polite">
+            You have already started an invitation with {manifest.listing.name}. Create another one
+            for a different event?
+          </p>
+          <div>
+            <button ref={confirmButtonRef} type="submit">
+              Create another
+            </button>
+            <Link href="/dashboard/invitations">View invitations</Link>
+            <button onClick={() => setConfirmingReuse(false)} type="button">
+              Not now
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {state.error ? (
+        <small className={styles.creationError} role="alert">
+          {state.error}
+        </small>
+      ) : null}
+      {showAvailability && !available ? (
+        <small className={styles.creationNote}>
+          Preview only — production creation is unavailable.
+        </small>
+      ) : null}
+    </form>
+  );
+}
+
+export function TemplateCatalog({
+  creationRequestIds,
+  templates,
+  usedTemplateVersionIds = [],
+}: TemplateCatalogProps) {
   const [query, setQuery] = useState("");
   const [occasion, setOccasion] = useState("All");
   const [style, setStyle] = useState("All");
@@ -21,8 +116,14 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
   const [sort, setSort] = useState("featured");
   const [preview, setPreview] = useState<TemplateCatalogEntry | null>(null);
   const [device, setDevice] = useState<Device>("mobile");
+  const [previewOpeningState, setPreviewOpeningState] = useState<InvitationOpeningState>("closed");
+  const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const usedTemplateVersions = useMemo(
+    () => new Set(usedTemplateVersionIds),
+    [usedTemplateVersionIds],
+  );
   const occasions = useMemo(
     () => ["All", ...new Set(templates.map((template) => template.occasion))],
     [templates],
@@ -31,6 +132,13 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
     () => ["All", ...new Set(templates.map((template) => template.style))],
     [templates],
   );
+  const previewManifest = useMemo(
+    () => (preview ? resolveTemplateById(preview.id) : null),
+    [preview],
+  );
+  const PreviewRenderer = previewManifest
+    ? resolveTemplateRenderer(previewManifest.rendererKey)
+    : null;
 
   const filteredTemplates = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
@@ -109,6 +217,8 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
 
   function openPreview(template: TemplateCatalogEntry) {
     setDevice("mobile");
+    setPreviewOpeningState("closed");
+    setPreviewReplayKey(0);
     setPreview(template);
   }
 
@@ -119,7 +229,9 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
           <p>Preview collection</p>
           <strong>Explore the art direction already established in Invitica.</strong>
         </div>
-        <span>{templates.length} concept previews · Creation integration follows</span>
+        <span>
+          {templates.length} renderer-backed templates · Garden Promise production preview
+        </span>
       </div>
 
       <div className={styles.controls}>
@@ -227,9 +339,13 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
                   >
                     Preview <ArrowRight />
                   </button>
-                  <button disabled title="Invitation creation is not available yet" type="button">
-                    Use this template
-                  </button>
+                  <UseTemplateForm
+                    creationRequestId={creationRequestIds[template.id] ?? ""}
+                    manifest={resolveTemplateById(template.id)}
+                    usedBefore={usedTemplateVersions.has(
+                      resolveTemplateById(template.id).templateVersionId,
+                    )}
+                  />
                 </div>
               </div>
             </article>
@@ -274,37 +390,58 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
 
             <div className={styles.dialogBody}>
               <div className={styles.previewColumn}>
-                <fieldset aria-label="Preview device" className={styles.deviceControl}>
+                <div className={styles.previewToolbar}>
+                  <fieldset aria-label="Preview device" className={styles.deviceControl}>
+                    <button
+                      aria-pressed={device === "mobile"}
+                      onClick={() => setDevice("mobile")}
+                      type="button"
+                    >
+                      Mobile preview
+                    </button>
+                    <button
+                      aria-pressed={device === "desktop"}
+                      onClick={() => setDevice("desktop")}
+                      type="button"
+                    >
+                      Desktop preview
+                    </button>
+                  </fieldset>
                   <button
-                    aria-pressed={device === "mobile"}
-                    onClick={() => setDevice("mobile")}
+                    className={styles.replayButton}
+                    disabled={previewOpeningState !== "opened"}
+                    onClick={() => {
+                      setPreviewOpeningState("closed");
+                      setPreviewReplayKey((current) => current + 1);
+                    }}
                     type="button"
                   >
-                    Mobile preview
+                    Replay opening
                   </button>
-                  <button
-                    aria-pressed={device === "desktop"}
-                    onClick={() => setDevice("desktop")}
-                    type="button"
-                  >
-                    Desktop preview
-                  </button>
-                </fieldset>
-                <div
-                  className={styles.previewStage}
-                  data-device={device}
-                  data-testid="template-preview-stage"
-                >
-                  <div className={styles.previewArtwork} data-template={preview.id}>
-                    <span>You are invited</span>
-                    <strong>{preview.previewTitle}</strong>
-                    <small>{preview.date}</small>
-                  </div>
                 </div>
+                {PreviewRenderer && previewManifest ? (
+                  <div
+                    className={styles.previewStage}
+                    data-device={device}
+                    data-testid="template-preview-stage"
+                  >
+                    <PreviewRenderer
+                      document={previewManifest.defaultDocument}
+                      key={previewManifest.templateVersionId}
+                      mode="preview"
+                      onOpeningStateChange={setPreviewOpeningState}
+                      openingReplayKey={previewReplayKey}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <aside className={styles.previewDetails}>
-                <p>Concept preview</p>
+                <p>
+                  {previewManifest?.qualityStatus === "production"
+                    ? "Production renderer"
+                    : "Renderer-backed fixture"}
+                </p>
                 <h3>{preview.style}</h3>
                 <span>{preview.description}</span>
                 <div>
@@ -315,10 +452,14 @@ export function TemplateCatalog({ templates }: TemplateCatalogProps) {
                     ))}
                   </ul>
                 </div>
-                <button disabled type="button">
-                  Use this template
-                </button>
-                <small>Available after invitation creation is connected.</small>
+                {previewManifest ? (
+                  <UseTemplateForm
+                    creationRequestId={creationRequestIds[preview.id] ?? ""}
+                    manifest={previewManifest}
+                    showAvailability
+                    usedBefore={usedTemplateVersions.has(previewManifest.templateVersionId)}
+                  />
+                ) : null}
               </aside>
             </div>
           </div>

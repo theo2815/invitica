@@ -12,8 +12,8 @@ export const gardenPromiseTemplate = {
   },
   templateVersionId: "40000000-0000-4000-8000-000000000001",
   version: 1,
-  qualityStatus: "fixture",
-  rendererKey: "standard-v1",
+  qualityStatus: "production",
+  rendererKey: "garden-promise-v1",
   schemaVersion: 1,
   allowedSections: ["hero", "message", "venue", "rsvp"],
   defaultDocument: {

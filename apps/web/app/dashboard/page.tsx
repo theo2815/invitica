@@ -3,20 +3,100 @@ import Link from "next/link";
 import { CreatorShell, getCreatorName } from "../../src/components/dashboard/CreatorShell";
 import { ArrowRight, Plus, Users } from "../../src/components/Icons";
 import { ensurePersonalWorkspace } from "../../src/server/auth/session";
+import {
+  emptyInvitationResultSummary,
+  listInvitationResultSummaries,
+} from "../../src/server/guests/results";
+import { listInvitationDrafts } from "../../src/server/invitations/drafts";
+import {
+  type InvitationPublicationStatus,
+  listInvitationPublicationStatuses,
+} from "../../src/server/invitations/publications";
 import styles from "./Dashboard.module.css";
 
+function formatUpdatedAt(value: string) {
+  return new Intl.DateTimeFormat("en-PH", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Manila",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function publicationPresentation(
+  publication: InvitationPublicationStatus | undefined,
+  draftRevision: number,
+) {
+  if (!publication || publication.status === "idle") {
+    return { detail: "Not published yet", label: "Draft", tone: "draft" };
+  }
+  if (publication.status === "delivered") {
+    return publication.publishedRevision === draftRevision
+      ? { detail: "The current draft is live", label: "Published", tone: "published" }
+      : { detail: "Saved changes are not live yet", label: "Draft changes", tone: "draft" };
+  }
+  if (publication.status === "failed") {
+    return {
+      detail: publication.livePublicIdentifier
+        ? "The previous version remains live"
+        : "Publication needs to be retried",
+      label: "Needs attention",
+      tone: "attention",
+    };
+  }
+  return {
+    detail: publication.livePublicIdentifier
+      ? "An update is being prepared"
+      : "The first publication is being prepared",
+    label: publication.status === "retrying" ? "Retrying" : "Publishing",
+    tone: "publishing",
+  };
+}
+
 export default async function DashboardPage() {
-  const { error, user } = await ensurePersonalWorkspace();
+  const { error, supabase, user, workspaceId } = await ensurePersonalWorkspace();
   const creatorName = getCreatorName(user.user_metadata);
+  const dashboardData =
+    !error && workspaceId
+      ? await Promise.all([
+          listInvitationDrafts(supabase, workspaceId),
+          listInvitationPublicationStatuses(supabase, workspaceId),
+          listInvitationResultSummaries(supabase, workspaceId),
+        ])
+      : null;
+  const drafts = dashboardData?.[0] ?? [];
+  const publicationStatuses = dashboardData?.[1] ?? {};
+  const resultSummaries = dashboardData?.[2] ?? {};
+  const workspaceTotals = drafts.reduce(
+    (totals, draft) => {
+      const result =
+        resultSummaries[draft.invitationId] ?? emptyInvitationResultSummary(draft.invitationId);
+      const publication = publicationStatuses[draft.invitationId];
+      return {
+        attendingGuests: totals.attendingGuests + result.attendingGuests,
+        awaitingParties: totals.awaitingParties + result.awaitingParties,
+        liveInvitations: totals.liveInvitations + (publication?.livePublicIdentifier ? 1 : 0),
+        views: totals.views + result.viewCount,
+      };
+    },
+    { attendingGuests: 0, awaitingParties: 0, liveInvitations: 0, views: 0 },
+  );
+  const attentionCount = drafts.filter((draft) => {
+    const presentation = publicationPresentation(
+      publicationStatuses[draft.invitationId],
+      draft.revision,
+    );
+    return presentation.tone === "attention" || presentation.label === "Draft changes";
+  }).length;
 
   return (
     <CreatorShell activePage="overview" email={user.email} metadata={user.user_metadata}>
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>Personal workspace</p>
-          <h1>{creatorName ? `Good morning, ${creatorName}.` : "Good morning."}</h1>
+          <h1>{creatorName ? `Welcome back, ${creatorName}.` : "Welcome back."}</h1>
           <p className={styles.pageDescription}>
-            Bring every thoughtful detail of your celebrations together.
+            See what is live, who has replied, and what needs your attention.
           </p>
         </div>
         {!error ? (
@@ -36,7 +116,7 @@ export default async function DashboardPage() {
             the Invitica database migration has been applied, then reload this page.
           </p>
         </div>
-      ) : (
+      ) : drafts.length === 0 ? (
         <div className={styles.dashboardGrid}>
           <section aria-labelledby="invitations-heading" id="invitations">
             <div className={styles.sectionHeading}>
@@ -121,6 +201,146 @@ export default async function DashboardPage() {
             </section>
           </aside>
         </div>
+      ) : (
+        <>
+          <section aria-label="Workspace results" className={styles.workspaceSummary}>
+            <article>
+              <span>Invitations</span>
+              <strong>{drafts.length}</strong>
+              <small>Saved in this workspace</small>
+            </article>
+            <article>
+              <span>Live invitations</span>
+              <strong>{workspaceTotals.liveInvitations}</strong>
+              <small>Confirmed guest delivery</small>
+            </article>
+            <article>
+              <span>Attending guests</span>
+              <strong>{workspaceTotals.attendingGuests}</strong>
+              <small>Across responding parties</small>
+            </article>
+            <article>
+              <span>Awaiting reply</span>
+              <strong>{workspaceTotals.awaitingParties}</strong>
+              <small>Parties without a response</small>
+            </article>
+            <article>
+              <span>Views</span>
+              <strong>{workspaceTotals.views}</strong>
+              <small>Approximate page loads</small>
+            </article>
+          </section>
+
+          <div className={styles.dashboardGrid}>
+            <section aria-labelledby="invitations-heading" id="invitations">
+              <div className={styles.sectionHeading}>
+                <div>
+                  <p className={styles.sectionLabel}>Invitation desk</p>
+                  <h2 id="invitations-heading">Your invitations</h2>
+                </div>
+                <span className={styles.emptyCount}>
+                  {drafts.length} saved {drafts.length === 1 ? "invitation" : "invitations"}
+                </span>
+              </div>
+
+              <div className={styles.invitationList}>
+                {drafts.map((draft) => {
+                  const publication = publicationStatuses[draft.invitationId];
+                  const presentation = publicationPresentation(publication, draft.revision);
+                  const result =
+                    resultSummaries[draft.invitationId] ??
+                    emptyInvitationResultSummary(draft.invitationId);
+                  return (
+                    <article className={styles.invitationRow} key={draft.invitationId}>
+                      <div className={styles.invitationIdentity}>
+                        <div>
+                          <p className={styles.cardLabel}>{draft.manifest.listing.name}</p>
+                          <h3>{draft.title}</h3>
+                          <p>{draft.dateLabel ?? "Date to be added"}</p>
+                        </div>
+                        <div className={styles.lifecycle}>
+                          <span data-tone={presentation.tone}>{presentation.label}</span>
+                          <small>{presentation.detail}</small>
+                        </div>
+                      </div>
+                      <dl className={styles.invitationMetrics}>
+                        <div>
+                          <dt>Guest parties</dt>
+                          <dd>{result.guestPartyCount}</dd>
+                        </div>
+                        <div>
+                          <dt>Attending</dt>
+                          <dd>{result.attendingGuests}</dd>
+                        </div>
+                        <div>
+                          <dt>Awaiting</dt>
+                          <dd>{result.awaitingParties}</dd>
+                        </div>
+                        <div>
+                          <dt>Views</dt>
+                          <dd>{result.viewCount}</dd>
+                        </div>
+                      </dl>
+                      <div className={styles.invitationActions}>
+                        <small>Updated {formatUpdatedAt(draft.updatedAt)}</small>
+                        <div>
+                          {publication?.livePublicIdentifier ? (
+                            <Link
+                              href={`/dashboard/guests?invitationId=${encodeURIComponent(draft.invitationId)}`}
+                            >
+                              Guests &amp; RSVPs
+                            </Link>
+                          ) : null}
+                          <Link href={`/dashboard/invitations/${draft.invitationId}`}>
+                            Continue editing <ArrowRight />
+                          </Link>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+
+            <aside className={styles.rail}>
+              <section className={styles.gettingStarted}>
+                <p className={styles.sectionLabel}>Needs attention</p>
+                <h2>
+                  {attentionCount
+                    ? `${attentionCount} invitation update${attentionCount === 1 ? "" : "s"}`
+                    : "Nothing urgent"}
+                </h2>
+                <p className={styles.responseDescription}>
+                  {attentionCount
+                    ? "Open the marked invitations to publish saved changes or retry delivery."
+                    : "Published invitations and saved drafts have no known delivery issue."}
+                </p>
+                <Link className={styles.textLink} href="/dashboard/invitations">
+                  Review invitation library <ArrowRight />
+                </Link>
+              </section>
+
+              <section className={styles.responses} id="responses">
+                <div className={styles.responseIcon}>
+                  <Users />
+                </div>
+                <p className={styles.sectionLabel}>Guest responses</p>
+                <h2>
+                  {workspaceTotals.attendingGuests
+                    ? `${workspaceTotals.attendingGuests} attending so far.`
+                    : "Responses are ready to follow."}
+                </h2>
+                <p className={styles.responseDescription}>
+                  View party-level attendance, messages, link state, and approximate invitation
+                  views in the private ledger.
+                </p>
+                <Link className={styles.textLink} href="/dashboard/guests">
+                  Manage guests &amp; RSVPs <ArrowRight />
+                </Link>
+              </section>
+            </aside>
+          </div>
+        </>
       )}
 
       <footer className={styles.footer}>

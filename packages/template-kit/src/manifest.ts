@@ -4,7 +4,7 @@ import {
 } from "@invitica/invitation-schema";
 import { z } from "zod";
 
-export const templateRendererKeySchema = z.enum(["standard-v1"]);
+export const templateRendererKeySchema = z.enum(["standard-v1", "garden-promise-v1"]);
 export const templateQualityStatusSchema = z.enum(["production", "fixture"]);
 export const templateOccasionSchema = z.enum([
   "Wedding",

@@ -20,9 +20,20 @@ describe("template registry", () => {
       expect(templateManifestSchema.parse(manifest)).toEqual(manifest);
       expect(Object.isFrozen(manifest.defaultDocument)).toBe(true);
       expect(manifest.defaultDocument.templateVersionId).toBe(manifest.templateVersionId);
-      expect(manifest.rendererKey).toBe("standard-v1");
-      expect(manifest.qualityStatus).toBe("fixture");
     }
+
+    expect(resolveTemplateById("garden-promise")).toMatchObject({
+      qualityStatus: "production",
+      rendererKey: "garden-promise-v1",
+    });
+    expect(
+      templateRegistry
+        .filter((manifest) => manifest.listing.id !== "garden-promise")
+        .map((manifest) => [manifest.rendererKey, manifest.qualityStatus]),
+    ).toEqual([
+      ["standard-v1", "fixture"],
+      ["standard-v1", "fixture"],
+    ]);
   });
 
   it("resolves stable template and version identifiers and rejects unknown values", () => {

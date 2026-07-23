@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-pool-workers/types"]
+  },
+  "include": [
+    "src/artifacts.ts",
+    "src/html.tsx",
+    "src/index.ts",
+    "src/load-publication.ts",
+    "src/published-renderer.ts",
+    "tests/**/*.ts",
+    "worker-configuration.d.ts"
+  ],
+  "exclude": ["src/client.tsx"]
+}

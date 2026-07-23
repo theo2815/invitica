@@ -1,0 +1,759 @@
+.desk {
+  padding-block: clamp(2rem, 4vw, 3.75rem);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.context,
+.generalLink,
+.linkReveal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.48fr);
+  align-items: center;
+  gap: clamp(1.5rem, 5vw, 4rem);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 5%);
+}
+
+.context h2,
+.generalLink h2,
+.linkReveal h2,
+.ledger h2,
+.dialog h2 {
+  margin: 0.65rem 0 0;
+  font-family: var(--display-font);
+  font-weight: 540;
+  letter-spacing: -0.045em;
+}
+
+.context h2 {
+  font-size: clamp(2rem, 5vw, 3.7rem);
+  line-height: 1;
+}
+
+.context p:not(.eyebrow),
+.generalLink p:not(.eyebrow),
+.linkReveal p:not(.eyebrow),
+.dialog > p:not(.eyebrow) {
+  max-width: 42rem;
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.65;
+}
+
+.context > a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
+.invitationPicker {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.invitationPicker select,
+.copyField input,
+.dialog input,
+.dialog textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+}
+
+.invitationPicker select,
+.dialog input {
+  min-height: 2.85rem;
+  padding-inline: 0.75rem;
+}
+
+.generalLink {
+  margin-top: 1.25rem;
+  background: color-mix(in srgb, var(--surface-muted) 35%, var(--surface));
+}
+
+.generalLink h2,
+.linkReveal h2 {
+  font-size: clamp(1.55rem, 3vw, 2.3rem);
+}
+
+.copyStack {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.copyField {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.copyField input {
+  min-width: 0;
+  min-height: 2.85rem;
+  padding-inline: 0.75rem;
+  font-size: 0.7rem;
+}
+
+.copyField button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.copyField svg {
+  width: 1rem;
+}
+
+.copySuccess,
+.copyError {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.copySuccess {
+  color: #3f653e;
+}
+
+.copyError {
+  color: var(--danger);
+}
+
+.copyField button,
+.primaryAction,
+.empty button,
+.partyActions button,
+.dialogActions button {
+  min-height: 2.75rem;
+  padding-inline: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.copyField button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.copyField svg {
+  width: 1rem;
+}
+
+.copySuccess,
+.copyError {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.copySuccess {
+  color: #3f653e;
+}
+
+.copyError {
+  color: var(--danger);
+}
+
+.copyField button,
+.primaryAction,
+.empty button,
+.dialogActions button:last-child {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.linkReveal {
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-top: 1.25rem;
+  border-left: 3px solid #4f734d;
+  background: #f3f5ec;
+}
+
+.linkReveal > span {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgb(79 115 77 / 28%);
+  border-radius: 50%;
+  color: #3f653e;
+  place-items: center;
+}
+
+.linkReveal svg {
+  width: 1.25rem;
+}
+
+.linkReveal .copyField {
+  margin-top: 1.25rem;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.summary article {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.summary span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 720;
+}
+
+.summary strong {
+  font-family: var(--display-font);
+  font-size: 2.25rem;
+  font-weight: 520;
+  line-height: 1;
+}
+
+.summary small {
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.45;
+}
+
+.ledger {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+}
+
+.ledger > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.ledger h2 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.primaryAction svg {
+  width: 1rem;
+}
+
+.empty {
+  display: grid;
+  min-height: 20rem;
+  margin-top: 1rem;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  text-align: center;
+  place-content: center;
+}
+
+.empty > span {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  margin-inline: auto;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+  place-items: center;
+}
+
+.empty svg {
+  width: 1.2rem;
+}
+
+.empty h3 {
+  margin: 1rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.55rem;
+  font-weight: 550;
+}
+
+.empty p {
+  max-width: 28rem;
+  margin: 0.5rem auto 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.empty button {
+  margin: 1.2rem auto 0;
+}
+
+.ledgerControls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ledgerControls label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 720;
+}
+
+.ledgerControls input,
+.ledgerControls select {
+  min-height: 2.75rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ledgerControls input {
+  width: min(20rem, 40vw);
+}
+
+.filteredEmpty {
+  display: grid;
+  min-height: 11rem;
+  margin-top: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  text-align: center;
+  place-content: center;
+}
+
+.filteredEmpty h3,
+.filteredEmpty p {
+  margin: 0;
+}
+
+.filteredEmpty h3 {
+  font-family: var(--display-font);
+  font-size: 1.35rem;
+  font-weight: 550;
+}
+
+.filteredEmpty p {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.tableFrame {
+  overflow-x: auto;
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.ledgerTable {
+  width: 100%;
+  min-width: 72rem;
+  border-collapse: collapse;
+}
+
+.ledgerTable th {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 48%, var(--surface));
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.ledgerTable td {
+  max-width: 18rem;
+  padding: 1rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7rem;
+  vertical-align: top;
+}
+
+.ledgerTable tr:last-child td {
+  border-bottom: 0;
+}
+
+.partyIdentity {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.partyIdentity h3 {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: 1.25rem;
+  font-weight: 560;
+}
+
+.partyIdentity p,
+.partyIdentity details p,
+.messageDetails p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.partyIdentity details,
+.messageDetails {
+  margin-top: 0.3rem;
+}
+
+.partyIdentity summary,
+.messageDetails summary {
+  width: fit-content;
+  color: var(--accent);
+  font-size: 0.64rem;
+  font-weight: 720;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.partyIdentity details p,
+.messageDetails p {
+  margin-top: 0.4rem;
+}
+
+.active,
+.revoked,
+.responseBadge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 760;
+}
+
+.active {
+  color: #466545;
+}
+
+.revoked {
+  color: var(--muted);
+}
+
+.responseBadge[data-response="attending"] {
+  color: #3f653e;
+}
+
+.responseBadge[data-response="declined"] {
+  color: var(--danger);
+}
+
+.responseBadge[data-response="awaiting"] {
+  color: var(--muted);
+}
+
+.responseBadge + small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.mutedValue,
+.ledgerTable time {
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+.partyActions {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.partyActions button {
+  width: 100%;
+}
+
+.partyActions .dangerAction {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  color: var(--danger);
+}
+
+.status {
+  min-height: 1.3rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  overflow-y: auto;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: rgb(35 28 24 / 58%);
+  place-items: center;
+}
+
+.dialog {
+  width: min(100%, 34rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 2rem 6rem rgb(30 24 20 / 28%);
+}
+
+.dialog h2 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1;
+}
+
+.dialog form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.dialog label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.dialog label small {
+  font-weight: 520;
+}
+
+.dialog textarea {
+  min-height: 7rem;
+  resize: vertical;
+  padding: 0.75rem;
+  line-height: 1.5;
+}
+
+.dialogStatus {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.5rem;
+}
+
+.dialog form .dialogActions {
+  margin-top: 0.4rem;
+}
+
+.dialogActions button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.dialogActions .confirmDanger {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.desk :is(button, input, select, textarea, a):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .context,
+  .generalLink,
+  .linkReveal {
+    grid-template-columns: 1fr;
+  }
+
+  .linkReveal {
+    justify-items: start;
+  }
+
+  .copyField {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primaryAction {
+    justify-content: center;
+  }
+
+  .ledgerControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr);
+  }
+
+  .ledgerControls input {
+    width: 100%;
+  }
+
+  .tableFrame {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .ledgerTable,
+  .ledgerTable tbody,
+  .ledgerTable tr,
+  .ledgerTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .ledgerTable {
+    min-width: 0;
+  }
+
+  .ledgerTable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .ledgerTable tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .ledgerTable tr {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface);
+  }
+
+  .ledgerTable td,
+  .ledgerTable tr:last-child td {
+    display: grid;
+    max-width: none;
+    grid-template-columns: minmax(6.5rem, 0.35fr) minmax(0, 1fr);
+    gap: 0.8rem;
+    padding: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ledgerTable td:last-child {
+    border-bottom: 0;
+  }
+
+  .ledgerTable td::before {
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 0.58rem;
+    font-weight: 780;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .partyActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dialog {
+    align-self: end;
+    width: 100%;
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  .ledgerControls,
+  .partyActions {
+    grid-template-columns: 1fr;
+  }
+
+  .ledgerTable td {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .dialogActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

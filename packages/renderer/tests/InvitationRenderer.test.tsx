@@ -150,6 +150,18 @@ describe("InvitationRenderer", () => {
     }
   });
 
+  it("keeps published envelope scenes at least as tall as the viewport", () => {
+    for (const manifest of templateRegistry) {
+      const Renderer = resolveTemplateRenderer(manifest.rendererKey);
+      const html = renderToStaticMarkup(
+        <Renderer document={manifest.defaultDocument} mode="published" />,
+      );
+
+      expect(html).toContain('data-render-mode="published"');
+      expect(html).toContain("min-height: 100svh");
+    }
+  });
+
   it("renders the Little Blessings fixture truthfully without pretending media is uploaded", () => {
     const littleBlessings = templateRegistry.find(
       (manifest) => manifest.listing.id === "little-blessings",

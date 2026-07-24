@@ -265,6 +265,10 @@ const gardenPromiseStyles = `
   align-content: center;
 }
 
+.gp-root[data-render-mode="published"] .gp-opening {
+  min-height: 100svh;
+}
+
 .gp-opening[hidden] {
   display: none;
 }

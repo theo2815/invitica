@@ -165,10 +165,8 @@ export function RibbonEnvelopeOpening({
       bodyTouchAction: body.style.touchAction,
       bodyWidth: body.style.width,
       rootOverflow: root.style.overflow,
-      rootPaddingRight: root.style.paddingRight,
       rootScrollbarGutter: root.style.scrollbarGutter,
     };
-    const scrollbarGap = Math.max(0, window.innerWidth - root.clientWidth);
     const keepAtInvitationStart = () => {
       if (window.scrollY !== 0) window.scrollTo({ behavior: "auto", left: 0, top: 0 });
     };
@@ -176,8 +174,7 @@ export function RibbonEnvelopeOpening({
     keepAtInvitationStart();
     root.setAttribute("data-invitation-scroll-lock", "true");
     root.style.overflow = "hidden";
-    root.style.scrollbarGutter = "stable";
-    if (scrollbarGap > 0) root.style.paddingRight = `${scrollbarGap}px`;
+    root.style.scrollbarGutter = "auto";
     body.style.position = "fixed";
     body.style.top = "0";
     body.style.right = "0";
@@ -190,7 +187,6 @@ export function RibbonEnvelopeOpening({
     return () => {
       window.removeEventListener("scroll", keepAtInvitationStart);
       root.style.overflow = previous.rootOverflow;
-      root.style.paddingRight = previous.rootPaddingRight;
       root.style.scrollbarGutter = previous.rootScrollbarGutter;
       body.style.position = previous.bodyPosition;
       body.style.top = previous.bodyTop;
@@ -735,6 +731,9 @@ export const ribbonEnvelopeStyles = `
 .ie-root[data-envelope-variant="sunday-joy"] .ie-ribbon-horizontal { transform: rotate(-2deg); }
 .ie-root[data-envelope-variant="warm-editorial"] .ie-opening { min-height: clamp(25rem, 68svh, 36rem); }
 .ie-root[data-envelope-variant="warm-editorial"] .ie-opening::before { border-style: dashed; }
+.sr-root[data-render-mode="published"] .ie-opening {
+  min-height: 100svh;
+}
 @keyframes ie-content-arrive {
   from { opacity: 0; transform: translateY(0.55rem); }
   to { opacity: 1; transform: translateY(0); }

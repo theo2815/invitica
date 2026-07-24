@@ -1,10 +1,7 @@
 import { z } from "zod";
 
 import type { createClient } from "../../lib/supabase/server";
-import {
-  InvalidImageError,
-  processInvitationImage,
-} from "./image-processing";
+import { InvalidImageError, processInvitationImage } from "./image-processing";
 import {
   IMMUTABLE_MEDIA_CACHE_CONTROL,
   type MediaObjectStore,

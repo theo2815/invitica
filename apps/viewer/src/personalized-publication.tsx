@@ -7,10 +7,11 @@ import {
   guestLinkTokenSchema,
   type PublicationArtifact,
 } from "@invitica/invitation-schema";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import { publicIdentifierFromInvitationPath } from "./invitation-path";
+import { createSnapshotImageResolver } from "./published-media";
 import { resolvePublishedRenderer } from "./published-renderer";
 import { RsvpForm } from "./rsvp-form";
 
@@ -51,6 +52,10 @@ export function PersonalizedPublication({ artifact }: PersonalizedPublicationPro
   const [context, setContext] = useState<GuestContextResponse>();
   const [loadState, setLoadState] = useState<"idle" | "loading" | "unavailable">("idle");
   const Renderer = resolvePublishedRenderer(artifact);
+  const resolveImage = useMemo(
+    () => createSnapshotImageResolver(artifact.snapshot.assets),
+    [artifact],
+  );
 
   useEffect(() => {
     const token = guestLinkTokenSchema.safeParse(
@@ -129,6 +134,7 @@ export function PersonalizedPublication({ artifact }: PersonalizedPublicationPro
     <Renderer
       document={artifact.snapshot.document}
       mode="published"
+      resolveImage={resolveImage}
       {...personalizedProps}
       {...rsvpProps}
     />

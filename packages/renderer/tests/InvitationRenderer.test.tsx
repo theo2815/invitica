@@ -174,4 +174,80 @@ describe("InvitationRenderer", () => {
     expect(html).toContain('data-section-type="gifts"');
     expect(html).not.toContain("<img");
   });
+
+  it("renders resolved responsive images while keeping placeholders for unresolved slots", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    const heroAssetId = "45000000-0000-4000-8000-000000000001";
+    const heroSha = "a".repeat(64);
+    const resolveImage = (assetId: string) =>
+      assetId === heroAssetId
+        ? {
+            height: 1200,
+            renditions: [
+              { height: 480, url: `/m/v1/${heroSha}/w640.webp`, width: 640 },
+              { height: 240, url: `/m/v1/${heroSha}/w320.webp`, width: 320 },
+            ],
+            width: 1600,
+          }
+        : null;
+
+    const html = renderToStaticMarkup(
+      <InvitationRenderer
+        document={littleBlessings.defaultDocument}
+        mode="published"
+        resolveImage={resolveImage}
+      />,
+    );
+
+    // The resolved hero renders a real responsive image with reserved dimensions...
+    expect(html).toContain("<img");
+    expect(html).toContain('width="1600"');
+    expect(html).toContain('height="1200"');
+    expect(html).toContain(`/m/v1/${heroSha}/w320.webp 320w`);
+    expect(html).toContain(`/m/v1/${heroSha}/w640.webp 640w`);
+    expect(html).toContain('loading="eager"');
+    expect(html).not.toContain("Baby portrait pending creator upload");
+    // ...while every unresolved gallery and gift slot keeps its readable fallback.
+    expect(html).toContain("Image pending creator upload");
+    expect(html).toContain("Gift image pending creator upload");
+  });
+
+  it("uses author gallery alt text and lazy-loads below-the-fold media", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    const galleryAssetId = "45000000-0000-4000-8000-000000000002";
+    const gallerySha = "b".repeat(64);
+    const resolveImage = (assetId: string) =>
+      assetId === galleryAssetId
+        ? {
+            height: 900,
+            renditions: [{ height: 240, url: `/m/v1/${gallerySha}/w320.webp`, width: 320 }],
+            width: 1200,
+          }
+        : null;
+
+    const html = renderToStaticMarkup(
+      <InvitationRenderer
+        document={littleBlessings.defaultDocument}
+        mode="published"
+        resolveImage={resolveImage}
+      />,
+    );
+
+    expect(html).toContain('alt="Eliana resting in a light blanket"');
+    expect(html).toContain('loading="lazy"');
+  });
 });

@@ -49,11 +49,7 @@ const extensionByContentType: Record<UploadableImageContentType, string> = {
 };
 
 const positiveIntSchema = z.number().int().positive().safe();
-const dimensionSchema = z
-  .number()
-  .int()
-  .min(MIN_IMAGE_DIMENSION)
-  .max(MAX_IMAGE_DIMENSION);
+const dimensionSchema = z.number().int().min(MIN_IMAGE_DIMENSION).max(MAX_IMAGE_DIMENSION);
 
 /** One compressed responsive rendition. Keys are derived, never stored here. */
 export const mediaRenditionSchema = z.strictObject({

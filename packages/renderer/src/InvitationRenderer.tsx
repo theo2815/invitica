@@ -9,6 +9,26 @@ import {
   type RibbonEnvelopeVariant,
 } from "./RibbonEnvelopeOpening.js";
 
+export interface ResolvedRendererImageRendition {
+  readonly width: number;
+  readonly height: number;
+  readonly url: string;
+}
+
+export interface ResolvedRendererImage {
+  readonly width: number;
+  readonly height: number;
+  readonly renditions: ReadonlyArray<ResolvedRendererImageRendition>;
+}
+
+/**
+ * Maps an invitation document asset id to viewer-safe responsive image data, or
+ * null when the creator has not supplied ready media for that slot. The renderer
+ * falls back to its readable placeholder whenever this returns null, so missing
+ * media never blocks the invitation.
+ */
+export type InvitationImageResolver = (assetId: string) => ResolvedRendererImage | null;
+
 export interface InvitationRendererProps {
   document: InvitationDocument;
   mode: "preview" | "published";
@@ -16,7 +36,39 @@ export interface InvitationRendererProps {
   openingReplayKey?: number;
   recipientName?: string;
   reducedMotion?: boolean;
+  resolveImage?: InvitationImageResolver;
   rsvpSlot?: ReactNode;
+}
+
+const HERO_IMAGE_SIZES = "(max-width: 40rem) 72vw, 18rem";
+const CARD_IMAGE_SIZES = "(max-width: 40rem) 90vw, 14rem";
+
+function resolvedImageElement(
+  image: ResolvedRendererImage,
+  alt: string,
+  className: string,
+  loading: "eager" | "lazy",
+  sizes: string,
+): ReactElement | null {
+  const ordered = [...image.renditions].sort((first, second) => first.width - second.width);
+  const largest = ordered.at(-1);
+  if (!largest) {
+    return null;
+  }
+
+  return (
+    <img
+      alt={alt}
+      className={className}
+      decoding="async"
+      height={image.height}
+      loading={loading}
+      sizes={sizes}
+      src={largest.url}
+      srcSet={ordered.map((rendition) => `${rendition.url} ${rendition.width}w`).join(", ")}
+      width={image.width}
+    />
+  );
 }
 
 function assertNever(value: never): never {
@@ -27,9 +79,21 @@ function renderSection(
   section: InvitationSection,
   mode: InvitationRendererProps["mode"],
   rsvpSlot: ReactNode,
+  resolveImage: InvitationImageResolver | undefined,
 ): ReactElement {
   switch (section.type) {
-    case "hero":
+    case "hero": {
+      const heroAssetId = section.props.imageAssetId;
+      const heroImage = heroAssetId ? (resolveImage?.(heroAssetId) ?? null) : null;
+      const heroImageElement = heroImage
+        ? resolvedImageElement(
+            heroImage,
+            "",
+            "sr-media-image sr-hero-image",
+            "eager",
+            HERO_IMAGE_SIZES,
+          )
+        : null;
       return (
         <section
           className="sr-section sr-hero"
@@ -37,17 +101,20 @@ function renderSection(
           data-section-type={section.type}
           key={section.id}
         >
-          {section.props.imageAssetId ? (
-            <div className="sr-media-placeholder" data-asset-id={section.props.imageAssetId}>
-              Baby portrait pending creator upload
-            </div>
-          ) : null}
+          {heroAssetId
+            ? (heroImageElement ?? (
+                <div className="sr-media-placeholder" data-asset-id={heroAssetId}>
+                  Baby portrait pending creator upload
+                </div>
+              ))
+            : null}
           {section.props.eyebrow ? <p className="sr-eyebrow">{section.props.eyebrow}</p> : null}
           <h1>{section.props.title}</h1>
           {section.props.subtitle ? <p>{section.props.subtitle}</p> : null}
           {section.props.dateLabel ? <time>{section.props.dateLabel}</time> : null}
         </section>
       );
+    }
 
     case "message":
       return (
@@ -225,17 +292,31 @@ function renderSection(
         >
           {section.props.heading ? <h2>{section.props.heading}</h2> : null}
           <div className="sr-section-grid">
-            {section.props.images.map((image) => (
-              <figure data-asset-id={image.assetId} key={image.assetId}>
-                <div className="sr-media-placeholder" aria-hidden="true">
-                  Image pending creator upload
-                </div>
-                <figcaption>
-                  <strong>{image.alt}</strong>
-                  {image.caption ? <span>{image.caption}</span> : null}
-                </figcaption>
-              </figure>
-            ))}
+            {section.props.images.map((image) => {
+              const resolved = resolveImage?.(image.assetId) ?? null;
+              const element = resolved
+                ? resolvedImageElement(
+                    resolved,
+                    image.alt,
+                    "sr-media-image",
+                    "lazy",
+                    CARD_IMAGE_SIZES,
+                  )
+                : null;
+              return (
+                <figure data-asset-id={image.assetId} key={image.assetId}>
+                  {element ?? (
+                    <div className="sr-media-placeholder" aria-hidden="true">
+                      Image pending creator upload
+                    </div>
+                  )}
+                  <figcaption>
+                    <strong>{image.alt}</strong>
+                    {image.caption ? <span>{image.caption}</span> : null}
+                  </figcaption>
+                </figure>
+              );
+            })}
           </div>
         </section>
       );
@@ -268,17 +349,27 @@ function renderSection(
           {section.props.heading ? <h2>{section.props.heading}</h2> : null}
           {section.props.message ? <p>{section.props.message}</p> : null}
           <div className="sr-section-grid">
-            {section.props.items.map((item) => (
-              <article data-asset-id={item.imageAssetId} key={item.name}>
-                {item.imageAssetId ? (
-                  <div className="sr-media-placeholder" aria-hidden="true">
-                    Gift image pending creator upload
-                  </div>
-                ) : null}
-                <h3>{item.name}</h3>
-                {item.note ? <p>{item.note}</p> : null}
-              </article>
-            ))}
+            {section.props.items.map((item) => {
+              const resolved = item.imageAssetId
+                ? (resolveImage?.(item.imageAssetId) ?? null)
+                : null;
+              const element = resolved
+                ? resolvedImageElement(resolved, "", "sr-media-image", "lazy", CARD_IMAGE_SIZES)
+                : null;
+              return (
+                <article data-asset-id={item.imageAssetId} key={item.name}>
+                  {item.imageAssetId
+                    ? (element ?? (
+                        <div className="sr-media-placeholder" aria-hidden="true">
+                          Gift image pending creator upload
+                        </div>
+                      ))
+                    : null}
+                  <h3>{item.name}</h3>
+                  {item.note ? <p>{item.note}</p> : null}
+                </article>
+              );
+            })}
           </div>
         </section>
       );
@@ -333,6 +424,7 @@ export function InvitationRenderer({
   openingReplayKey,
   recipientName,
   reducedMotion = false,
+  resolveImage,
   rsvpSlot,
 }: InvitationRendererProps) {
   const recipient = recipientName ?? document.opening.fallbackRecipientText;
@@ -373,7 +465,7 @@ export function InvitationRenderer({
         <main className="sr-content" data-envelope-focus-target tabIndex={-1}>
           {document.sections
             .filter((section) => section.visible)
-            .map((section) => renderSection(section, mode, rsvpSlot))}
+            .map((section) => renderSection(section, mode, rsvpSlot, resolveImage))}
         </main>
       </RibbonEnvelopeOpening>
     </article>
@@ -548,6 +640,16 @@ const standardRendererStyles = `
   text-align: center;
 }
 .sr-hero > .sr-media-placeholder {
+  width: min(100%, 18rem);
+  margin: 0 auto 2rem;
+}
+.sr-media-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+}
+.sr-hero-image {
   width: min(100%, 18rem);
   margin: 0 auto 2rem;
 }

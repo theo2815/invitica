@@ -1,7 +1,7 @@
 import {
   CURRENT_PUBLICATION_SNAPSHOT_VERSION,
-  parsePublicationSnapshot,
   type PublicationAssetManifestEntry,
+  parsePublicationSnapshot,
 } from "@invitica/invitation-schema";
 import { resolveTemplateRendererRegistration } from "@invitica/renderer";
 import { z } from "zod";

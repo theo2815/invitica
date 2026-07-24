@@ -5,7 +5,52 @@ import {
   PublicationStorageError,
   PublicationUnavailableError,
 } from "./load-publication";
+import { type MediaObjectRequest, parseMediaRequestPath } from "./published-media";
 import { IncompatiblePublicationRendererError } from "./published-renderer";
+
+const IMMUTABLE_MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+function mediaHeaders(cacheControl: string): Headers {
+  return new Headers({
+    "cache-control": cacheControl,
+    "content-type": "image/webp",
+    "cross-origin-resource-policy": "same-origin",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
+  });
+}
+
+async function serveMedia(
+  bucket: R2Bucket,
+  media: MediaObjectRequest,
+  method: string,
+): Promise<Response> {
+  if (method !== "GET" && method !== "HEAD") {
+    const response = new Response(null, {
+      headers: mediaHeaders("private, no-store"),
+      status: 405,
+    });
+    response.headers.set("allow", "GET, HEAD");
+    return response;
+  }
+
+  let object: R2ObjectBody | null;
+  try {
+    object = await bucket.get(media.objectKey);
+  } catch {
+    console.error(JSON.stringify({ event: "viewer_media_storage_failed" }));
+    return new Response(null, { headers: mediaHeaders("private, no-store"), status: 503 });
+  }
+
+  if (!object) {
+    return new Response(null, { headers: mediaHeaders("private, no-store"), status: 404 });
+  }
+
+  const headers = mediaHeaders(IMMUTABLE_MEDIA_CACHE_CONTROL);
+  headers.set("etag", object.httpEtag);
+  return new Response(method === "HEAD" ? null : object.body, { headers, status: 200 });
+}
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
@@ -55,6 +100,12 @@ function unavailableResponse(method: string, status = 404): Response {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
+
+    const mediaRequest = parseMediaRequestPath(url.pathname);
+    if (mediaRequest) {
+      return serveMedia(env.PUBLICATION_BUCKET, mediaRequest, request.method);
+    }
+
     const publicIdentifier = publicIdentifierFromInvitationPath(url.pathname);
 
     if (!publicIdentifier) {

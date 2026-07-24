@@ -2,10 +2,7 @@ import { IMAGE_RENDITION_WIDTHS, mediaImageAssetSchema } from "@invitica/invitat
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
-import {
-  InvalidImageError,
-  processInvitationImage,
-} from "../src/server/media/image-processing";
+import { InvalidImageError, processInvitationImage } from "../src/server/media/image-processing";
 import { readR2MediaConfig } from "../src/server/media/object-store";
 
 const assetId = "49000000-0000-4000-8000-000000000001";

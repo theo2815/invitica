@@ -1,5 +1,10 @@
 export { GardenPromiseRenderer } from "./GardenPromiseRenderer.js";
-export type { InvitationRendererProps } from "./InvitationRenderer.js";
+export type {
+  InvitationImageResolver,
+  InvitationRendererProps,
+  ResolvedRendererImage,
+  ResolvedRendererImageRendition,
+} from "./InvitationRenderer.js";
 export { InvitationRenderer } from "./InvitationRenderer.js";
 export {
   type InvitationOpeningState,

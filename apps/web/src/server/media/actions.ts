@@ -16,7 +16,12 @@ import {
 } from "./uploads";
 
 export type UploadInvitationImageActionResult =
-  | { readonly assetId: string; readonly height: number; readonly width: number; readonly status: "uploaded" }
+  | {
+      readonly assetId: string;
+      readonly height: number;
+      readonly width: number;
+      readonly status: "uploaded";
+    }
   | { readonly message: string; readonly status: "error" };
 
 export type RemoveInvitationImageActionResult =
@@ -32,7 +37,10 @@ export async function uploadInvitationImageAction(
 
   const role = invitationImageRoleSchema.safeParse(roleValue);
   if (typeof invitationId !== "string" || !role.success || !(file instanceof File)) {
-    return { message: "This image request is no longer valid. Refresh and try again.", status: "error" };
+    return {
+      message: "This image request is no longer valid. Refresh and try again.",
+      status: "error",
+    };
   }
 
   if (file.size === 0 || file.size > MAX_IMAGE_UPLOAD_BYTES) {
@@ -71,8 +79,14 @@ export async function uploadInvitationImageAction(
   }
 }
 
-export async function removeInvitationImageAction(input: unknown): Promise<RemoveInvitationImageActionResult> {
-  if (typeof input !== "object" || input === null || typeof (input as { assetId?: unknown }).assetId !== "string") {
+export async function removeInvitationImageAction(
+  input: unknown,
+): Promise<RemoveInvitationImageActionResult> {
+  if (
+    typeof input !== "object" ||
+    input === null ||
+    typeof (input as { assetId?: unknown }).assetId !== "string"
+  ) {
     return { message: "This request is no longer valid.", status: "error" };
   }
 

@@ -1,6 +1,7 @@
 import type { PublicationArtifact } from "@invitica/invitation-schema";
 import { renderToString } from "react-dom/server.edge";
 
+import { createSnapshotImageResolver } from "./published-media";
 import { resolvePublishedRenderer } from "./published-renderer";
 
 const criticalStyles = `
@@ -82,8 +83,9 @@ function head(title: string): string {
 
 export function renderPublicationHtml(artifact: PublicationArtifact): string {
   const Renderer = resolvePublishedRenderer(artifact);
+  const resolveImage = createSnapshotImageResolver(artifact.snapshot.assets);
   const invitation = renderToString(
-    <Renderer document={artifact.snapshot.document} mode="published" />,
+    <Renderer document={artifact.snapshot.document} mode="published" resolveImage={resolveImage} />,
   );
 
   return `<!doctype html>

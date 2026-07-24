@@ -88,9 +88,7 @@ describe("rendition planning", () => {
 
 describe("object keys", () => {
   it("derives a safe, extension-correct private original key", () => {
-    expect(mediaOriginalObjectKey(assetId, "image/png")).toBe(
-      `media/originals/v1/${assetId}.png`,
-    );
+    expect(mediaOriginalObjectKey(assetId, "image/png")).toBe(`media/originals/v1/${assetId}.png`);
     expect(imageFileExtension("image/webp")).toBe("webp");
   });
 

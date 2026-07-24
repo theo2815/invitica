@@ -380,8 +380,8 @@ describe("publication media route", () => {
   });
 });
 
-describe("standard renderer publications", () => {
-  it("serves a standard-v1 christening publication with resolved responsive images", async () => {
+describe("Little Blessings publications", () => {
+  it("serves a little-blessings-v1 christening publication with resolved responsive images", async () => {
     const token = "e100000000000000000000000000001e";
     const publicationId = "a0000000-0000-4000-8000-000000000020";
     const written = await publish(token, publicationId, littleBlessingsSnapshot());

@@ -13,7 +13,7 @@ export const littleBlessingsTemplate = {
   templateVersionId: "40000000-0000-4000-8000-000000000004",
   version: 1,
   qualityStatus: "fixture",
-  rendererKey: "standard-v1",
+  rendererKey: "little-blessings-v1",
   schemaVersion: 1,
   allowedSections: [
     "hero",

@@ -15,6 +15,7 @@ export type InvitationOpeningState =
 export type RibbonEnvelopeVariant =
   | "garden-promise"
   | "golden-hour"
+  | "little-blessings"
   | "sunday-joy"
   | "warm-editorial";
 
@@ -108,7 +109,11 @@ export function RibbonEnvelopeOpening({
   const contentIsGated = hydrated && openingState !== "opened";
   const shouldLockPage = contentIsGated && mode === "published";
   const gardenPromise = variant === "garden-promise";
-  const cinematicTakeover = gardenPromise || variant === "golden-hour" || variant === "sunday-joy";
+  const cinematicTakeover =
+    gardenPromise ||
+    variant === "golden-hour" ||
+    variant === "little-blessings" ||
+    variant === "sunday-joy";
   const contentIsVisuallyGated =
     contentIsGated && !(cinematicTakeover && openingState === "letter-revealing");
 

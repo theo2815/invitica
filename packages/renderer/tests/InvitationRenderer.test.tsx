@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   GardenPromiseRenderer,
   InvitationRenderer,
+  LittleBlessingsRenderer,
   resolveTemplateRenderer,
   resolveTemplateRendererRegistration,
   UnknownTemplateRendererError,
@@ -48,6 +49,7 @@ describe("InvitationRenderer", () => {
   it("resolves only allowlisted template renderers", () => {
     expect(resolveTemplateRenderer("standard-v1")).toBe(InvitationRenderer);
     expect(resolveTemplateRenderer("garden-promise-v1")).toBe(GardenPromiseRenderer);
+    expect(resolveTemplateRenderer("little-blessings-v1")).toBe(LittleBlessingsRenderer);
     expect(() => resolveTemplateRenderer("remote-template-code")).toThrow(
       UnknownTemplateRendererError,
     );
@@ -229,6 +231,121 @@ describe("InvitationRenderer", () => {
     // ...while every unresolved gallery and gift slot keeps its readable fallback.
     expect(html).toContain("Image pending creator upload");
     expect(html).toContain("Gift image pending creator upload");
+  });
+
+  it("renders the Little Blessings fixture through the Chapel Light family renderer", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    expect(littleBlessings.rendererKey).toBe("little-blessings-v1");
+    expect(resolveTemplateRenderer(littleBlessings.rendererKey)).toBe(LittleBlessingsRenderer);
+
+    const html = renderToStaticMarkup(
+      <LittleBlessingsRenderer
+        document={littleBlessings.defaultDocument}
+        mode="published"
+        recipientName="The Reyes Family"
+        reducedMotion
+      />,
+    );
+
+    // Chapel Light identity, not the recolored standard shell.
+    expect(html).toContain('class="lb-root"');
+    expect(html).toContain('data-envelope-variant="little-blessings"');
+    expect(html).toContain("A little blessing awaits");
+    expect(html).toContain("Prepared with love for");
+    expect(html).toContain("lb-arch");
+    expect(html).toContain("With grateful hearts, thank you for celebrating with us");
+    expect(html).not.toContain('class="sr-root"');
+
+    // Every supported section renders semantically through the shared contract.
+    for (const sectionType of [
+      "hero",
+      "message",
+      "countdown",
+      "event-details",
+      "participants",
+      "schedule",
+      "rsvp",
+      "attire",
+      "gallery",
+      "guidance",
+      "gifts",
+    ]) {
+      expect(html).toContain(`data-section-type="${sectionType}"`);
+    }
+
+    expect(html).toContain("Open invitation for The Reyes Family");
+    expect(html).toContain("Eliana Grace");
+    expect(html).toContain("Sunday, April 11, 2027 at 9:00 AM");
+    expect(html).toContain("Kindly reply by March 28, 2027");
+    expect(html).toContain("Warm ivory");
+    expect(html).toContain('data-opening-state="closed"');
+    expect(html).toContain('data-envelope-gated="false"');
+    expect(html).toContain('data-render-mode="published"');
+  });
+
+  it("keeps truthful media fallbacks and delivers resolved images in the family renderer", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    const fallbackHtml = renderToStaticMarkup(
+      <LittleBlessingsRenderer
+        document={littleBlessings.defaultDocument}
+        mode="preview"
+        reducedMotion
+      />,
+    );
+
+    expect(fallbackHtml).toContain("Baby portrait pending creator upload");
+    expect(fallbackHtml).toContain("Image pending creator upload");
+    expect(fallbackHtml).toContain("Gift image pending creator upload");
+    expect(fallbackHtml).not.toContain("<img");
+
+    const heroAssetId = "45000000-0000-4000-8000-000000000001";
+    const galleryAssetId = "45000000-0000-4000-8000-000000000002";
+    const heroSha = "c".repeat(64);
+    const resolveImage = (assetId: string) =>
+      assetId === heroAssetId || assetId === galleryAssetId
+        ? {
+            height: 1200,
+            renditions: [
+              { height: 480, url: `/m/v1/${heroSha}/w640.webp`, width: 640 },
+              { height: 240, url: `/m/v1/${heroSha}/w320.webp`, width: 320 },
+            ],
+            width: 1600,
+          }
+        : null;
+
+    const resolvedHtml = renderToStaticMarkup(
+      <LittleBlessingsRenderer
+        document={littleBlessings.defaultDocument}
+        mode="published"
+        resolveImage={resolveImage}
+      />,
+    );
+
+    expect(resolvedHtml).toContain("<img");
+    expect(resolvedHtml).toContain('width="1600"');
+    expect(resolvedHtml).toContain('height="1200"');
+    expect(resolvedHtml).toContain(`/m/v1/${heroSha}/w320.webp 320w`);
+    expect(resolvedHtml).toContain(`/m/v1/${heroSha}/w640.webp 640w`);
+    expect(resolvedHtml).toContain('loading="eager"');
+    expect(resolvedHtml).toContain('loading="lazy"');
+    expect(resolvedHtml).toContain('alt="Eliana resting in a light blanket"');
+    expect(resolvedHtml).toContain("View photo: Eliana resting in a light blanket");
+    expect(resolvedHtml).not.toContain("Baby portrait pending creator upload");
+    expect(resolvedHtml).toContain("Gift image pending creator upload");
   });
 
   it("uses author gallery alt text and lazy-loads below-the-fold media", () => {

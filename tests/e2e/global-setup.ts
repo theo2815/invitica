@@ -7,6 +7,32 @@ import { renderFixture } from "./render-fixture.generated.mjs";
 
 const clientRoot = resolve("apps/viewer/dist/client");
 const publicIdentifier = "e000000000000000000000000000000e";
+const littleBlessingsIdentifier = "f000000000000000000000000000000f";
+
+// Tiny solid-color WebP bodies (64x64) standing in for immutable publication
+// renditions so browser lanes can load real image bytes without object storage.
+const mediaBodies = {
+  gold: Buffer.from(
+    "UklGRlAAAABXRUJQVlA4IEQAAACwAwCdASpAAEAAPrVaqU+nJSOiIggA4BaJaQDRvAWa6wAV4hcTgAD+5+S/195Q7EE/K0V0uWBDadMo3R3WmGKQAAAAAA==",
+    "base64",
+  ),
+  ivory: Buffer.from(
+    "UklGRj4AAABXRUJQVlA4IDIAAACQAwCdASpAAEAAPrVaqVAnJSOioggA4BaJaQAAEDdTUAV4hbkAAP7yyn03i3FAAAAAAA==",
+    "base64",
+  ),
+  sage: Buffer.from(
+    "UklGRkoAAABXRUJQVlA4ID4AAACwAwCdASpAAEAAPrVaqVAnJSQioggA4BaJaQDOsAWa6ydeYxC3IAD+pNa0iEAlX6PtvpZHdcCDFUwAAAAAAA==",
+    "base64",
+  ),
+};
+
+function mediaBody(sha256: string): Buffer {
+  const shaIndex = Number.parseInt(sha256.slice(0, 2), 16);
+  if (shaIndex === 1) {
+    return mediaBodies.sage;
+  }
+  return shaIndex >= 10 ? mediaBodies.gold : mediaBodies.ivory;
+}
 function contentType(pathname: string): string {
   switch (extname(pathname)) {
     case ".css":
@@ -21,7 +47,7 @@ function contentType(pathname: string): string {
 }
 
 export default async function globalSetup(_config: FullConfig) {
-  const { publicationHtml, unavailableHtml } = renderFixture();
+  const { littleBlessingsHtml, publicationHtml, unavailableHtml } = renderFixture();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
 
@@ -32,16 +58,31 @@ export default async function globalSetup(_config: FullConfig) {
     }
 
     if (url.pathname.startsWith("/i/")) {
-      const valid = url.pathname.endsWith(publicIdentifier);
-      response.writeHead(valid ? 200 : 404, {
-        "cache-control": valid ? "public, max-age=0" : "private, no-store",
+      const body = url.pathname.endsWith(publicIdentifier)
+        ? publicationHtml
+        : url.pathname.endsWith(littleBlessingsIdentifier)
+          ? littleBlessingsHtml
+          : null;
+      response.writeHead(body ? 200 : 404, {
+        "cache-control": body ? "public, max-age=0" : "private, no-store",
         "content-security-policy":
           "default-src 'none'; connect-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
         "content-type": "text/html; charset=utf-8",
         "referrer-policy": "no-referrer",
         "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
       });
-      response.end(valid ? publicationHtml : unavailableHtml);
+      response.end(body ?? unavailableHtml);
+      return;
+    }
+
+    const mediaMatch = url.pathname.match(/^\/m\/v1\/([0-9a-f]{64})\/w\d{3,4}\.webp$/);
+    if (mediaMatch?.[1]) {
+      response.writeHead(200, {
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-type": "image/webp",
+        "x-content-type-options": "nosniff",
+      });
+      response.end(mediaBody(mediaMatch[1]));
       return;
     }
 

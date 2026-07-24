@@ -33,13 +33,13 @@ describe("template registry", () => {
     ).toEqual([
       ["standard-v1", "fixture"],
       ["standard-v1", "fixture"],
-      ["standard-v1", "fixture"],
+      ["little-blessings-v1", "fixture"],
     ]);
 
     expect(resolveTemplateById("little-blessings")).toMatchObject({
       listing: { occasion: "Christening", name: "Little Blessings" },
       qualityStatus: "fixture",
-      rendererKey: "standard-v1",
+      rendererKey: "little-blessings-v1",
       schemaVersion: 1,
     });
   });

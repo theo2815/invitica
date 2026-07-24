@@ -139,6 +139,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1090.0
+        version: 3.1090.0
       '@fontsource-variable/fraunces':
         specifier: 5.2.9
         version: 5.2.9
@@ -172,6 +175,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.7(react@19.2.7)
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       zod:
         specifier: 'catalog:'
         version: 4.4.3

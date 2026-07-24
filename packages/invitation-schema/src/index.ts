@@ -28,6 +28,24 @@ export {
   UnsupportedInvitationSchemaVersionError,
   venueSectionSchema,
 } from "./document.js";
+export type { MediaImageAsset, MediaRendition, UploadableImageContentType } from "./media.js";
+export {
+  DELIVERED_IMAGE_CONTENT_TYPE,
+  IMAGE_RENDITION_WIDTHS,
+  imageFileExtension,
+  MAX_IMAGE_UPLOAD_BYTES,
+  MAX_RENDITION_BYTES,
+  MAX_IMAGE_DIMENSION,
+  mediaImageAssetSchema,
+  mediaOriginalObjectKey,
+  mediaRenditionObjectKey,
+  mediaRenditionSchema,
+  MIN_IMAGE_DIMENSION,
+  plannedRenditionWidths,
+  publicationMediaObjectKey,
+  UPLOADABLE_IMAGE_CONTENT_TYPES,
+  uploadableImageContentTypeSchema,
+} from "./media.js";
 export type {
   GuestContextRequest,
   GuestContextResponse,
@@ -58,6 +76,7 @@ export type {
   PublicationArtifactV1,
   PublicationArtifactWriteResult,
   PublicationAssetManifestEntry,
+  PublicationImageRendition,
   PublicationObjectStore,
   PublicationObjectWriteOptions,
   PublicationSnapshot,
@@ -82,6 +101,7 @@ export {
   publicationArtifactKey,
   publicationArtifactV1Schema,
   publicationAssetManifestEntrySchema,
+  publicationImageRenditionSchema,
   publicationPublicIdentifierSchema,
   publicationSha256Hex,
   publicationSnapshotV1Schema,

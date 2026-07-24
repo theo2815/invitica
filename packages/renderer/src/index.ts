@@ -6,6 +6,7 @@ export type {
   ResolvedRendererImageRendition,
 } from "./InvitationRenderer.js";
 export { InvitationRenderer } from "./InvitationRenderer.js";
+export { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
 export {
   type InvitationOpeningState,
   RibbonEnvelopeOpening,

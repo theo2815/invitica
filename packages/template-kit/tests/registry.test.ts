@@ -12,8 +12,8 @@ import {
 } from "../src/index.js";
 
 describe("template registry", () => {
-  it("registers three immutable schema-valid template fixtures", () => {
-    expect(templateRegistry).toHaveLength(3);
+  it("registers four immutable schema-valid template fixtures", () => {
+    expect(templateRegistry).toHaveLength(4);
     expect(Object.isFrozen(templateRegistry)).toBe(true);
 
     for (const manifest of templateRegistry) {
@@ -33,7 +33,15 @@ describe("template registry", () => {
     ).toEqual([
       ["standard-v1", "fixture"],
       ["standard-v1", "fixture"],
+      ["standard-v1", "fixture"],
     ]);
+
+    expect(resolveTemplateById("little-blessings")).toMatchObject({
+      listing: { occasion: "Christening", name: "Little Blessings" },
+      qualityStatus: "fixture",
+      rendererKey: "standard-v1",
+      schemaVersion: 1,
+    });
   });
 
   it("resolves stable template and version identifiers and rejects unknown values", () => {
@@ -69,7 +77,7 @@ describe("template registry", () => {
   });
 
   it("derives catalog sections from the schema-backed default documents", () => {
-    expect(templateCatalog).toHaveLength(3);
+    expect(templateCatalog).toHaveLength(4);
     expect(templateCatalog.find((template) => template.id === "golden-hour")?.sections).toEqual([
       "Opening",
       "Event details",
@@ -77,5 +85,36 @@ describe("template registry", () => {
       "Message",
       "RSVP",
     ]);
+    expect(
+      templateCatalog.find((template) => template.id === "little-blessings")?.sections,
+    ).toEqual([
+      "Opening",
+      "Event details",
+      "Message",
+      "Countdown",
+      "Parents and godparents",
+      "Order of the day",
+      "RSVP",
+      "What to wear",
+      "Gallery",
+      "A gentle note",
+      "Gift ideas",
+    ]);
+  });
+
+  it("keeps Little Blessings preview-only with bounded declared image references", () => {
+    const littleBlessings = resolveTemplateById("little-blessings");
+    const gallery = littleBlessings.defaultDocument.sections.find(
+      (section) => section.type === "gallery",
+    );
+    const gifts = littleBlessings.defaultDocument.sections.find(
+      (section) => section.type === "gifts",
+    );
+
+    expect(littleBlessings.qualityStatus).toBe("fixture");
+    expect(littleBlessings.defaultDocument.assets).toHaveLength(8);
+    expect(gallery?.props.images).toHaveLength(4);
+    expect(gifts?.props.items).toHaveLength(3);
+    expect(gifts?.props.items.every((item) => Boolean(item.imageAssetId))).toBe(true);
   });
 });

@@ -15,7 +15,20 @@ export const templateOccasionSchema = z.enum([
   "Anniversary",
 ]);
 export const templateAccessTierSchema = z.enum(["Free", "Premium"]);
-export const templateSectionTypeSchema = z.enum(["hero", "message", "venue", "rsvp"]);
+export const templateSectionTypeSchema = z.enum([
+  "hero",
+  "message",
+  "venue",
+  "rsvp",
+  "countdown",
+  "event-details",
+  "participants",
+  "schedule",
+  "attire",
+  "gallery",
+  "guidance",
+  "gifts",
+]);
 
 export const templateListingSchema = z.strictObject({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),

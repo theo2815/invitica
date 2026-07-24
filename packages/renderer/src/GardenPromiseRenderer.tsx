@@ -30,6 +30,10 @@ function assertNever(value: never): never {
   throw new Error(`Unsupported Garden Promise section: ${JSON.stringify(value)}`);
 }
 
+function unsupportedGardenSection(section: InvitationSection): never {
+  throw new Error(`Unsupported Garden Promise section: ${JSON.stringify(section)}`);
+}
+
 function formatRsvpDeadline(deadline: string, locale: string, timeZone: string): string {
   try {
     return new Intl.DateTimeFormat(locale, {
@@ -127,6 +131,16 @@ function renderGardenSection(
           </div>
         </section>
       );
+
+    case "countdown":
+    case "event-details":
+    case "participants":
+    case "schedule":
+    case "attire":
+    case "gallery":
+    case "guidance":
+    case "gifts":
+      return unsupportedGardenSection(section);
 
     default:
       return assertNever(section);

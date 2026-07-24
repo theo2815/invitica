@@ -149,4 +149,29 @@ describe("InvitationRenderer", () => {
       expect(html).toContain('data-envelope-gated="false"');
     }
   });
+
+  it("renders the Little Blessings fixture truthfully without pretending media is uploaded", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    const Renderer = resolveTemplateRenderer(littleBlessings.rendererKey);
+    const html = renderToStaticMarkup(
+      <Renderer document={littleBlessings.defaultDocument} mode="preview" reducedMotion />,
+    );
+
+    expect(littleBlessings.qualityStatus).toBe("fixture");
+    expect(html).toContain("Eliana Grace");
+    expect(html).toContain("New Hope Community Church");
+    expect(html).toContain("Godparents and sponsors");
+    expect(html).toContain("Board books");
+    expect(html).toContain("Baby portrait pending creator upload");
+    expect(html).toContain('data-section-type="gallery"');
+    expect(html).toContain('data-section-type="gifts"');
+    expect(html).not.toContain("<img");
+  });
 });

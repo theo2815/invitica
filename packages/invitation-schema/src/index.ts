@@ -5,7 +5,13 @@ export type {
 } from "./document.js";
 export {
   animationPresetSchema,
+  attireSectionSchema,
   CURRENT_INVITATION_SCHEMA_VERSION,
+  countdownSectionSchema,
+  eventDetailsSectionSchema,
+  gallerySectionSchema,
+  giftsSectionSchema,
+  guidanceSectionSchema,
   heroSectionSchema,
   invitationAssetReferenceSchema,
   invitationDocumentV1Schema,
@@ -15,8 +21,10 @@ export {
   messageSectionSchema,
   motionStyleSchema,
   parseInvitationDocument,
+  participantsSectionSchema,
   rsvpSectionSchema,
   safeParseInvitationDocument,
+  scheduleSectionSchema,
   UnsupportedInvitationSchemaVersionError,
   venueSectionSchema,
 } from "./document.js";

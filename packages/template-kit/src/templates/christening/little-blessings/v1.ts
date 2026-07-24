@@ -1,0 +1,263 @@
+export const littleBlessingsTemplate = {
+  listing: {
+    id: "little-blessings",
+    occasion: "Christening",
+    name: "Little Blessings",
+    previewTitle: "Eliana's little blessing",
+    date: "April 11, 2027 - Quezon City",
+    tier: "Free",
+    style: "Soft sacred editorial",
+    description:
+      "A warm, broadly Christian celebration with space for baby photographs, ceremony details, loved ones, and practical gift ideas.",
+  },
+  templateVersionId: "40000000-0000-4000-8000-000000000004",
+  version: 1,
+  qualityStatus: "fixture",
+  rendererKey: "standard-v1",
+  schemaVersion: 1,
+  allowedSections: [
+    "hero",
+    "message",
+    "countdown",
+    "event-details",
+    "participants",
+    "schedule",
+    "rsvp",
+    "attire",
+    "gallery",
+    "guidance",
+    "gifts",
+  ],
+  defaultDocument: {
+    schemaVersion: 1,
+    templateVersionId: "40000000-0000-4000-8000-000000000004",
+    locale: "en-PH",
+    eventTimezone: "Asia/Manila",
+    theme: {
+      colors: {
+        background: "#f4efe5",
+        surface: "#fffdf7",
+        text: "#3f423a",
+        accent: "#87927a",
+        accentContrast: "#ffffff",
+      },
+      typography: {
+        headingFontId: "fraunces",
+        bodyFontId: "instrument-sans",
+      },
+      spacingScale: "spacious",
+    },
+    opening: {
+      preset: "ribbon-envelope-letter",
+      motionStyle: "elegant",
+      recipientMode: "personalized",
+      fallbackRecipientText: "Our dear guest",
+    },
+    sections: [
+      {
+        id: "44000000-0000-4000-8000-000000000001",
+        type: "hero",
+        visible: true,
+        animationPreset: "fade-in",
+        props: {
+          eyebrow: "A little blessing to celebrate",
+          title: "Eliana Grace",
+          subtitle: "Join us as we welcome her with faith, love, and grateful hearts",
+          dateLabel: "Sunday, April 11, 2027",
+          imageAssetId: "45000000-0000-4000-8000-000000000001",
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000002",
+        type: "message",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "Held in grace",
+          body: "With joyful hearts, we invite you to share a day of prayer, family, and thanksgiving for our little blessing.",
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000003",
+        type: "countdown",
+        visible: true,
+        animationPreset: "fade-in",
+        props: {
+          heading: "Until the celebration",
+          target: "2027-04-11T09:00:00+08:00",
+          dateLabel: "Sunday, April 11, 2027 at 9:00 AM",
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000004",
+        type: "event-details",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "Where and when",
+          events: [
+            {
+              label: "Christening ceremony",
+              startAt: "2027-04-11T09:00:00+08:00",
+              dateLabel: "9:00 AM",
+              venueName: "New Hope Community Church",
+              address: "Quezon City, Metro Manila, Philippines",
+              mapUrl: "https://maps.google.com/",
+              arrivalNote: "Please arrive 20 minutes early so everyone can be seated together.",
+            },
+            {
+              label: "Family reception",
+              startAt: "2027-04-11T11:00:00+08:00",
+              dateLabel: "11:00 AM",
+              venueName: "The Sunlit Hall",
+              address: "Quezon City, Metro Manila, Philippines",
+              mapUrl: "https://maps.google.com/",
+              arrivalNote: "Parking and step-free entry are available at the reception venue.",
+            },
+          ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000005",
+        type: "participants",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "With our family and sponsors",
+          groups: [
+            { label: "Parents", names: ["Mika Reyes", "Daniel Reyes"] },
+            {
+              label: "Godparents and sponsors",
+              names: ["Alyssa Cruz", "Paolo Cruz", "Nina Flores", "Gabriel Flores"],
+            },
+          ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000006",
+        type: "schedule",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "Order of the day",
+          items: [
+            { timeLabel: "8:40 AM", title: "Guests arrive" },
+            { timeLabel: "9:00 AM", title: "Christening ceremony" },
+            { timeLabel: "10:00 AM", title: "Family photographs" },
+            { timeLabel: "11:00 AM", title: "Reception and lunch" },
+          ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000007",
+        type: "rsvp",
+        visible: true,
+        animationPreset: "scale-in",
+        props: {
+          heading: "Celebrate with us",
+          message: "Please let us know by March 28 if your party can join us.",
+          deadline: "2027-03-28T23:59:59+08:00",
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000008",
+        type: "attire",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "What to wear",
+          description:
+            "Sunday best in light, comfortable colors. The ceremony and reception are both family friendly.",
+          colors: [
+            { label: "Warm ivory", value: "#f4efe5" },
+            { label: "Quiet sage", value: "#87927a" },
+            { label: "Soft gold", value: "#c8aa72" },
+          ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000009",
+        type: "gallery",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "Little moments",
+          images: [
+            {
+              assetId: "45000000-0000-4000-8000-000000000002",
+              alt: "Eliana resting in a light blanket",
+              caption: "Our first quiet afternoon together",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000003",
+              alt: "Eliana smiling during family time",
+              caption: "A smile that brightens the room",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000004",
+              alt: "Eliana held safely by her parents",
+              caption: "Surrounded by love",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000005",
+              alt: "Eliana wearing a simple white outfit",
+              caption: "Ready for a day of blessings",
+            },
+          ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000010",
+        type: "guidance",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "A gentle note",
+          items: [
+            "Please arrive early and keep phones silent during the ceremony.",
+            "Kindly ask the parents before holding or kissing the baby.",
+            "Please ask the family before posting photographs online.",
+          ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000011",
+        type: "gifts",
+        visible: true,
+        animationPreset: "fade-up",
+        props: {
+          heading: "Gift ideas",
+          message:
+            "Your presence and prayers are enough. If you would like to bring something, these ideas would be lovingly received.",
+          items: [
+            {
+              imageAssetId: "45000000-0000-4000-8000-000000000006",
+              name: "Board books",
+              note: "Stories the family can enjoy together",
+            },
+            {
+              imageAssetId: "45000000-0000-4000-8000-000000000007",
+              name: "Clothing for 6 to 12 months",
+              note: "Soft, practical pieces for the months ahead",
+            },
+            {
+              imageAssetId: "45000000-0000-4000-8000-000000000008",
+              name: "Gentle bath essentials",
+              note: "Unscented and baby-safe options are preferred",
+            },
+          ],
+        },
+      },
+    ],
+    assets: [
+      { id: "45000000-0000-4000-8000-000000000001", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000002", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000003", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000004", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000005", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000006", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000007", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000008", kind: "image" },
+    ],
+  },
+} as const;

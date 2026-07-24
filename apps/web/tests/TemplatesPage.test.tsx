@@ -55,7 +55,7 @@ describe("templates page", () => {
     render(await TemplatesPage());
 
     expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeDefined();
-    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getAllByRole("article")).toHaveLength(4);
     expect(screen.getAllByRole("link", { name: "Templates" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Templates" })[0]?.getAttribute("href")).toBe(
       "/dashboard/templates",
@@ -132,7 +132,7 @@ describe("templates page", () => {
       throw new Error("Expected the production template action to be a button.");
     }
 
-    expect(previewOnlyButtons).toHaveLength(2);
+    expect(previewOnlyButtons).toHaveLength(3);
     expect(previewOnlyButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(
       creationButton.form?.querySelector<HTMLInputElement>('input[name="invitationId"]')?.value,
@@ -220,7 +220,7 @@ describe("templates page", () => {
     });
     expect(screen.getByRole("heading", { name: "No templates match your search." })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getAllByRole("article")).toHaveLength(4);
     unmount();
 
     const loading = render(<TemplatesLoading />);

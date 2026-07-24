@@ -37,6 +37,11 @@ function renderSection(
           data-section-type={section.type}
           key={section.id}
         >
+          {section.props.imageAssetId ? (
+            <div className="sr-media-placeholder" data-asset-id={section.props.imageAssetId}>
+              Baby portrait pending creator upload
+            </div>
+          ) : null}
           {section.props.eyebrow ? <p className="sr-eyebrow">{section.props.eyebrow}</p> : null}
           <h1>{section.props.title}</h1>
           {section.props.subtitle ? <p>{section.props.subtitle}</p> : null}
@@ -97,6 +102,183 @@ function renderSection(
                   : "Use your personalized invitation link to respond"}
               </span>
             )}
+          </div>
+        </section>
+      );
+
+    case "countdown":
+      return (
+        <section
+          className="sr-section sr-countdown"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <time dateTime={section.props.target}>{section.props.dateLabel}</time>
+        </section>
+      );
+
+    case "event-details":
+      return (
+        <section
+          className="sr-section sr-event-details"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <div className="sr-section-grid">
+            {section.props.events.map((event) => (
+              <article key={`${event.label}-${event.startAt}`}>
+                <p className="sr-eyebrow">{event.label}</p>
+                <time dateTime={event.startAt}>{event.dateLabel}</time>
+                <h3>{event.venueName}</h3>
+                <address>{event.address}</address>
+                {event.arrivalNote ? <p>{event.arrivalNote}</p> : null}
+                {event.mapUrl ? (
+                  <a href={event.mapUrl} rel="noreferrer" target="_blank">
+                    Open map
+                  </a>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      );
+
+    case "participants":
+      return (
+        <section
+          className="sr-section sr-participants"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <div className="sr-section-grid">
+            {section.props.groups.map((group) => (
+              <div key={group.label}>
+                <h3>{group.label}</h3>
+                <ul>
+                  {group.names.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+
+    case "schedule":
+      return (
+        <section
+          className="sr-section sr-schedule"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <ol>
+            {section.props.items.map((item) => (
+              <li key={`${item.timeLabel}-${item.title}`}>
+                <p className="sr-eyebrow">{item.timeLabel}</p>
+                <h3>{item.title}</h3>
+                {item.description ? <p>{item.description}</p> : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      );
+
+    case "attire":
+      return (
+        <section
+          className="sr-section sr-attire"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <p>{section.props.description}</p>
+          {section.props.colors ? (
+            <ul className="sr-color-list">
+              {section.props.colors.map((color) => (
+                <li key={color.value}>
+                  <span aria-hidden="true" style={{ backgroundColor: color.value }} />
+                  {color.label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      );
+
+    case "gallery":
+      return (
+        <section
+          className="sr-section sr-gallery"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <div className="sr-section-grid">
+            {section.props.images.map((image) => (
+              <figure data-asset-id={image.assetId} key={image.assetId}>
+                <div className="sr-media-placeholder" aria-hidden="true">
+                  Image pending creator upload
+                </div>
+                <figcaption>
+                  <strong>{image.alt}</strong>
+                  {image.caption ? <span>{image.caption}</span> : null}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      );
+
+    case "guidance":
+      return (
+        <section
+          className="sr-section sr-guidance"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          <ul>
+            {section.props.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      );
+
+    case "gifts":
+      return (
+        <section
+          className="sr-section sr-gifts"
+          data-animation={section.animationPreset}
+          data-section-type={section.type}
+          key={section.id}
+        >
+          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          {section.props.message ? <p>{section.props.message}</p> : null}
+          <div className="sr-section-grid">
+            {section.props.items.map((item) => (
+              <article data-asset-id={item.imageAssetId} key={item.name}>
+                {item.imageAssetId ? (
+                  <div className="sr-media-placeholder" aria-hidden="true">
+                    Gift image pending creator upload
+                  </div>
+                ) : null}
+                <h3>{item.name}</h3>
+                {item.note ? <p>{item.note}</p> : null}
+              </article>
+            ))}
           </div>
         </section>
       );
@@ -277,5 +459,103 @@ const standardRendererStyles = `
   padding: 1rem;
   border: 1px solid color-mix(in srgb, var(--ie-ribbon) 35%, transparent);
   font-size: 0.72rem;
+}
+.sr-countdown,
+.sr-event-details,
+.sr-participants,
+.sr-schedule,
+.sr-attire,
+.sr-gallery,
+.sr-guidance,
+.sr-gifts {
+  text-align: center;
+}
+.sr-countdown time {
+  display: block;
+  margin-top: 1.5rem;
+  color: var(--ie-ribbon);
+  font-weight: 720;
+}
+.sr-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.sr-section-grid > article,
+.sr-section-grid > div,
+.sr-section-grid > figure {
+  min-width: 0;
+  margin: 0;
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 28%, transparent);
+  text-align: left;
+}
+.sr-section-grid address,
+.sr-section-grid p {
+  margin-inline: 0;
+}
+.sr-section-grid a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 1rem;
+  color: inherit;
+}
+.sr-participants ul,
+.sr-guidance ul,
+.sr-schedule ol,
+.sr-color-list {
+  width: min(100%, 36rem);
+  margin: 1.75rem auto 0;
+  padding-left: 1.25rem;
+  text-align: left;
+}
+.sr-schedule li + li,
+.sr-guidance li + li {
+  margin-top: 1rem;
+}
+.sr-color-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+.sr-color-list li {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.55rem;
+}
+.sr-color-list span {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 30%, transparent);
+  border-radius: 50%;
+}
+.sr-media-placeholder {
+  display: grid;
+  min-height: 8rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--ie-ribbon) 42%, transparent);
+  background: color-mix(in srgb, var(--ie-paper) 76%, var(--ie-background));
+  color: color-mix(in srgb, var(--ie-ink) 64%, transparent);
+  font-size: 0.75rem;
+  place-items: center;
+  text-align: center;
+}
+.sr-hero > .sr-media-placeholder {
+  width: min(100%, 18rem);
+  margin: 0 auto 2rem;
+}
+.sr-gallery figcaption {
+  display: grid;
+  gap: 0.35rem;
+}
+.sr-gallery figcaption span {
+  color: color-mix(in srgb, var(--ie-ink) 68%, transparent);
 }
 `;

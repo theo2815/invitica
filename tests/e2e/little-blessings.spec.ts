@@ -183,6 +183,20 @@ test("reads the agenda time-first and mounts gift plates two up like the gallery
   expect(third.y).toBeGreaterThan(first.y + first.height - 1);
   expect(Math.abs(first.width - galleryPlate.width)).toBeLessThan(2);
 
+  // The album holds an odd number of photographs, so the last plate sits alone and centred at the
+  // width of a paired one rather than stretching across the page or hanging in the left column.
+  const photos = page.locator(".lb-gallery-grid figure");
+  const photoCount = await photos.count();
+  expect(photoCount % 2).toBe(1);
+  const lastPhoto = await photos.nth(photoCount - 1).boundingBox();
+  const gridBox = await page.locator(".lb-gallery-grid").boundingBox();
+  if (!lastPhoto || !gridBox) throw new Error("The album is not laid out");
+  expect(Math.abs(lastPhoto.width - galleryPlate.width)).toBeLessThan(2);
+  const leftGap = lastPhoto.x - gridBox.x;
+  const rightGap = gridBox.x + gridBox.width - (lastPhoto.x + lastPhoto.width);
+  expect(leftGap).toBeGreaterThan(1);
+  expect(Math.abs(leftGap - rightGap)).toBeLessThan(2);
+
   await assertNoHorizontalOverflow(page);
   await context.close();
 });
@@ -231,8 +245,8 @@ test("keeps maximum media, gifts, and RSVP guidance usable at 200 percent text",
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
 
-  expect(await page.locator(".lb-gallery-grid figure").count()).toBe(8);
-  expect(await page.locator(".lb-gift-grid article").count()).toBe(6);
+  expect(await page.locator(".lb-gallery-grid figure").count()).toBe(7);
+  expect(await page.locator(".lb-gift-grid article").count()).toBe(8);
   const giftHeading = page.getByRole("heading", { name: "Gift ideas" });
   await giftHeading.scrollIntoViewIfNeeded();
   await expect(giftHeading).toBeVisible();

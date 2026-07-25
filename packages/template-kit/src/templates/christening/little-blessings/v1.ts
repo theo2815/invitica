@@ -22,11 +22,11 @@ export const littleBlessingsTemplate = {
     "event-details",
     "participants",
     "schedule",
-    "rsvp",
     "attire",
     "gallery",
     "guidance",
     "gifts",
+    "rsvp",
   ],
   defaultDocument: {
     schemaVersion: 1,
@@ -154,17 +154,6 @@ export const littleBlessingsTemplate = {
         },
       },
       {
-        id: "44000000-0000-4000-8000-000000000007",
-        type: "rsvp",
-        visible: true,
-        animationPreset: "scale-in",
-        props: {
-          heading: "Celebrate with us",
-          message: "Please let us know by March 28 if your party can join us.",
-          deadline: "2027-03-28T23:59:59+08:00",
-        },
-      },
-      {
         id: "44000000-0000-4000-8000-000000000008",
         type: "attire",
         visible: true,
@@ -178,6 +167,22 @@ export const littleBlessingsTemplate = {
             { label: "Pearl white", value: "#fffbfc" },
             { label: "Soft rose", value: "#dd7f9b" },
           ],
+          groups: [
+            {
+              label: "Ninong and ninang",
+              description:
+                "Barong Tagalog for the titos, and a formal dress in pearl or blush for the titas.",
+              colors: [
+                { label: "Pearl white", value: "#fffbfc" },
+                { label: "Blush pink", value: "#f6dce0" },
+              ],
+            },
+            {
+              label: "Our guests",
+              description:
+                "Smart casual in any soft, light color. Comfortable shoes are a kindness at both venues.",
+            },
+          ],
         },
       },
       {
@@ -187,26 +192,43 @@ export const littleBlessingsTemplate = {
         animationPreset: "fade-up",
         props: {
           heading: "Little moments",
+          description: "A few of the quiet days that brought us to this one.",
           images: [
             {
               assetId: "45000000-0000-4000-8000-000000000002",
-              alt: "Eliana resting in a light blanket",
+              title: "Eliana resting in a light blanket",
               caption: "Our first quiet afternoon together",
             },
             {
               assetId: "45000000-0000-4000-8000-000000000003",
-              alt: "Eliana smiling during family time",
+              title: "Eliana smiling during family time",
               caption: "A smile that brightens the room",
             },
             {
               assetId: "45000000-0000-4000-8000-000000000004",
-              alt: "Eliana held safely by her parents",
+              title: "Eliana held safely by her parents",
               caption: "Surrounded by love",
             },
             {
               assetId: "45000000-0000-4000-8000-000000000005",
-              alt: "Eliana wearing a simple white outfit",
+              title: "Eliana wearing a simple white outfit",
               caption: "Ready for a day of blessings",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000006",
+              title: "Eliana asleep against her mother's shoulder",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000007",
+              title: "Eliana reaching for her father's hand",
+              caption: "Learning to hold on",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000008",
+              caption: "A morning in the garden",
+            },
+            {
+              assetId: "45000000-0000-4000-8000-000000000009",
             },
           ],
         },
@@ -236,21 +258,53 @@ export const littleBlessingsTemplate = {
             "Your presence and prayers are enough. If you would like to bring something, these ideas would be lovingly received.",
           items: [
             {
-              imageAssetId: "45000000-0000-4000-8000-000000000006",
+              imageAssetId: "45000000-0000-4000-8000-000000000010",
               name: "Board books",
               note: "Stories the family can enjoy together",
             },
             {
-              imageAssetId: "45000000-0000-4000-8000-000000000007",
+              imageAssetId: "45000000-0000-4000-8000-000000000011",
               name: "Clothing for 6 to 12 months",
               note: "Soft, practical pieces for the months ahead",
             },
             {
-              imageAssetId: "45000000-0000-4000-8000-000000000008",
+              imageAssetId: "45000000-0000-4000-8000-000000000012",
               name: "Gentle bath essentials",
               note: "Unscented and baby-safe options are preferred",
             },
+            {
+              imageAssetId: "45000000-0000-4000-8000-000000000013",
+              name: "A keepsake blanket",
+              note: "Something soft she can grow up with",
+            },
+            {
+              imageAssetId: "45000000-0000-4000-8000-000000000014",
+              name: "Wooden toys",
+              note: "Simple shapes and quiet colors",
+            },
+            {
+              imageAssetId: "45000000-0000-4000-8000-000000000015",
+              name: "A savings gift for her education",
+            },
+            {
+              name: "Nappies in size two and above",
+              note: "Always useful, and never too many",
+            },
+            {
+              name: "A written blessing for her keepsake book",
+            },
           ],
+        },
+      },
+      {
+        id: "44000000-0000-4000-8000-000000000007",
+        type: "rsvp",
+        visible: true,
+        animationPreset: "scale-in",
+        props: {
+          heading: "Celebrate with us",
+          message: "Please let us know by March 28 if your party can join us.",
+          deadline: "2027-03-28T23:59:59+08:00",
         },
       },
     ],
@@ -263,6 +317,13 @@ export const littleBlessingsTemplate = {
       { id: "45000000-0000-4000-8000-000000000006", kind: "image" },
       { id: "45000000-0000-4000-8000-000000000007", kind: "image" },
       { id: "45000000-0000-4000-8000-000000000008", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000009", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000010", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000011", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000012", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000013", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000014", kind: "image" },
+      { id: "45000000-0000-4000-8000-000000000015", kind: "image" },
     ],
   },
 } as const;

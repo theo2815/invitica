@@ -5,6 +5,7 @@ import type { CSSProperties, KeyboardEvent, ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { InteractiveMap, interactiveMapStyles } from "./InteractiveMap.js";
 import type {
+  InvitationAudience,
   InvitationImageResolver,
   InvitationRendererProps,
   ResolvedRendererImage,
@@ -109,6 +110,26 @@ function LittleBlessingsPetals() {
   );
 }
 
+type AttireSection = Extract<InvitationSection, { type: "attire" }>;
+
+/** Colour swatches, shared by the section's own guidance and each audience's dress code. */
+function AttireColors({ colors }: { colors: AttireSection["props"]["colors"] }) {
+  if (!colors) {
+    return null;
+  }
+
+  return (
+    <ul className="lb-color-list">
+      {colors.map((color) => (
+        <li key={color.value}>
+          <span aria-hidden="true" style={{ backgroundColor: color.value }} />
+          {color.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function assertNever(value: never): never {
   throw new Error(`Unsupported Little Blessings section: ${JSON.stringify(value)}`);
 }
@@ -203,6 +224,21 @@ function LittleBlessingsCountdown({
 interface GalleryEntry {
   readonly image: GallerySection["props"]["images"][number];
   readonly resolved: ResolvedRendererImage | null;
+}
+
+/**
+ * Names a photograph's controls. Both caption fields are optional, so a creator may tip in a
+ * picture with no writing under it; the control still needs a name, and position within the album
+ * is the only truthful thing left to say. The image itself always carries alt="" because the
+ * figcaption names the figure — repeating it would make a screen reader read the line twice.
+ */
+function galleryPhotoSuffix(
+  image: GallerySection["props"]["images"][number],
+  index: number,
+  total: number,
+): string {
+  const text = image.title ?? image.caption;
+  return text ? `: ${text}` : ` ${index + 1} of ${total}`;
 }
 
 function LittleBlessingsGallery({
@@ -307,23 +343,18 @@ function LittleBlessingsGallery({
       ref={revealRef}
     >
       {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+      {section.props.description ? <p>{section.props.description}</p> : null}
       <div className="lb-gallery-grid">
         {entries.map((entry, index) => {
           const element = entry.resolved
-            ? resolvedImageElement(
-                entry.resolved,
-                entry.image.alt,
-                "lb-media-image",
-                "lazy",
-                CARD_IMAGE_SIZES,
-              )
+            ? resolvedImageElement(entry.resolved, "", "lb-media-image", "lazy", CARD_IMAGE_SIZES)
             : null;
 
           return (
             <figure data-asset-id={entry.image.assetId} key={entry.image.assetId}>
               {element ? (
                 <button
-                  aria-label={`View photo: ${entry.image.alt}`}
+                  aria-label={`View photo${galleryPhotoSuffix(entry.image, index, entries.length)}`}
                   className="lb-gallery-trigger"
                   onClick={() => setActiveIndex(index)}
                   ref={(node) => {
@@ -338,17 +369,20 @@ function LittleBlessingsGallery({
                   Image pending creator upload
                 </div>
               )}
-              <figcaption>
-                <strong>{entry.image.alt}</strong>
-                {entry.image.caption ? <span>{entry.image.caption}</span> : null}
-              </figcaption>
+              {/* A plate with no writing under it gets no figcaption at all, not an empty one. */}
+              {entry.image.title || entry.image.caption ? (
+                <figcaption>
+                  {entry.image.title ? <strong>{entry.image.title}</strong> : null}
+                  {entry.image.caption ? <span>{entry.image.caption}</span> : null}
+                </figcaption>
+              ) : null}
             </figure>
           );
         })}
       </div>
       {active?.resolved && activeIndex !== null ? (
         <div
-          aria-label={`Photo: ${active.image.alt}`}
+          aria-label={`Photo${galleryPhotoSuffix(active.image, activeIndex, entries.length)}`}
           aria-modal="true"
           className="lb-lightbox"
           onKeyDown={handleLightboxKeyDown}
@@ -358,15 +392,17 @@ function LittleBlessingsGallery({
           <div className="lb-lightbox-frame">
             {resolvedImageElement(
               active.resolved,
-              active.image.alt,
+              "",
               "lb-lightbox-image",
               "eager",
               LIGHTBOX_IMAGE_SIZES,
             )}
-            <p>
-              <strong>{active.image.alt}</strong>
-              {active.image.caption ? <span>{active.image.caption}</span> : null}
-            </p>
+            {active.image.title || active.image.caption ? (
+              <p>
+                {active.image.title ? <strong>{active.image.title}</strong> : null}
+                {active.image.caption ? <span>{active.image.caption}</span> : null}
+              </p>
+            ) : null}
             <div className="lb-lightbox-controls">
               {openableIndexes.length > 1 ? (
                 <button aria-label="Previous photo" onClick={() => stepLightbox(-1)} type="button">
@@ -666,15 +702,21 @@ function renderBlessingSection(
         >
           {section.props.heading ? <h2>{section.props.heading}</h2> : null}
           <p>{section.props.description}</p>
-          {section.props.colors ? (
-            <ul className="lb-color-list">
-              {section.props.colors.map((color) => (
-                <li key={color.value}>
-                  <span aria-hidden="true" style={{ backgroundColor: color.value }} />
-                  {color.label}
-                </li>
+          <AttireColors colors={section.props.colors} />
+          {/*
+           * Every guest sees every dress code. There is no guest role in the data model to target
+           * on, and a godparent wants to know what the guests are wearing as much as the reverse.
+           */}
+          {section.props.groups ? (
+            <div className="lb-attire-groups">
+              {section.props.groups.map((group) => (
+                <div key={group.label}>
+                  <h3>{group.label}</h3>
+                  <p>{group.description}</p>
+                  <AttireColors colors={group.colors} />
+                </div>
               ))}
-            </ul>
+            </div>
           ) : null}
         </section>
       );
@@ -751,7 +793,21 @@ function renderBlessingSection(
   }
 }
 
+/**
+ * Replies are wanted only from personally invited guests, so the reply page is withheld from anyone
+ * opening the general link. Gating happens here rather than at the edge because both link kinds
+ * share one cached response. Preview always shows it, or the creator could not edit it.
+ */
+function isVisibleToAudience(
+  section: InvitationSection,
+  mode: InvitationRendererProps["mode"],
+  audience: InvitationAudience,
+): boolean {
+  return !(section.type === "rsvp" && mode === "published" && audience === "general");
+}
+
 export function LittleBlessingsRenderer({
+  audience = "general",
   document,
   mapTileKey,
   mode,
@@ -812,7 +868,7 @@ export function LittleBlessingsRenderer({
       >
         <main className="lb-content" data-envelope-focus-target tabIndex={-1}>
           {document.sections
-            .filter((section) => section.visible)
+            .filter((section) => section.visible && isVisibleToAudience(section, mode, audience))
             .map((section) =>
               renderBlessingSection(
                 section,
@@ -2038,15 +2094,67 @@ const littleBlessingsStyles = `
   box-shadow: inset 0 0 0 2px rgb(255 251 252 / 75%);
 }
 
+/*
+ * Two audiences, two dress codes, both shown to everyone. Set with the sponsor lists' label idiom
+ * on page five so the reader recognizes them as the same kind of thing — a named group followed by
+ * what applies to it — and side by side once there is room, for the same reason.
+ */
+.lb-attire-groups {
+  display: grid;
+  gap: clamp(1.4rem, 4cqi, 2rem);
+  margin-top: clamp(1.6rem, 5cqi, 2.4rem);
+}
+.lb-attire-groups > div { min-width: 0; }
+.lb-attire-groups h3 {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--lb-hairline);
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 740;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--lb-label);
+}
+.lb-attire-groups p { margin-top: 0.85rem; }
+.lb-attire-groups .lb-color-list { margin-top: 0.9rem; }
+@container (min-width: 38rem) {
+  .lb-attire-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ------------------------------------------------------------------------ gallery */
 
-/* Photographs are mounted plates on the page, two up from the narrowest width. */
-.lb-gallery-grid {
+/*
+ * Photographs on page nine and gift pictures on page eleven are mounted on one shared track, so the
+ * two picture pages read as a single album.
+ *
+ * Pinned to two columns rather than auto-fit: with auto-fit the rendered column count is unknown to
+ * CSS, so an odd final plate cannot be centred. Two up is what already rendered on a phone, and it
+ * suits a book page better than a wide contact sheet. The container threshold is expressed in rem
+ * so scaled text still collapses the album to one column, where a lone plate is full width anyway
+ * and there is nothing left to centre.
+ */
+.lb-gallery-grid,
+.lb-gift-grid {
+  --lb-plate-gap: clamp(0.9rem, 3cqi, 1.5rem);
   display: grid;
-  /* Sized so keepsake plates stay two-up from 320 px, and fall to one column at 200% text. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.75rem), 1fr));
-  gap: clamp(0.9rem, 3cqi, 1.5rem);
+  grid-template-columns: 1fr;
+  gap: var(--lb-plate-gap);
   margin-top: 1.5rem;
+}
+@container (min-width: 14rem) {
+  .lb-gallery-grid,
+  .lb-gift-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* An unpaired last plate sits centred on the page at the width of a paired one. */
+  .lb-gallery-grid > figure:last-child:nth-child(odd),
+  .lb-gift-grid > article:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    width: calc(50% - var(--lb-plate-gap) / 2);
+    margin-inline: auto;
+  }
 }
 .lb-gallery-grid figure {
   min-width: 0;
@@ -2096,15 +2204,24 @@ const littleBlessingsStyles = `
   outline: 3px solid var(--lb-ink);
   outline-offset: 0.25rem;
 }
+/*
+ * The writing under a plate is handwriting on a page, not a card's text slot: both lines are
+ * optional, nothing is reserved when they are absent, and a plate with neither emits no figcaption
+ * at all. The grid gap collapses on its own when only one line is present, so a lone title needs no
+ * special case beyond balancing its wrap. A lone caption deliberately keeps its muted voice rather
+ * than being promoted to the title's serif — an offhand remark should not be dressed as a label.
+ */
 .lb-gallery-grid figcaption {
   display: grid;
   gap: 0.2rem;
   margin-top: 0.55rem;
   font-size: 0.8rem;
+  overflow-wrap: break-word;
 }
 .lb-gallery-grid figcaption strong {
   font-family: "Fraunces Variable", Georgia, serif;
   font-weight: 460;
+  text-wrap: balance;
 }
 .lb-gallery-grid figcaption span { color: var(--lb-muted); }
 
@@ -2202,17 +2319,7 @@ const littleBlessingsStyles = `
 
 /* ------------------------------------------------------------------------- gifts */
 
-/*
- * Gift pictures are mounted on exactly the same track as the photographs on page nine, so the two
- * picture pages read as one album: two up from 320 px, falling to a single column only when text is
- * scaled far enough that a plate can no longer hold a caption.
- */
-.lb-gift-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.75rem), 1fr));
-  gap: clamp(0.9rem, 3cqi, 1.5rem);
-  margin-top: 1.5rem;
-}
+/* The gift track itself is declared with the gallery's, above, so the two pages stay identical. */
 .lb-gift-grid > article {
   min-width: 0;
   margin: 0;

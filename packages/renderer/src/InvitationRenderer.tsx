@@ -29,7 +29,16 @@ export interface ResolvedRendererImage {
  */
 export type InvitationImageResolver = (assetId: string) => ResolvedRendererImage | null;
 
+/**
+ * Which kind of guest is reading. A general link and a personal link are the same URL — only the
+ * fragment differs, and it never reaches the edge — so the published HTML is shared and cached, and
+ * this can only ever be decided in the browser. Defaults to "general", which is what the server
+ * renders; the Viewer raises it once it sees a guest token.
+ */
+export type InvitationAudience = "general" | "personalized";
+
 export interface InvitationRendererProps {
+  audience?: InvitationAudience;
   document: InvitationDocument;
   /**
    * Client-exposed, domain-restricted MapTiler key supplied at render time (ADR-006). It is never
@@ -285,6 +294,22 @@ function renderSection(
               ))}
             </ul>
           ) : null}
+          {section.props.groups?.map((group) => (
+            <div key={group.label}>
+              <h3>{group.label}</h3>
+              <p>{group.description}</p>
+              {group.colors ? (
+                <ul className="sr-color-list">
+                  {group.colors.map((color) => (
+                    <li key={color.value}>
+                      <span aria-hidden="true" style={{ backgroundColor: color.value }} />
+                      {color.label}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ))}
         </section>
       );
 
@@ -297,17 +322,14 @@ function renderSection(
           key={section.id}
         >
           {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+          {section.props.description ? <p>{section.props.description}</p> : null}
           <div className="sr-section-grid">
             {section.props.images.map((image) => {
               const resolved = resolveImage?.(image.assetId) ?? null;
+              // Both caption fields are optional; the figcaption names the figure, so the image
+              // itself stays alt="" rather than repeating that text to a screen reader.
               const element = resolved
-                ? resolvedImageElement(
-                    resolved,
-                    image.alt,
-                    "sr-media-image",
-                    "lazy",
-                    CARD_IMAGE_SIZES,
-                  )
+                ? resolvedImageElement(resolved, "", "sr-media-image", "lazy", CARD_IMAGE_SIZES)
                 : null;
               return (
                 <figure data-asset-id={image.assetId} key={image.assetId}>
@@ -316,10 +338,12 @@ function renderSection(
                       Image pending creator upload
                     </div>
                   )}
-                  <figcaption>
-                    <strong>{image.alt}</strong>
-                    {image.caption ? <span>{image.caption}</span> : null}
-                  </figcaption>
+                  {image.title || image.caption ? (
+                    <figcaption>
+                      {image.title ? <strong>{image.title}</strong> : null}
+                      {image.caption ? <span>{image.caption}</span> : null}
+                    </figcaption>
+                  ) : null}
                 </figure>
               );
             })}

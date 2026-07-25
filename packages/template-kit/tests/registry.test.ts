@@ -94,11 +94,11 @@ describe("template registry", () => {
       "Countdown",
       "Parents and godparents",
       "Order of the day",
-      "RSVP",
       "What to wear",
       "Gallery",
       "A gentle note",
       "Gift ideas",
+      "RSVP",
     ]);
   });
 
@@ -112,9 +112,33 @@ describe("template registry", () => {
     );
 
     expect(littleBlessings.qualityStatus).toBe("fixture");
-    expect(littleBlessings.defaultDocument.assets).toHaveLength(8);
-    expect(gallery?.props.images).toHaveLength(4);
-    expect(gifts?.props.items).toHaveLength(3);
-    expect(gifts?.props.items.every((item) => Boolean(item.imageAssetId))).toBe(true);
+    expect(littleBlessings.defaultDocument.assets).toHaveLength(15);
+    expect(gallery?.props.images).toHaveLength(8);
+    expect(gifts?.props.items).toHaveLength(8);
+    // Gift pictures are optional, so the fixture deliberately carries image-less ideas too.
+    expect(gifts?.props.items.filter((item) => Boolean(item.imageAssetId))).toHaveLength(6);
+  });
+
+  it("keeps the reply section last so guests read the invitation before deciding", () => {
+    const sections = resolveTemplateById("little-blessings").defaultDocument.sections;
+
+    expect(sections.at(-1)?.type).toBe("rsvp");
+  });
+
+  it("offers Little Blessings photograph captions and dress codes as optional content", () => {
+    const sections = resolveTemplateById("little-blessings").defaultDocument.sections;
+    const gallery = sections.find((section) => section.type === "gallery");
+    const attire = sections.find((section) => section.type === "attire");
+
+    // Every caption state is represented, including a photograph tipped in with no writing.
+    expect(gallery?.props.images.some((image) => image.title && image.caption)).toBe(true);
+    expect(gallery?.props.images.some((image) => image.title && !image.caption)).toBe(true);
+    expect(gallery?.props.images.some((image) => !image.title && image.caption)).toBe(true);
+    expect(gallery?.props.images.some((image) => !image.title && !image.caption)).toBe(true);
+
+    expect(attire?.props.groups?.map((group) => group.label)).toEqual([
+      "Ninong and ninang",
+      "Our guests",
+    ]);
   });
 });

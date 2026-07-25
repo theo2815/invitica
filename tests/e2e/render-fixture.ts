@@ -64,26 +64,42 @@ function imageManifestEntry(
   };
 }
 
-function littleBlessingsAssetId(suffix: string): string {
-  return `45000000-0000-4000-8000-00000000000${suffix}`;
+function littleBlessingsAssetId(tail: string): string {
+  return `45000000-0000-4000-8000-${tail.padStart(12, "0")}`;
 }
 
 function littleBlessingsFixture(): PublicationArtifact {
   const template = resolveTemplateById("little-blessings");
   const heroAssetId = littleBlessingsAssetId("1");
-  const galleryAssetIds = ["2", "3", "4", "5", "9", "a", "b", "c"].map(littleBlessingsAssetId);
-  const giftAssetIds = ["6", "7", "8", "d", "e", "f"].map(littleBlessingsAssetId);
-  const extraGalleryImages = [
-    { alt: "Eliana asleep in her grandmother's arms", caption: "A quiet Sunday nap" },
-    { alt: "Eliana laughing at bath time", caption: "Splashes and giggles" },
-    { alt: "Eliana with her tiny knitted bonnet", caption: "Made by Lola with love" },
-    { alt: "Eliana reaching for the morning light", caption: "Bright mornings together" },
-  ];
-  const extraGiftItems = [
-    { name: "Soft muslin blankets", note: "Breathable layers for warm afternoons" },
-    { name: "Wooden stacking toys", note: "Sturdy pieces for growing hands" },
-    { name: "Keepsake letters", note: "A note she can read when she is older" },
-  ];
+  // The template deliberately ships two gift ideas without a picture; this lane gives every idea
+  // one so the page carries its heaviest realistic media load.
+  const extraGiftAssetIds = [littleBlessingsAssetId("16"), littleBlessingsAssetId("17")];
+  const galleryAssetIds: string[] = [];
+  const giftAssetIds: string[] = [];
+
+  const sections = template.defaultDocument.sections.map((section) => {
+    if (section.type === "gallery") {
+      // An odd album proves the unpaired plate centres, while the even gift page beside it keeps
+      // proving the plain two-up rows. One page of each covers both halves of the shared rule.
+      // The dropped photograph is a plain titled-and-captioned one, so the lane keeps every
+      // caption state — including the last plate, which carries no writing at all.
+      const images = [...section.props.images.slice(0, 3), ...section.props.images.slice(4)];
+      galleryAssetIds.push(...images.map((image) => image.assetId));
+      return { ...section, props: { ...section.props, images } };
+    }
+
+    if (section.type === "gifts") {
+      let nextExtra = 0;
+      const items = section.props.items.map((item) => ({
+        ...item,
+        imageAssetId: item.imageAssetId ?? (extraGiftAssetIds[nextExtra++] as string),
+      }));
+      giftAssetIds.push(...items.map((item) => item.imageAssetId));
+      return { ...section, props: { ...section.props, items } };
+    }
+
+    return section;
+  });
 
   const document: InvitationDocument = {
     ...template.defaultDocument,
@@ -91,41 +107,7 @@ function littleBlessingsFixture(): PublicationArtifact {
       ...template.defaultDocument.opening,
       fallbackRecipientText: "The Villanueva, de la Cruz, Santos-Reyes, and Evangelista Family",
     },
-    sections: template.defaultDocument.sections.map((section) => {
-      if (section.type === "gallery") {
-        return {
-          ...section,
-          props: {
-            ...section.props,
-            images: [
-              ...section.props.images,
-              ...extraGalleryImages.map((image, index) => ({
-                ...image,
-                assetId: galleryAssetIds[4 + index] as string,
-              })),
-            ],
-          },
-        };
-      }
-
-      if (section.type === "gifts") {
-        return {
-          ...section,
-          props: {
-            ...section.props,
-            items: [
-              ...section.props.items,
-              ...extraGiftItems.map((item, index) => ({
-                ...item,
-                imageAssetId: giftAssetIds[3 + index] as string,
-              })),
-            ],
-          },
-        };
-      }
-
-      return section;
-    }),
+    sections,
     assets: [heroAssetId, ...galleryAssetIds, ...giftAssetIds].map((id) => ({
       id,
       kind: "image" as const,
@@ -141,7 +123,7 @@ function littleBlessingsFixture(): PublicationArtifact {
         ...galleryAssetIds.map((assetId, index) =>
           imageManifestEntry(assetId, 2 + index, 1200, 900),
         ),
-        ...giftAssetIds.map((assetId, index) => imageManifestEntry(assetId, 10 + index, 900, 900)),
+        ...giftAssetIds.map((assetId, index) => imageManifestEntry(assetId, 20 + index, 900, 900)),
       ],
       document,
       draftRevision: 3,

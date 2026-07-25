@@ -7,6 +7,7 @@ export {
   MAP_ATTRIBUTION,
 } from "./InteractiveMap.js";
 export type {
+  InvitationAudience,
   InvitationImageResolver,
   InvitationRendererProps,
   ResolvedRendererImage,

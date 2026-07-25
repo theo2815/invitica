@@ -266,6 +266,22 @@ describe("invitation document schema", () => {
     ).toBe(false);
   });
 
+  it("lets a hidden gallery be empty and never a visible one", () => {
+    const document = additiveSectionDocument();
+    const emptyGallery = (visible: boolean) => ({
+      ...document,
+      assets: document.assets.filter((asset) => asset.id !== galleryAssetId),
+      sections: document.sections.map((section) =>
+        section.type === "gallery" ? { ...section, visible, props: { images: [] } } : section,
+      ),
+    });
+
+    // A template ships an album a creator has not filled in yet; every other
+    // image slot in the contract is already optional.
+    expect(safeParseInvitationDocument(emptyGallery(false)).success).toBe(true);
+    expect(safeParseInvitationDocument(emptyGallery(true)).success).toBe(false);
+  });
+
   it("accepts every gallery caption state, including a photograph with no writing", () => {
     const base = {
       id: "47000000-0000-4000-8000-000000000098",

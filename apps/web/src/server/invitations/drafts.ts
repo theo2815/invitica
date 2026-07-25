@@ -2,6 +2,7 @@ import { type InvitationDocument, parseInvitationDocument } from "@invitica/invi
 import {
   resolveTemplateVersion,
   type TemplateManifest,
+  templateStarterDocument,
   UnknownTemplateError,
 } from "@invitica/template-kit";
 import { z } from "zod";
@@ -123,7 +124,10 @@ export async function createInitialInvitationDraft(supabase: SupabaseServerClien
     throw new TemplateUnavailableError();
   }
 
-  const document = parseInvitationDocument(structuredClone(manifest.defaultDocument));
+  // A new draft starts from the template's starter, not its catalog showcase: a
+  // showcase may reference media that belongs to the template's own preview and
+  // has no uploaded counterpart in this invitation.
+  const document = parseInvitationDocument(structuredClone(templateStarterDocument(manifest)));
   const { data, error } = await supabase.rpc("create_invitation_draft", {
     p_document: document,
     p_event_name: `${manifest.listing.name} invitation`,

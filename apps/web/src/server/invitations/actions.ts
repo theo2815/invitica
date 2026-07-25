@@ -15,6 +15,7 @@ import {
   saveGardenPromiseInputSchema,
   TemplateUnavailableError,
 } from "./drafts";
+import { saveLittleBlessingsDraft, saveLittleBlessingsInputSchema } from "./little-blessings";
 import { enqueueInvitationPublication, PublicationEnqueueError } from "./publication-jobs";
 import {
   type InvitationPublicationStatus,
@@ -43,6 +44,10 @@ export interface CreateInvitationActionState {
 }
 
 export type SaveGardenPromiseActionResult =
+  | { revision: number; status: "saved" }
+  | { message: string; status: "conflict" | "error" };
+
+export type SaveLittleBlessingsActionResult =
   | { revision: number; status: "saved" }
   | { message: string; status: "conflict" | "error" };
 
@@ -148,6 +153,44 @@ export async function saveGardenPromiseAction(
         message: "This draft changed in another session. Reload the latest version before saving.",
         status: "conflict",
       };
+    }
+
+    if (error instanceof InvitationDraftPersistenceError) {
+      return { message: "Your latest changes could not be saved. Try again.", status: "error" };
+    }
+
+    return { message: "This invitation update could not be completed.", status: "error" };
+  }
+}
+
+export async function saveLittleBlessingsAction(
+  input: unknown,
+): Promise<SaveLittleBlessingsActionResult> {
+  const parsed = saveLittleBlessingsInputSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { message: "Check the highlighted invitation details and try again.", status: "error" };
+  }
+
+  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
+
+  if (workspaceError || !workspaceId) {
+    return { message: "Your workspace is unavailable. Refresh and try again.", status: "error" };
+  }
+
+  try {
+    const revision = await saveLittleBlessingsDraft(supabase, parsed.data);
+    return { revision, status: "saved" };
+  } catch (error: unknown) {
+    if (error instanceof InvitationDraftConflictError) {
+      return {
+        message: "This draft changed in another session. Reload the latest version before saving.",
+        status: "conflict",
+      };
+    }
+
+    if (error instanceof TemplateUnavailableError) {
+      return { message: error.message, status: "error" };
     }
 
     if (error instanceof InvitationDraftPersistenceError) {

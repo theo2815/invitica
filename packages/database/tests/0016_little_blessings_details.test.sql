@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 grant usage on schema extensions to public;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(25);
+select plan(28);
 
 select ok(
   has_function_privilege(

@@ -245,8 +245,8 @@ and repeatable smart-copy actions:
 
 The matching `0012` pgTAP suite contains 29 transaction-wrapped assertions for privileges,
 idempotent retries, conflicting mutation keys, member revisions, reversible trash, token-material
-destruction, and cross-owner denial. It has not yet run against a disposable PostgreSQL instance
-because the local Docker-backed database was unavailable during implementation. Migration `0012`
+destruction, and cross-owner denial. All 29 pass against a disposable PostgreSQL instance as of
+2026-07-26. Migration `0012`
 was founder-applied through the hosted Supabase SQL Editor on 2026-07-24. PostgREST exposes the
 new bulk RPC with its intended role restriction, but the first authenticated creator call exposed
 the ciphertext-regex defect described below. The new encryption secret is configured only in the
@@ -268,4 +268,11 @@ edit dialog. One transaction updates the party label, envelope name, capacity, a
 list while preserving the party's private invitation link and RSVP history. The RPC locks the active
 party, rejects stale revisions, and prevents capacity from dropping below the current attending count.
 Direct authenticated table writes remain denied. The focused `0014` pgTAP catalog suite contains five
-transaction-wrapped assertions; a PostgreSQL-backed run and hosted application remain pending.
+transaction-wrapped assertions, all passing as of 2026-07-26.
+
+That capacity check reads `public.rsvp_responses`, so **`0014` depends on `0009` at run time**.
+PL/pgSQL bodies are not resolved when a function is created, so `0014` installs cleanly against a
+database that lacks the table and then fails on the first real call with
+`relation "public.rsvp_responses" does not exist`. Hosted Supabase is in exactly that state: `0014`
+was applied on 2026-07-24 and `0009` has never been applied. The catalog suite cannot detect this
+because it never invokes the RPC. Apply `0009` before `0014` on any new environment.

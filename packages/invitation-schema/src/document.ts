@@ -151,6 +151,15 @@ const attireColorSchema = z.strictObject({
   value: hexColorSchema,
 });
 
+// An occasion may ask different groups of guests to dress differently, such as a christening that
+// asks its godparents for formal wear and its guests for a color family. Backward compatible:
+// documents without groups keep showing only the shared description.
+const attireGroupSchema = z.strictObject({
+  label: shortTextSchema,
+  description: mediumTextSchema,
+  colors: z.array(attireColorSchema).min(1).max(6).optional(),
+});
+
 export const attireSectionSchema = z.strictObject({
   ...sectionBaseShape,
   type: z.literal("attire"),
@@ -158,12 +167,16 @@ export const attireSectionSchema = z.strictObject({
     heading: z.string().trim().max(120).optional(),
     description: mediumTextSchema,
     colors: z.array(attireColorSchema).min(1).max(6).optional(),
+    groups: z.array(attireGroupSchema).min(1).max(4).optional(),
   }),
 });
 
+// Both caption fields are optional so a creator can tip in a photograph with no writing under it.
+// The image's accessible text is derived by the renderer from the caption, never authored here, so
+// a missing title can never produce an unlabelled control.
 const galleryImageSchema = z.strictObject({
   assetId: idSchema,
-  alt: z.string().trim().min(1).max(240),
+  title: z.string().trim().min(1).max(240).optional(),
   caption: z.string().trim().min(1).max(240).optional(),
 });
 
@@ -172,6 +185,7 @@ export const gallerySectionSchema = z.strictObject({
   type: z.literal("gallery"),
   props: z.strictObject({
     heading: z.string().trim().max(120).optional(),
+    description: mediumTextSchema.optional(),
     images: z.array(galleryImageSchema).min(1).max(8),
   }),
 });
@@ -197,7 +211,7 @@ export const giftsSectionSchema = z.strictObject({
   props: z.strictObject({
     heading: z.string().trim().max(120).optional(),
     message: mediumTextSchema.optional(),
-    items: z.array(giftItemSchema).min(1).max(6),
+    items: z.array(giftItemSchema).min(1).max(8),
   }),
 });
 

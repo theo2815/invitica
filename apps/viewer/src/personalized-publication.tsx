@@ -134,6 +134,10 @@ export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPu
   const rsvpProps = rsvpSlot ? { rsvpSlot } : {};
   return (
     <Renderer
+      // Token presence decides what a guest may see; token resolution decides what they may do. A
+      // revoked link or a failed lookup must not silently erase an invited guest's reply section,
+      // so this is deliberately not conditioned on `context`.
+      audience={capability ? "personalized" : "general"}
       document={artifact.snapshot.document}
       mapTileKey={mapTileKey ?? ""}
       mode="published"

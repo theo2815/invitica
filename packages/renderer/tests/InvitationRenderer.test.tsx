@@ -263,6 +263,7 @@ describe("InvitationRenderer", () => {
 
     const html = renderToStaticMarkup(
       <LittleBlessingsRenderer
+        audience="personalized"
         document={littleBlessings.defaultDocument}
         mode="published"
         recipientName="The Reyes Family"
@@ -359,13 +360,14 @@ describe("InvitationRenderer", () => {
     expect(resolvedHtml).toContain(`/m/v1/${heroSha}/w640.webp 640w`);
     expect(resolvedHtml).toContain('loading="eager"');
     expect(resolvedHtml).toContain('loading="lazy"');
-    expect(resolvedHtml).toContain('alt="Eliana resting in a light blanket"');
+    // The figcaption names the figure, so the image never repeats that text to a screen reader.
+    expect(resolvedHtml).not.toContain('alt="Eliana resting in a light blanket"');
     expect(resolvedHtml).toContain("View photo: Eliana resting in a light blanket");
     expect(resolvedHtml).not.toContain("Baby portrait pending creator upload");
     expect(resolvedHtml).toContain("Gift image pending creator upload");
   });
 
-  it("uses author gallery alt text and lazy-loads below-the-fold media", () => {
+  it("renders every gallery caption state and never leaves a photo control unnamed", () => {
     const littleBlessings = templateRegistry.find(
       (manifest) => manifest.listing.id === "little-blessings",
     );
@@ -374,10 +376,13 @@ describe("InvitationRenderer", () => {
       throw new Error("Little Blessings fixture is required");
     }
 
-    const galleryAssetId = "45000000-0000-4000-8000-000000000002";
     const gallerySha = "b".repeat(64);
+    const gallery = littleBlessings.defaultDocument.sections.find(
+      (section) => section.type === "gallery",
+    );
+    const galleryAssetIds = new Set(gallery?.props.images.map((image) => image.assetId));
     const resolveImage = (assetId: string) =>
-      assetId === galleryAssetId
+      galleryAssetIds.has(assetId)
         ? {
             height: 900,
             renditions: [{ height: 240, url: `/m/v1/${gallerySha}/w320.webp`, width: 320 }],
@@ -386,14 +391,81 @@ describe("InvitationRenderer", () => {
         : null;
 
     const html = renderToStaticMarkup(
-      <InvitationRenderer
+      <LittleBlessingsRenderer
         document={littleBlessings.defaultDocument}
         mode="published"
         resolveImage={resolveImage}
       />,
     );
 
-    expect(html).toContain('alt="Eliana resting in a light blanket"');
     expect(html).toContain('loading="lazy"');
+    // Title with caption, title alone, caption alone.
+    expect(html).toContain(
+      "<strong>Eliana resting in a light blanket</strong><span>Our first quiet afternoon together</span>",
+    );
+    expect(html).toContain("<strong>Eliana asleep against her mother&#x27;s shoulder</strong>");
+    expect(html).toContain("<figcaption><span>A morning in the garden</span></figcaption>");
+    // A photograph with no writing under it emits no figcaption at all, not an empty one.
+    expect(html).not.toContain("<figcaption></figcaption>");
+    // …and its control still has a name, falling back to the photo's place in the album.
+    expect(html).toContain("View photo 8 of 8");
+  });
+
+  it("withholds the reply page from a general link but never from an invited guest", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    const render = (props: Partial<Parameters<typeof LittleBlessingsRenderer>[0]>) =>
+      renderToStaticMarkup(
+        <LittleBlessingsRenderer
+          document={littleBlessings.defaultDocument}
+          mode="published"
+          {...props}
+        />,
+      );
+
+    // Matched on the rendered element, not on `data-section-type`, which the stylesheet also names.
+    const replyPage = '<section class="lb-section lb-rsvp"';
+
+    // Published with no guest token, including the server-rendered default: withheld.
+    expect(render({})).not.toContain(replyPage);
+    expect(render({ audience: "general" })).not.toContain(replyPage);
+    // Published with a guest token: shown, whether or not the guest context resolved.
+    expect(render({ audience: "personalized" })).toContain(replyPage);
+    // Preview always shows it, or the creator could not edit it.
+    expect(render({ audience: "general", mode: "preview" })).toContain(replyPage);
+
+    // Withholding the page must not disturb anything above it.
+    expect(render({})).toContain("Gift ideas");
+    expect(render({})).toContain("Where and when");
+  });
+
+  it("shows every audience its own dress code alongside the shared guidance", () => {
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings",
+    );
+
+    if (!littleBlessings) {
+      throw new Error("Little Blessings fixture is required");
+    }
+
+    for (const html of [
+      renderToStaticMarkup(
+        <LittleBlessingsRenderer document={littleBlessings.defaultDocument} mode="published" />,
+      ),
+      renderToStaticMarkup(
+        <InvitationRenderer document={littleBlessings.defaultDocument} mode="published" />,
+      ),
+    ]) {
+      expect(html).toContain("Sunday best in light, comfortable colors.");
+      expect(html).toContain("<h3>Ninong and ninang</h3>");
+      expect(html).toContain("<h3>Our guests</h3>");
+      expect(html).toContain("Barong Tagalog for the titos");
+    }
   });
 });

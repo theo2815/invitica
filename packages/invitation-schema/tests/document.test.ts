@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  attireSectionSchema,
   gallerySectionSchema,
   giftsSectionSchema,
   invitationDocumentV1Schema,
@@ -87,7 +88,7 @@ function additiveSectionDocument() {
         animationPreset: "fade-up",
         props: {
           heading: "Little moments",
-          images: [{ assetId: galleryAssetId, alt: "A fictional baby portrait" }],
+          images: [{ assetId: galleryAssetId, title: "A fictional baby portrait" }],
         },
       },
       {
@@ -228,9 +229,9 @@ describe("invitation document schema", () => {
   it("enforces the bounded gallery and gift collection limits", () => {
     const galleryImages = Array.from({ length: 8 }, (_, index) => ({
       assetId: `46000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
-      alt: `Fictional gallery image ${index + 1}`,
+      title: `Fictional gallery image ${index + 1}`,
     }));
-    const giftItems = Array.from({ length: 6 }, (_, index) => ({
+    const giftItems = Array.from({ length: 8 }, (_, index) => ({
       name: `Gift idea ${index + 1}`,
     }));
     const base = {
@@ -261,6 +262,97 @@ describe("invitation document schema", () => {
         ...base,
         type: "gifts",
         props: { items: [...giftItems, { name: "One gift too many" }] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts every gallery caption state, including a photograph with no writing", () => {
+    const base = {
+      id: "47000000-0000-4000-8000-000000000098",
+      visible: true,
+      animationPreset: "none",
+      type: "gallery",
+    };
+
+    const captionStates = [
+      { title: "Eliana resting in a light blanket", caption: "Our first quiet afternoon together" },
+      { title: "Eliana resting in a light blanket" },
+      { caption: "Our first quiet afternoon together" },
+      {},
+    ];
+
+    for (const state of captionStates) {
+      expect(
+        gallerySectionSchema.safeParse({
+          ...base,
+          props: { images: [{ assetId: galleryAssetId, ...state }] },
+        }).success,
+      ).toBe(true);
+    }
+
+    // Present but blank stays a rejection: an empty string is authored content, not an omission.
+    expect(
+      gallerySectionSchema.safeParse({
+        ...base,
+        props: { images: [{ assetId: galleryAssetId, title: "  " }] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts an optional gallery description", () => {
+    const base = {
+      id: "47000000-0000-4000-8000-000000000097",
+      visible: true,
+      animationPreset: "none",
+      type: "gallery",
+      props: { images: [{ assetId: galleryAssetId }] },
+    };
+
+    expect(gallerySectionSchema.safeParse(base).success).toBe(true);
+    expect(
+      gallerySectionSchema.safeParse({
+        ...base,
+        props: { ...base.props, description: "A few of the moments that brought us here." },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts audience-labelled attire groups alongside the shared description", () => {
+    const base = {
+      id: "47000000-0000-4000-8000-000000000096",
+      visible: true,
+      animationPreset: "none",
+      type: "attire",
+      props: { description: "Sunday best in light, comfortable colors." },
+    };
+
+    expect(attireSectionSchema.safeParse(base).success).toBe(true);
+
+    const groups = [
+      {
+        label: "Ninong and ninang",
+        description: "Barong Tagalog or a formal gown in pearl.",
+        colors: [{ label: "Pearl white", value: "#fffbfc" }],
+      },
+      { label: "Our guests", description: "Blush, pearl, or soft rose." },
+    ];
+
+    expect(
+      attireSectionSchema.safeParse({ ...base, props: { ...base.props, groups } }).success,
+    ).toBe(true);
+    expect(
+      attireSectionSchema.safeParse({ ...base, props: { ...base.props, groups: [] } }).success,
+    ).toBe(false);
+    expect(
+      attireSectionSchema.safeParse({
+        ...base,
+        props: {
+          ...base.props,
+          groups: Array.from({ length: 5 }, (_, index) => ({
+            label: `Group ${index + 1}`,
+            description: "Too many audiences to be a curated dress code.",
+          })),
+        },
       }).success,
     ).toBe(false);
   });

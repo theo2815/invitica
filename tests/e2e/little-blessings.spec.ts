@@ -65,7 +65,13 @@ test("covers the viewport closed, opens, and passes blocking WCAG checks", async
     page.getByRole("list", { name: "Time remaining until the celebration" }),
   ).toBeVisible();
   await expect(page.getByText("seconds", { exact: true })).toBeVisible();
-  await expect(page.getByText("Kindly reply by March 28, 2027")).toBeVisible();
+  // This is the general link, which carries no guest token: replies are wanted only from
+  // personally invited guests, so the reply page is withheld entirely.
+  await expect(page.locator(".lb-rsvp")).toHaveCount(0);
+  await expect(page.getByText("Kindly reply by March 28, 2027")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Celebrate with us" })).toHaveCount(0);
+  // Everything the guest can still act on is untouched.
+  await expect(page.getByRole("heading", { name: "Gift ideas" })).toBeVisible();
   await expect(
     page.getByText("With grateful hearts, thank you for celebrating with us"),
   ).toBeVisible();
@@ -75,6 +81,45 @@ test("covers the viewport closed, opens, and passes blocking WCAG checks", async
 
   const openedAudit = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
   expect(blockingViolations(openedAudit.violations)).toEqual([]);
+  await assertNoHorizontalOverflow(page);
+});
+
+test("gives the reply page to a personally invited guest", async ({ page }) => {
+  const personalizedToken = "A".repeat(43);
+  let contextRequests = 0;
+  await page.route("**/api/public/guest-context", async (route) => {
+    contextRequests += 1;
+    // The capability travels in the fragment and the POST body, never in a request URL.
+    expect(route.request().url()).not.toContain(personalizedToken);
+    await route.fulfill({
+      body: JSON.stringify({
+        recipientName: "The Santos Family",
+        rsvp: { capacity: 4, deadline: "2099-12-01T23:59:59+08:00", response: null, status: "open" },
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+
+  await page.goto(`${origin()}${invitationPath}#g=${personalizedToken}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 5000 });
+
+  await expect(page.getByRole("heading", { name: "Celebrate with us" })).toBeVisible();
+  await expect(page.getByText("Kindly reply by March 28, 2027")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Joyfully attending" })).toBeVisible();
+  expect(contextRequests).toBeGreaterThan(0);
+
+  // The reply page is last, so an invited guest reads the whole invitation before deciding.
+  const gifts = await page.getByRole("heading", { name: "Gift ideas" }).boundingBox();
+  const reply = await page.getByRole("heading", { name: "Celebrate with us" }).boundingBox();
+  if (!gifts || !reply) throw new Error("The reply page is not laid out");
+  expect(reply.y).toBeGreaterThan(gifts.y);
+
+  const audit = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
+  expect(blockingViolations(audit.violations)).toEqual([]);
   await assertNoHorizontalOverflow(page);
 });
 

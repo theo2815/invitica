@@ -30,6 +30,7 @@ const creationRequestIds = {
   "garden-promise": "71000000-0000-4000-8000-000000000001",
   "golden-hour": "71000000-0000-4000-8000-000000000002",
   "sunday-joy": "71000000-0000-4000-8000-000000000003",
+  "little-blessings": "71000000-0000-4000-8000-000000000004",
 };
 
 afterEach(cleanup);
@@ -122,21 +123,25 @@ describe("templates page", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("enables creation only for the production template with a stable request key", () => {
+  it("enables creation only for the production templates with stable request keys", () => {
     render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
 
-    const creationButton = screen.getByRole("button", { name: "Use this template" });
+    const creationButtons = screen.getAllByRole("button", { name: "Use this template" });
     const previewOnlyButtons = screen.getAllByRole("button", { name: "Preview only" });
 
-    if (!(creationButton instanceof HTMLButtonElement)) {
-      throw new Error("Expected the production template action to be a button.");
-    }
-
-    expect(previewOnlyButtons).toHaveLength(3);
+    // Garden Promise and Little Blessings are real; the two standard-renderer
+    // concepts are still fixtures.
+    expect(creationButtons).toHaveLength(2);
+    expect(previewOnlyButtons).toHaveLength(2);
     expect(previewOnlyButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(
-      creationButton.form?.querySelector<HTMLInputElement>('input[name="invitationId"]')?.value,
-    ).toBe(creationRequestIds["garden-promise"]);
+      creationButtons.map(
+        (button) =>
+          (button as HTMLButtonElement).form?.querySelector<HTMLInputElement>(
+            'input[name="invitationId"]',
+          )?.value,
+      ),
+    ).toEqual([creationRequestIds["garden-promise"], creationRequestIds["little-blessings"]]);
 
     fireEvent.click(screen.getByRole("button", { name: "Quick preview Golden Hour" }));
     expect(

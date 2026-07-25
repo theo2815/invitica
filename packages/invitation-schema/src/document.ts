@@ -180,13 +180,18 @@ const galleryImageSchema = z.strictObject({
   caption: z.string().trim().min(1).max(240).optional(),
 });
 
+// A gallery may hold no photographs only while it is hidden, which is how a template ships an album
+// a creator has not filled in yet: every other image slot in the contract is optional, so without
+// this the gallery alone would force a starter document to reference media that does not exist. The
+// "a visible gallery needs at least one photograph" half of the rule is enforced on the whole
+// document, where a section's visibility and its contents can be read together.
 export const gallerySectionSchema = z.strictObject({
   ...sectionBaseShape,
   type: z.literal("gallery"),
   props: z.strictObject({
     heading: z.string().trim().max(120).optional(),
     description: mediumTextSchema.optional(),
-    images: z.array(galleryImageSchema).min(1).max(8),
+    images: z.array(galleryImageSchema).max(8),
   }),
 });
 
@@ -327,6 +332,14 @@ export const invitationDocumentV1Schema = z
       }
 
       if (section.type === "gallery") {
+        if (section.visible && section.props.images.length === 0) {
+          context.addIssue({
+            code: "custom",
+            message: "A visible gallery must contain at least one photograph",
+            path: ["sections", sectionIndex, "props", "images"],
+          });
+        }
+
         section.props.images.forEach((image, imageIndex) => {
           requireAssetKind(image.assetId, "image", [
             "sections",

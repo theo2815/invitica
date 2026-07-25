@@ -25,11 +25,37 @@ async function assertNoHorizontalOverflow(page: Page) {
   expect(widths.scroll).toBeLessThanOrEqual(widths.client);
 }
 
+/**
+ * The opener is server-rendered so the invitation reads without JavaScript, and
+ * activating it before hydration attaches the handler simply does nothing — the
+ * sequence never starts and the lane then waits out its whole budget. Waiting
+ * for the envelope to announce itself hydrated removes that race at the source.
+ */
+async function awaitHydratedEnvelope(page: Page) {
+  await expect(page.locator('[data-envelope-hydrated="true"]')).toBeAttached();
+}
+
+/**
+ * How long the media-heavy lanes wait for the opening takeover to finish.
+ *
+ * A liveness bound, not a performance budget: once the sequence is active the
+ * component's own safety timeout forces `opened` within ~5.2 s. Measured on the
+ * Windows dev machine on 2026-07-25, this page reaches `opened` at ~3,525 ms,
+ * so the earlier 5,000 ms and 7,000 ms budgets had almost no headroom. Real
+ * opening performance is measured under throttled mobile conditions, never by a
+ * Playwright timeout.
+ */
+const OPENING_WAIT = 15_000;
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/public/view", (route) => route.fulfill({ status: 204 }));
 });
 
 test("covers the viewport closed, opens, and passes blocking WCAG checks", async ({ page }) => {
+  // Two full axe WCAG scans over eleven sections, eight photographs, and eight
+  // gift plates, either side of the opening. Both scans still block; this lane
+  // is simply the heaviest in the suite and needs more than the 30 s default.
+  test.slow();
   const response = await page.goto(`${origin()}${invitationPath}`, {
     waitUntil: "domcontentloaded",
   });
@@ -50,8 +76,11 @@ test("covers the viewport closed, opens, and passes blocking WCAG checks", async
   const opener = page.getByRole("button", { name: /Open invitation for/ });
   const openerBox = await opener.boundingBox();
   expect(openerBox?.height).toBeGreaterThanOrEqual(44);
+  await awaitHydratedEnvelope(page);
   await opener.press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
+    timeout: OPENING_WAIT,
+  });
   await expect(page.locator("[data-envelope-focus-target]")).toBeFocused();
 
   await expect(page.getByRole("heading", { name: "Eliana Grace" })).toBeVisible();
@@ -109,8 +138,11 @@ test("gives the reply page to a personally invited guest", async ({ page }) => {
   await page.goto(`${origin()}${invitationPath}#g=${personalizedToken}`, {
     waitUntil: "domcontentloaded",
   });
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 5000 });
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
+    timeout: OPENING_WAIT,
+  });
 
   await expect(page.getByRole("heading", { name: "Celebrate with us" })).toBeVisible();
   await expect(page.getByText("Kindly reply by March 28, 2027")).toBeVisible();
@@ -142,6 +174,7 @@ test("opens, navigates, and closes the gallery lightbox accessibly", async ({
   const page = await context.newPage();
   await page.route("**/api/public/view", (route) => route.fulfill({ status: 204 }));
   await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
 
@@ -207,6 +240,7 @@ test("reads the agenda time-first and mounts gift plates two up like the gallery
   const page = await context.newPage();
   await page.route("**/api/public/view", (route) => route.fulfill({ status: 204 }));
   await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
 
@@ -271,6 +305,7 @@ test("finishes immediately and transfers focus with reduced motion", async ({
   await expect(page.locator('[data-motion-enabled="false"]')).toBeAttached();
 
   const startedAt = Date.now();
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
   expect(Date.now() - startedAt).toBeLessThan(750);
@@ -279,7 +314,7 @@ test("finishes immediately and transfers focus with reduced motion", async ({
   await context.close();
 });
 
-test("keeps maximum media, gifts, and RSVP guidance usable at 200 percent text", async ({
+test("keeps maximum media and gift ideas usable at 200 percent text", async ({
   browser,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-narrow", "The 320px lane owns text scaling");
@@ -292,6 +327,7 @@ test("keeps maximum media, gifts, and RSVP guidance usable at 200 percent text",
   await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
   await page.addStyleTag({ content: ":root { font-size: 200% !important; }" });
   await assertNoHorizontalOverflow(page);
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
 
@@ -300,7 +336,10 @@ test("keeps maximum media, gifts, and RSVP guidance usable at 200 percent text",
   const giftHeading = page.getByRole("heading", { name: "Gift ideas" });
   await giftHeading.scrollIntoViewIfNeeded();
   await expect(giftHeading).toBeVisible();
-  await expect(page.getByText("Use your personalized invitation link to respond")).toBeAttached();
+  // This lane opens the general link, which never carries a reply section at
+  // all — not a replacement line, a deadline, or a footer note.
+  await expect(page.getByRole("heading", { name: "Celebrate with us" })).toHaveCount(0);
+  await expect(page.locator("[data-rsvp-slot]")).toHaveCount(0);
   await assertNoHorizontalOverflow(page);
   await context.close();
 });
@@ -321,8 +360,11 @@ test("keeps the closed scene and opening usable in landscape", async ({ browser 
   const closedOpening = await page.locator("[data-envelope-opening]").boundingBox();
   expect(closedOpening?.width ?? 0).toBeGreaterThanOrEqual(799);
   expect(closedOpening?.height ?? 0).toBeGreaterThanOrEqual(359);
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
+    timeout: OPENING_WAIT,
+  });
   await assertNoHorizontalOverflow(page);
   await context.close();
 });
@@ -356,8 +398,11 @@ test("loads the venue map only on request and keeps the directions fallback", as
   });
 
   await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
+    timeout: OPENING_WAIT,
+  });
 
   const directions = page.getByRole("link", { name: "Get directions" }).first();
   await directions.scrollIntoViewIfNeeded();
@@ -416,8 +461,11 @@ test("zooms the venue map with a two-finger pinch", async ({ browser }, testInfo
   });
 
   await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await awaitHydratedEnvelope(page);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
+    timeout: OPENING_WAIT,
+  });
   await page.getByRole("button", { name: "Show map" }).first().click();
   await expect(page.locator(".leaflet-container").first()).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("pinch with two fingers to zoom")).toBeVisible();

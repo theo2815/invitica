@@ -8,6 +8,7 @@ import {
   templateCatalog,
   templateManifestSchema,
   templateRegistry,
+  templateStarterDocument,
   UnknownTemplateError,
 } from "../src/index.js";
 
@@ -33,12 +34,12 @@ describe("template registry", () => {
     ).toEqual([
       ["standard-v1", "fixture"],
       ["standard-v1", "fixture"],
-      ["little-blessings-v1", "fixture"],
+      ["little-blessings-v1", "production"],
     ]);
 
     expect(resolveTemplateById("little-blessings")).toMatchObject({
       listing: { occasion: "Christening", name: "Little Blessings" },
-      qualityStatus: "fixture",
+      qualityStatus: "production",
       rendererKey: "little-blessings-v1",
       schemaVersion: 1,
     });
@@ -102,7 +103,7 @@ describe("template registry", () => {
     ]);
   });
 
-  it("keeps Little Blessings preview-only with bounded declared image references", () => {
+  it("shows Little Blessings with bounded declared image references in the catalog", () => {
     const littleBlessings = resolveTemplateById("little-blessings");
     const gallery = littleBlessings.defaultDocument.sections.find(
       (section) => section.type === "gallery",
@@ -111,12 +112,61 @@ describe("template registry", () => {
       (section) => section.type === "gifts",
     );
 
-    expect(littleBlessings.qualityStatus).toBe("fixture");
+    expect(littleBlessings.qualityStatus).toBe("production");
     expect(littleBlessings.defaultDocument.assets).toHaveLength(15);
     expect(gallery?.props.images).toHaveLength(8);
     expect(gifts?.props.items).toHaveLength(8);
-    // Gift pictures are optional, so the fixture deliberately carries image-less ideas too.
+    // Gift pictures are optional, so the showcase deliberately carries image-less ideas too.
     expect(gifts?.props.items.filter((item) => Boolean(item.imageAssetId))).toHaveLength(6);
+  });
+
+  it("starts a Little Blessings draft with the creator's own empty photograph slots", () => {
+    const littleBlessings = resolveTemplateById("little-blessings");
+    const starter = templateStarterDocument(littleBlessings);
+
+    // The showcase's photographs belong to the catalog. A draft that referenced
+    // them could not be published until all fifteen had been replaced.
+    expect(starter).toBe(littleBlessings.starterDocument);
+    expect(starter.assets).toEqual([]);
+    expect(starter.sections.map((section) => section.type)).toEqual(
+      littleBlessings.defaultDocument.sections.map((section) => section.type),
+    );
+
+    const hero = starter.sections.find((section) => section.type === "hero");
+    const gallery = starter.sections.find((section) => section.type === "gallery");
+    const gifts = starter.sections.find((section) => section.type === "gifts");
+
+    expect(hero?.props.imageAssetId).toBeUndefined();
+    // Present so the creator can fill it, hidden and empty because they have not yet.
+    expect(gallery?.visible).toBe(false);
+    expect(gallery?.props.images).toEqual([]);
+    expect(gifts?.props.items.every((item) => item.imageAssetId === undefined)).toBe(true);
+  });
+
+  it("falls back to the showcase only for templates that ship no media", () => {
+    const gardenPromise = resolveTemplateById("garden-promise");
+
+    expect(gardenPromise.starterDocument).toBeUndefined();
+    expect(templateStarterDocument(gardenPromise)).toBe(gardenPromise.defaultDocument);
+
+    // A media-carrying showcase without a starter would be created as a draft
+    // referencing media the creator never uploaded.
+    expect(
+      templateManifestSchema.safeParse({
+        ...resolveTemplateById("little-blessings"),
+        starterDocument: undefined,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a starter document that references media", () => {
+    const littleBlessings = resolveTemplateById("little-blessings");
+    const result = templateManifestSchema.safeParse({
+      ...littleBlessings,
+      starterDocument: littleBlessings.defaultDocument,
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("keeps the reply section last so guests read the invitation before deciding", () => {

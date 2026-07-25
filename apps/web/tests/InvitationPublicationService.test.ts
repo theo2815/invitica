@@ -171,6 +171,53 @@ describe("invitation publication requests", () => {
     expect(client.rpc).toHaveBeenCalledWith("request_invitation_publication", expect.anything());
   });
 
+  it("publishes a Little Blessings invitation under its own renderer", async () => {
+    const assetId = "93000000-0000-4000-8000-000000000003";
+    const littleBlessings = resolveTemplateById("little-blessings");
+    const starter = littleBlessings.starterDocument;
+
+    if (!starter) {
+      throw new Error("Little Blessings must ship a starter document.");
+    }
+
+    const document = {
+      ...starter,
+      assets: [{ id: assetId, kind: "image" as const }],
+      sections: starter.sections.map((section) =>
+        section.type === "hero"
+          ? { ...section, props: { ...section.props, imageAssetId: assetId } }
+          : section,
+      ),
+    };
+    const client = createPublicationClient(
+      {
+        document,
+        invitation_id: invitationId,
+        revision: 4,
+        template_version_id: littleBlessings.templateVersionId,
+      },
+      { data: publicationId, error: null },
+      {
+        height: 1500,
+        id: assetId,
+        renditions: [{ byteLength: 18000, height: 400, sha256: "b".repeat(64), width: 320 }],
+        width: 1200,
+      },
+    );
+
+    const result = await requestInvitationPublication(
+      client as never,
+      { expectedRevision: 4, idempotencyKey, invitationId },
+      { store: noopMediaStore },
+    );
+
+    expect(result.snapshot).toMatchObject({
+      rendererKey: "little-blessings-v1",
+      templateVersionId: littleBlessings.templateVersionId,
+    });
+    expect(result.snapshot.assets.map((asset) => asset.id)).toEqual([assetId]);
+  });
+
   it("maps database revision conflicts without exposing provider details", async () => {
     const client = createPublicationClient(storedDraft(), {
       data: null,

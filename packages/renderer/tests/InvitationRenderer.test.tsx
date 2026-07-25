@@ -182,7 +182,7 @@ describe("InvitationRenderer", () => {
       <Renderer document={littleBlessings.defaultDocument} mode="preview" reducedMotion />,
     );
 
-    expect(littleBlessings.qualityStatus).toBe("fixture");
+    expect(littleBlessings.qualityStatus).toBe("production");
     expect(html).toContain(">Eliana</em>");
     expect(html).toContain(">Grace</span>");
     expect(html).toContain("New Hope Community Church");

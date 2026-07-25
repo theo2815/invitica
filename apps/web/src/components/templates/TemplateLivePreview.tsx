@@ -4,6 +4,7 @@ import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/
 import { resolveTemplateById } from "@invitica/template-kit";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { getMapTileKey } from "../../lib/map-tile-key";
 import { ChevronLeft } from "../Icons";
 import styles from "./TemplateLivePreview.module.css";
 import { UseTemplateForm } from "./UseTemplateForm";
@@ -57,6 +58,7 @@ export function TemplateLivePreview({
     <div className={styles.previewPage} data-cta-visible={actionsAvailable}>
       <Renderer
         document={manifest.defaultDocument}
+        mapTileKey={getMapTileKey()}
         mode="published"
         onOpeningStateChange={setOpeningState}
       />

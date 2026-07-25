@@ -155,9 +155,15 @@ function littleBlessingsFixture(): PublicationArtifact {
   };
 }
 
+/**
+ * Stands in for the deployment's MapTiler key so the browser lanes exercise the click-to-load venue
+ * map. The specs stub the tile host, so no request leaves the machine.
+ */
+const FIXTURE_MAP_TILE_KEY = "e2e-fixture-map-key";
+
 export function renderFixture() {
   return {
-    littleBlessingsHtml: renderPublicationHtml(littleBlessingsFixture()),
+    littleBlessingsHtml: renderPublicationHtml(littleBlessingsFixture(), FIXTURE_MAP_TILE_KEY),
     publicationHtml: renderPublicationHtml(fixture()),
     unavailableHtml: renderUnavailableHtml(),
   };

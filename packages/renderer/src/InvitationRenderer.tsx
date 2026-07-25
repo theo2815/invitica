@@ -31,6 +31,12 @@ export type InvitationImageResolver = (assetId: string) => ResolvedRendererImage
 
 export interface InvitationRendererProps {
   document: InvitationDocument;
+  /**
+   * Client-exposed, domain-restricted MapTiler key supplied at render time (ADR-006). It is never
+   * part of the invitation document or a publication snapshot; without it venues fall back to the
+   * directions link.
+   */
+  mapTileKey?: string;
   mode: "preview" | "published";
   onOpeningStateChange?: (state: InvitationOpeningState) => void;
   openingReplayKey?: number;

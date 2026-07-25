@@ -66,7 +66,7 @@ export default async function globalSetup(_config: FullConfig) {
       response.writeHead(body ? 200 : 404, {
         "cache-control": body ? "public, max-age=0" : "private, no-store",
         "content-security-policy":
-          "default-src 'none'; connect-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
+          "default-src 'none'; connect-src 'self'; font-src 'self'; img-src 'self' data: https://api.maptiler.com; script-src 'self'; style-src 'self' 'unsafe-inline'",
         "content-type": "text/html; charset=utf-8",
         "referrer-policy": "no-referrer",
         "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",

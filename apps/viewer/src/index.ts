@@ -59,7 +59,8 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self'",
   "form-action 'none'",
   "frame-ancestors 'none'",
-  "img-src 'self' data:",
+  // api.maptiler.com serves the click-to-load venue map's raster tiles as plain images (ADR-006).
+  "img-src 'self' data: https://api.maptiler.com",
   "object-src 'none'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
@@ -120,7 +121,8 @@ export default {
 
     try {
       const artifact = await loadActivePublication(env.PUBLICATION_BUCKET, publicIdentifier, ctx);
-      const html = renderPublicationHtml(artifact);
+      // The snapshot stays keyless and immutable: the map key is injected per response.
+      const html = renderPublicationHtml(artifact, env.MAPTILER_KEY);
 
       return htmlResponse(
         html,

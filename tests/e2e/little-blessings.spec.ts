@@ -61,7 +61,10 @@ test("covers the viewport closed, opens, and passes blocking WCAG checks", async
   expect(await heroImage.getAttribute("srcset")).toContain("320w");
   await expect(page.getByText("New Hope Community Church")).toBeVisible();
   await expect(page.getByText("The Sunlit Hall")).toBeVisible();
-  await expect(page.getByText(/to go$|The celebration day is here/)).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Time remaining until the celebration" }),
+  ).toBeVisible();
+  await expect(page.getByText("seconds", { exact: true })).toBeVisible();
   await expect(page.getByText("Kindly reply by March 28, 2027")).toBeVisible();
   await expect(
     page.getByText("With grateful hearts, thank you for celebrating with us"),
@@ -143,6 +146,47 @@ test("keeps resolved images and event details readable without JavaScript", asyn
   await context.close();
 });
 
+test("reads the agenda time-first and mounts gift plates two up like the gallery", async ({
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-android", "One phone-sized lane owns the album");
+  const context = await browser.newContext({
+    reducedMotion: "reduce",
+    viewport: { height: 844, width: 390 },
+  });
+  const page = await context.newPage();
+  await page.route("**/api/public/view", (route) => route.fulfill({ status: 204 }));
+  await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
+
+  // Each agenda line leads with its time, on the same row as the moment rather than above it.
+  const firstItem = page.locator(".lb-schedule li").first();
+  const time = await firstItem.locator(".lb-schedule-time").boundingBox();
+  const title = await firstItem.locator("h3").boundingBox();
+  if (!time || !title) throw new Error("The agenda line is not laid out");
+  expect(time.x + time.width).toBeLessThanOrEqual(title.x);
+  expect(Math.abs(time.y - title.y)).toBeLessThan(time.height);
+
+  // Gift plates share the gallery's track, so they sit two up in rows instead of one full-width
+  // picture per line.
+  const plates = page.locator(".lb-gift-grid > article");
+  const first = await plates.nth(0).boundingBox();
+  const second = await plates.nth(1).boundingBox();
+  const third = await plates.nth(2).boundingBox();
+  const galleryPlate = await page.locator(".lb-gallery-grid figure").first().boundingBox();
+  if (!first || !second || !third || !galleryPlate) {
+    throw new Error("The picture pages are not laid out");
+  }
+  expect(second.x).toBeGreaterThan(first.x + first.width - 1);
+  expect(Math.abs(second.y - first.y)).toBeLessThan(2);
+  expect(third.y).toBeGreaterThan(first.y + first.height - 1);
+  expect(Math.abs(first.width - galleryPlate.width)).toBeLessThan(2);
+
+  await assertNoHorizontalOverflow(page);
+  await context.close();
+});
+
 test("finishes immediately and transfers focus with reduced motion", async ({
   browser,
 }, testInfo) => {
@@ -215,6 +259,146 @@ test("keeps the closed scene and opening usable in landscape", async ({ browser 
   expect(closedOpening?.height ?? 0).toBeGreaterThanOrEqual(359);
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+  await assertNoHorizontalOverflow(page);
+  await context.close();
+});
+
+test("loads the venue map only on request and keeps the directions fallback", async ({
+  browser,
+}, testInfo) => {
+  test.skip(
+    !["chromium-android", "webkit-mobile"].includes(testInfo.project.name),
+    "Chromium and WebKit prove the click-to-load map",
+  );
+  const context = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: testInfo.project.use.viewport ?? { height: 800, width: 360 },
+  });
+  const page = await context.newPage();
+  await page.route("**/api/public/view", (route) => route.fulfill({ status: 204 }));
+
+  // Serve tiles locally so the suite never reaches MapTiler and stays deterministic offline.
+  const tileRequests: string[] = [];
+  await page.route("https://api.maptiler.com/**", (route) => {
+    tileRequests.push(route.request().url());
+    return route.fulfill({
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+      contentType: "image/png",
+    });
+  });
+
+  await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+
+  const directions = page.getByRole("link", { name: "Get directions" }).first();
+  await directions.scrollIntoViewIfNeeded();
+  await expect(directions).toBeVisible();
+
+  // Nothing is requested before the guest opts in.
+  expect(tileRequests).toEqual([]);
+  await expect(page.locator(".leaflet-container")).toHaveCount(0);
+
+  const toggle = page.getByRole("button", { name: "Show map" }).first();
+  const toggleBox = await toggle.boundingBox();
+  expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await toggle.click();
+
+  const map = page.locator(".leaflet-container").first();
+  await expect(map).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("region", { name: /^Map of / }).first()).toBeVisible();
+  await expect(page.locator(".leaflet-control-attribution").first()).toContainText("OpenStreetMap");
+  await expect.poll(() => tileRequests.length).toBeGreaterThan(0);
+  await assertNoHorizontalOverflow(page);
+
+  const audit = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
+  expect(blockingViolations(audit.violations)).toEqual([]);
+
+  await page.getByRole("button", { name: "Hide map" }).first().click();
+  await expect(page.locator(".leaflet-container")).toHaveCount(0);
+  await expect(directions).toBeVisible();
+  await context.close();
+});
+
+test("zooms the venue map with a two-finger pinch", async ({ browser }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-android",
+    "One touch-capable Chromium lane proves the pinch gesture",
+  );
+  const context = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 800, width: 360 },
+  });
+  const page = await context.newPage();
+  await page.route("**/api/public/view", (route) => route.fulfill({ status: 204 }));
+
+  // Tile zoom levels are the only externally observable proof that the map actually zoomed.
+  const tileZooms: number[] = [];
+  await page.route("https://api.maptiler.com/**", (route) => {
+    const zoom = Number(new URL(route.request().url()).pathname.split("/")[3]);
+    if (Number.isFinite(zoom)) tileZooms.push(zoom);
+    return route.fulfill({
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+      contentType: "image/png",
+    });
+  });
+
+  await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 7_000 });
+  await page.getByRole("button", { name: "Show map" }).first().click();
+  await expect(page.locator(".leaflet-container").first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("pinch with two fingers to zoom")).toBeVisible();
+  await expect.poll(() => tileZooms.length).toBeGreaterThan(0);
+  const zoomBeforePinch = Math.max(...tileZooms);
+
+  // Two fingers starting close together and spreading apart, dispatched as real TouchEvents so
+  // Leaflet's own touch-zoom handler runs rather than a Playwright-level abstraction.
+  await page.evaluate(() => {
+    const canvas = document.querySelector(".leaflet-container");
+    if (!(canvas instanceof HTMLElement)) throw new Error("The map canvas is unavailable");
+
+    const box = canvas.getBoundingClientRect();
+    const centreX = box.left + box.width / 2;
+    const centreY = box.top + box.height / 2;
+    const point = (identifier: number, offset: number) =>
+      new Touch({
+        clientX: centreX + offset,
+        clientY: centreY,
+        identifier,
+        pageX: centreX + offset,
+        pageY: centreY,
+        target: canvas,
+      });
+    const fire = (type: string, offset: number) => {
+      const touches = [point(0, -offset), point(1, offset)];
+      canvas.dispatchEvent(
+        new TouchEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: touches,
+          targetTouches: type === "touchend" ? [] : touches,
+          touches: type === "touchend" ? [] : touches,
+        }),
+      );
+    };
+
+    fire("touchstart", 20);
+    for (const offset of [40, 70, 100, 130]) fire("touchmove", offset);
+    fire("touchend", 130);
+  });
+
+  await expect
+    .poll(() => Math.max(...tileZooms), { timeout: 10_000 })
+    .toBeGreaterThan(zoomBeforePinch);
   await assertNoHorizontalOverflow(page);
   await context.close();
 });

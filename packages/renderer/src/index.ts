@@ -1,4 +1,11 @@
 export { GardenPromiseRenderer } from "./GardenPromiseRenderer.js";
+export {
+  buildMapTileUrl,
+  InteractiveMap,
+  type InteractiveMapProps,
+  interactiveMapStyles,
+  MAP_ATTRIBUTION,
+} from "./InteractiveMap.js";
 export type {
   InvitationImageResolver,
   InvitationRendererProps,
@@ -6,7 +13,9 @@ export type {
   ResolvedRendererImageRendition,
 } from "./InvitationRenderer.js";
 export { InvitationRenderer } from "./InvitationRenderer.js";
+export { buildIcsCalendar, formatIcsUtc, type IcsEvent } from "./ics.js";
 export { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
+export { PoweredByInvitica, poweredByInviticaStyles } from "./PoweredByInvitica.js";
 export {
   type InvitationOpeningState,
   RibbonEnvelopeOpening,
@@ -18,3 +27,4 @@ export {
   resolveTemplateRendererRegistration,
   UnknownTemplateRendererError,
 } from "./registry.js";
+export { type CountdownParts, useCountdown } from "./useCountdown.js";

@@ -1,0 +1,11 @@
+# Copy this file to .dev.vars (git-ignored) and paste your key. `wrangler dev`
+# reads .dev.vars natively. For production, set the same value as a plaintext Var
+# on the deployed Workers (Dashboard -> Settings -> Variables, or wrangler.jsonc
+# "vars").
+#
+# MapTiler raster tiles power the guest venue map (ADR-006). This key is exposed to
+# the guest's browser by design (it rides in tile URLs), so it is NOT a Worker
+# secret — but it MUST be domain-restricted in the MapTiler dashboard to our
+# origins. The viewer injects it into published pages at serve time (never baked
+# into the immutable snapshot). Leave unset to serve the "Get directions" fallback.
+MAPTILER_KEY=your_domain_restricted_maptiler_key_here

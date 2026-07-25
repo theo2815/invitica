@@ -1,6 +1,8 @@
 import type { PublicationArtifact } from "@invitica/invitation-schema";
 import { renderToString } from "react-dom/server.edge";
 
+import { MAP_TILE_KEY_META } from "./map-tile-key";
+import { createSnapshotImageResolver } from "./published-media";
 import { resolvePublishedRenderer } from "./published-renderer";
 
 const criticalStyles = `
@@ -71,25 +73,38 @@ function documentTitle(artifact: PublicationArtifact): string {
   return hero ? `${hero.props.title} | Invitica` : "Invitation | Invitica";
 }
 
-function head(title: string): string {
+function head(title: string, mapTileKey: string): string {
+  // The MapTiler key is per-deployment configuration, so it is injected here instead of being baked
+  // into the immutable snapshot (ADR-006). A meta element carries it without an inline script, which
+  // the Viewer's `script-src 'self'` policy forbids.
+  const mapTileMeta = mapTileKey
+    ? `\n<meta name="${MAP_TILE_KEY_META}" content="${escapeHtml(mapTileKey)}">`
+    : "";
+
   return `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">${mapTileMeta}
 <title>${escapeHtml(title)}</title>
 <link rel="stylesheet" href="/viewer.css">
 <style>${criticalStyles}</style>`;
 }
 
-export function renderPublicationHtml(artifact: PublicationArtifact): string {
+export function renderPublicationHtml(artifact: PublicationArtifact, mapTileKey = ""): string {
   const Renderer = resolvePublishedRenderer(artifact);
+  const resolveImage = createSnapshotImageResolver(artifact.snapshot.assets);
   const invitation = renderToString(
-    <Renderer document={artifact.snapshot.document} mode="published" />,
+    <Renderer
+      document={artifact.snapshot.document}
+      mapTileKey={mapTileKey}
+      mode="published"
+      resolveImage={resolveImage}
+    />,
   );
 
   return `<!doctype html>
 <html lang="${artifact.snapshot.document.locale}">
 <head>
-${head(documentTitle(artifact))}
+${head(documentTitle(artifact), mapTileKey)}
 </head>
 <body>
 <div id="viewer-root">${invitation}</div>
@@ -103,7 +118,7 @@ export function renderUnavailableHtml(): string {
   return `<!doctype html>
 <html lang="en-PH">
 <head>
-${head("Invitation unavailable | Invitica")}
+${head("Invitation unavailable | Invitica", "")}
 </head>
 <body>
 <main class="viewer-unavailable">

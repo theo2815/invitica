@@ -12,7 +12,10 @@
   "scripts": {
     "build": "turbo run build",
     "check": "biome check . && turbo run typecheck test build",
-    "dev": "pnpm --parallel --filter @invitica/web --filter @invitica/viewer dev",
+    "dev": "pnpm run dev:web",
+    "dev:all": "pnpm --parallel --filter @invitica/web --filter @invitica/viewer dev",
+    "dev:viewer": "pnpm --filter @invitica/viewer dev",
+    "dev:web": "pnpm --filter @invitica/web dev",
     "format": "biome check --write .",
     "lint": "biome check .",
     "test": "turbo run test",

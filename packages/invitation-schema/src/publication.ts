@@ -25,21 +25,31 @@ const objectKeySchema = z
 const imageContentTypeSchema = z.enum(["image/avif", "image/jpeg", "image/png", "image/webp"]);
 const audioContentTypeSchema = z.enum(["audio/mp4", "audio/mpeg", "audio/ogg"]);
 
+const positiveSafeIntSchema = z.number().int().positive().safe();
+
+export const publicationImageRenditionSchema = z.strictObject({
+  width: positiveSafeIntSchema,
+  height: positiveSafeIntSchema,
+  objectKey: objectKeySchema,
+  byteLength: positiveSafeIntSchema,
+  sha256: sha256Schema,
+});
+
 export const publicationAssetManifestEntrySchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: uuidSchema,
     kind: z.literal("image"),
-    objectKey: objectKeySchema,
     contentType: imageContentTypeSchema,
-    byteLength: z.number().int().positive().safe(),
-    sha256: sha256Schema,
+    width: positiveSafeIntSchema,
+    height: positiveSafeIntSchema,
+    renditions: z.array(publicationImageRenditionSchema).min(1).max(4),
   }),
   z.strictObject({
     id: uuidSchema,
     kind: z.literal("audio"),
     objectKey: objectKeySchema,
     contentType: audioContentTypeSchema,
-    byteLength: z.number().int().positive().safe(),
+    byteLength: positiveSafeIntSchema,
     sha256: sha256Schema,
   }),
 ]);
@@ -107,6 +117,7 @@ export const publicationSnapshotV1Schema = z
     });
   });
 
+export type PublicationImageRendition = z.infer<typeof publicationImageRenditionSchema>;
 export type PublicationAssetManifestEntry = z.infer<typeof publicationAssetManifestEntrySchema>;
 export type PublicationSnapshotV1 = z.infer<typeof publicationSnapshotV1Schema>;
 export type PublicationSnapshot = PublicationSnapshotV1;

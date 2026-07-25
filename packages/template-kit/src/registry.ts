@@ -2,6 +2,7 @@ import type { InvitationSection } from "@invitica/invitation-schema";
 
 import { type TemplateManifest, templateManifestSchema } from "./manifest.js";
 import { sundayJoyTemplate } from "./templates/birthday/sunday-joy/v1.js";
+import { littleBlessingsTemplate } from "./templates/christening/little-blessings/v1.js";
 import { goldenHourTemplate } from "./templates/debut/golden-hour/v1.js";
 import { gardenPromiseTemplate } from "./templates/wedding/garden-promise/v1.js";
 
@@ -59,6 +60,7 @@ export const templateRegistry = createTemplateRegistry([
   gardenPromiseTemplate,
   goldenHourTemplate,
   sundayJoyTemplate,
+  littleBlessingsTemplate,
 ]);
 
 const sectionLabels: Record<InvitationSection["type"], string> = {
@@ -66,6 +68,14 @@ const sectionLabels: Record<InvitationSection["type"], string> = {
   message: "Message",
   venue: "Venue",
   rsvp: "RSVP",
+  countdown: "Countdown",
+  "event-details": "Event details",
+  participants: "Parents and godparents",
+  schedule: "Order of the day",
+  attire: "What to wear",
+  gallery: "Gallery",
+  guidance: "A gentle note",
+  gifts: "Gift ideas",
 };
 
 export interface TemplateCatalogEntry {

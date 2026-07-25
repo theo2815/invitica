@@ -55,6 +55,7 @@ describe("Invitica marketing landing interactions", () => {
       "/templates/garden-promise/preview",
       "/templates/golden-hour/preview",
       "/templates/sunday-joy/preview",
+      "/templates/little-blessings/preview",
     ]);
     expect(
       screen

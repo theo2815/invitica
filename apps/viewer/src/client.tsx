@@ -6,8 +6,14 @@ import { parsePublicationArtifact } from "@invitica/invitation-schema";
 import { hydrateRoot } from "react-dom/client";
 
 import { publicIdentifierFromInvitationPath } from "./invitation-path";
+import { MAP_TILE_KEY_META } from "./map-tile-key";
 import { PersonalizedPublication } from "./personalized-publication";
 import { recordPublicationView } from "./view-tracking";
+
+function readMapTileKey(): string {
+  const meta = document.querySelector<HTMLMetaElement>(`meta[name="${MAP_TILE_KEY_META}"]`);
+  return meta?.content ?? "";
+}
 
 function hydratePublication(): void {
   const root = document.getElementById("viewer-root");
@@ -21,7 +27,10 @@ function hydratePublication(): void {
     const parsed: unknown = JSON.parse(data.textContent);
     const artifact = parsePublicationArtifact(parsed);
 
-    hydrateRoot(root, <PersonalizedPublication artifact={artifact} />);
+    hydrateRoot(
+      root,
+      <PersonalizedPublication artifact={artifact} mapTileKey={readMapTileKey()} />,
+    );
     const publicIdentifier = publicIdentifierFromInvitationPath(window.location.pathname);
     if (publicIdentifier) void recordPublicationView(publicIdentifier);
   } catch {

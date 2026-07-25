@@ -7,15 +7,18 @@ import {
   guestLinkTokenSchema,
   type PublicationArtifact,
 } from "@invitica/invitation-schema";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import { publicIdentifierFromInvitationPath } from "./invitation-path";
+import { createSnapshotImageResolver } from "./published-media";
 import { resolvePublishedRenderer } from "./published-renderer";
 import { RsvpForm } from "./rsvp-form";
 
 interface PersonalizedPublicationProps {
   artifact: PublicationArtifact;
+  /** Per-deployment MapTiler key read from the served page, never from the snapshot (ADR-006). */
+  mapTileKey?: string;
 }
 
 interface GuestCapability {
@@ -46,11 +49,15 @@ async function requestGuestContext(
   return result.success ? result.data : null;
 }
 
-export function PersonalizedPublication({ artifact }: PersonalizedPublicationProps) {
+export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPublicationProps) {
   const [capability, setCapability] = useState<GuestCapability>();
   const [context, setContext] = useState<GuestContextResponse>();
   const [loadState, setLoadState] = useState<"idle" | "loading" | "unavailable">("idle");
   const Renderer = resolvePublishedRenderer(artifact);
+  const resolveImage = useMemo(
+    () => createSnapshotImageResolver(artifact.snapshot.assets),
+    [artifact],
+  );
 
   useEffect(() => {
     const token = guestLinkTokenSchema.safeParse(
@@ -127,8 +134,14 @@ export function PersonalizedPublication({ artifact }: PersonalizedPublicationPro
   const rsvpProps = rsvpSlot ? { rsvpSlot } : {};
   return (
     <Renderer
+      // Token presence decides what a guest may see; token resolution decides what they may do. A
+      // revoked link or a failed lookup must not silently erase an invited guest's reply section,
+      // so this is deliberately not conditioned on `context`.
+      audience={capability ? "personalized" : "general"}
       document={artifact.snapshot.document}
+      mapTileKey={mapTileKey ?? ""}
       mode="published"
+      resolveImage={resolveImage}
       {...personalizedProps}
       {...rsvpProps}
     />

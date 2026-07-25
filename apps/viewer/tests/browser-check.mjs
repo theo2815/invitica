@@ -220,6 +220,11 @@ async function runBrowserChecks(origin) {
     await mobilePage.getByText("Alexandria & Maximiliano").waitFor({ state: "attached" });
     await mobilePage.locator(".gp-recipient-line strong").waitFor();
     await assertNoHorizontalOverflow(mobilePage);
+    const closedOpeningBox = await mobilePage.locator("[data-envelope-opening]").boundingBox();
+    assert.ok(
+      closedOpeningBox && closedOpeningBox.height >= 799 && closedOpeningBox.width >= 319,
+      `The closed mobile opener must cover the 800px viewport: ${JSON.stringify(closedOpeningBox)}`,
+    );
     const closedGate = await mobilePage.evaluate(() => ({
       bodyPosition: document.body.style.position,
       contentInert: document.querySelector("[data-envelope-gated]")?.hasAttribute("inert"),
@@ -285,6 +290,11 @@ async function runBrowserChecks(origin) {
     const desktopPage = await desktop.newPage();
     watchPage(desktopPage, failures);
     await desktopPage.goto(`${origin}${path}`, { waitUntil: "domcontentloaded" });
+    const desktopOpeningBox = await desktopPage.locator("[data-envelope-opening]").boundingBox();
+    assert.ok(
+      desktopOpeningBox && desktopOpeningBox.height >= 899 && desktopOpeningBox.width >= 1279,
+      `The closed desktop opener must cover the 900px viewport: ${JSON.stringify(desktopOpeningBox)}`,
+    );
     await desktopPage.keyboard.press("Tab");
     const opener = desktopPage.getByRole("button", { name: /Open invitation for/ });
     await expectFocused(opener);

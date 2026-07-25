@@ -11,6 +11,7 @@ export {
   templateQualityStatusSchema,
   templateRendererKeySchema,
   templateSectionTypeSchema,
+  templateStarterDocument,
 } from "./manifest.js";
 export type { TemplateCatalogEntry } from "./registry.js";
 export {

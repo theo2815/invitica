@@ -48,6 +48,10 @@ At the beginning of every new root Invitica chat or agent session, before planni
    - `Roadmap.md`
    - `Progress\00 - Progress Index.md`
    - The latest completed Progress note linked by the Progress index
+   - `UI State\00 - UI State Index.md`, plus the specific surface note(s) under `UI State\` relevant to a UI/UX request (these living notes describe current surface state; do not read all of them by default)
+   - `Operations\Migration and Environment Ledger.md` — canonical migration and hosted-environment status
+   - `Operations\Founder Action Queue.md` — external prerequisites only the founder can clear
+   - `Glossary.md` and `Operations\Known Environment Issues.md` as needed for domain terms or local-verification gotchas
    - `TASK\00 - Task Board.md`
    - Only the dated task note currently marked **Next** or **In progress**, when one exists
    - Any architecture, engineering, product, or skill notes relevant to the request
@@ -282,6 +286,8 @@ The vault is the project handoff and decision record, but it must follow verifie
 - Update current state, roadmap, schemas, API contracts, conventions, or progress only when the task materially changes them.
 - Mark planned work as planned and implemented work as implemented.
 - Include relevant code paths and validation evidence in progress notes.
+- When a task changes a user-facing surface's visible UI, update that surface's living note under `UI State\` in the same task (set `last_changed_by` and `updated`), keeping it a current-state description only; the dated change history stays in `Progress\`. Capture a milestone screenshot with fixture data only, per `UI State\Screens\00 - Screens README.md`.
+- Treat `Operations\Migration and Environment Ledger.md` as the canonical migration and hosted-environment status. When a migration is authored, applied, or verified, update it in the same task and do not restate hosted status as prose in other notes. Keep `Operations\Founder Action Queue.md` current as external prerequisites appear or clear, and record recurring local dev/verification gotchas in `Operations\Known Environment Issues.md`.
 - If an implementation changes an accepted decision, update the decision record in the same task after user approval.
 - Before completing a major task or planning session, verify that the vault and codebase describe the same current state.
 

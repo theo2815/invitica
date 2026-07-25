@@ -20,15 +20,28 @@ const gardenPromise = resolveTemplateById("garden-promise");
 function createPublicationClient(
   draft: unknown,
   rpcResult: { data: unknown; error: unknown } = { data: publicationId, error: null },
+  mediaRow: unknown = null,
 ) {
-  const maybeSingle = vi.fn().mockResolvedValue({ data: draft, error: null });
-  const eq = vi.fn().mockReturnValue({ maybeSingle });
-  const select = vi.fn().mockReturnValue({ eq });
-  const from = vi.fn().mockReturnValue({ select });
   const rpc = vi.fn().mockResolvedValue(rpcResult);
+  const from = vi.fn((table: string) => {
+    const data = table === "invitation_media_assets" ? mediaRow : draft;
+    const builder: Record<string, unknown> = {
+      eq: vi.fn(() => builder),
+      maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+      select: vi.fn(() => builder),
+    };
+    return builder;
+  });
 
   return { from, rpc };
 }
+
+const noopMediaStore = {
+  copy: async () => {},
+  delete: async () => {},
+  head: async () => false,
+  put: async () => {},
+};
 
 function storedDraft(document: unknown = gardenPromise.defaultDocument, revision = 4) {
   return {
@@ -95,22 +108,114 @@ describe("invitation publication requests", () => {
     expect(client.rpc).not.toHaveBeenCalled();
   });
 
-  it("stops unresolved media before the database request", async () => {
+  it("stops a referenced image with no ready media row before the database request", async () => {
     const client = createPublicationClient(
       storedDraft({
         ...gardenPromise.defaultDocument,
         assets: [{ id: "93000000-0000-4000-8000-000000000001", kind: "image" }],
       }),
+      { data: publicationId, error: null },
+      null,
     );
 
     await expect(
-      requestInvitationPublication(client as never, {
-        expectedRevision: 4,
-        idempotencyKey,
-        invitationId,
-      }),
+      requestInvitationPublication(
+        client as never,
+        { expectedRevision: 4, idempotencyKey, invitationId },
+        { store: noopMediaStore },
+      ),
     ).rejects.toBeInstanceOf(PublicationAssetsUnavailableError);
     expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("resolves referenced media into the snapshot manifest and publishes", async () => {
+    const assetId = "93000000-0000-4000-8000-000000000002";
+    const client = createPublicationClient(
+      storedDraft({
+        ...gardenPromise.defaultDocument,
+        assets: [{ id: assetId, kind: "image" }],
+      }),
+      { data: publicationId, error: null },
+      {
+        height: 1200,
+        id: assetId,
+        renditions: [{ byteLength: 12000, height: 240, sha256: "a".repeat(64), width: 320 }],
+        width: 1600,
+      },
+    );
+
+    const result = await requestInvitationPublication(
+      client as never,
+      { expectedRevision: 4, idempotencyKey, invitationId },
+      { store: noopMediaStore },
+    );
+
+    expect(result.snapshot.assets).toEqual([
+      {
+        contentType: "image/webp",
+        height: 1200,
+        id: assetId,
+        kind: "image",
+        renditions: [
+          {
+            byteLength: 12000,
+            height: 240,
+            objectKey: `publication-media/v1/${"a".repeat(64)}/w320.webp`,
+            sha256: "a".repeat(64),
+            width: 320,
+          },
+        ],
+        width: 1600,
+      },
+    ]);
+    expect(client.rpc).toHaveBeenCalledWith("request_invitation_publication", expect.anything());
+  });
+
+  it("publishes a Little Blessings invitation under its own renderer", async () => {
+    const assetId = "93000000-0000-4000-8000-000000000003";
+    const littleBlessings = resolveTemplateById("little-blessings");
+    const starter = littleBlessings.starterDocument;
+
+    if (!starter) {
+      throw new Error("Little Blessings must ship a starter document.");
+    }
+
+    const document = {
+      ...starter,
+      assets: [{ id: assetId, kind: "image" as const }],
+      sections: starter.sections.map((section) =>
+        section.type === "hero"
+          ? { ...section, props: { ...section.props, imageAssetId: assetId } }
+          : section,
+      ),
+    };
+    const client = createPublicationClient(
+      {
+        document,
+        invitation_id: invitationId,
+        revision: 4,
+        template_version_id: littleBlessings.templateVersionId,
+      },
+      { data: publicationId, error: null },
+      {
+        height: 1500,
+        id: assetId,
+        renditions: [{ byteLength: 18000, height: 400, sha256: "b".repeat(64), width: 320 }],
+        width: 1200,
+      },
+    );
+
+    const result = await requestInvitationPublication(
+      client as never,
+      { expectedRevision: 4, idempotencyKey, invitationId },
+      { store: noopMediaStore },
+    );
+
+    expect(result.snapshot).toMatchObject({
+      rendererKey: "little-blessings-v1",
+      templateVersionId: littleBlessings.templateVersionId,
+    });
+    expect(result.snapshot.assets.map((asset) => asset.id)).toEqual([assetId]);
   });
 
   it("maps database revision conflicts without exposing provider details", async () => {

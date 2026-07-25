@@ -59,7 +59,7 @@ describe("publication snapshot schema", () => {
     ).toBe(false);
   });
 
-  it("rejects unsafe object-storage keys", () => {
+  it("resolves an image asset with responsive renditions", () => {
     const assetId = "30000000-0000-4000-8000-000000000003";
 
     expect(
@@ -73,10 +73,50 @@ describe("publication snapshot schema", () => {
           {
             id: assetId,
             kind: "image",
-            objectKey: "assets/../private/original.jpg",
-            contentType: "image/jpeg",
-            byteLength: 2048,
-            sha256: "a".repeat(64),
+            contentType: "image/webp",
+            width: 1600,
+            height: 1200,
+            renditions: [
+              {
+                width: 320,
+                height: 240,
+                objectKey: `publication-media/v1/${"a".repeat(64)}/w320.webp`,
+                byteLength: 12000,
+                sha256: "a".repeat(64),
+              },
+            ],
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects unsafe object-storage keys in renditions", () => {
+    const assetId = "30000000-0000-4000-8000-000000000005";
+
+    expect(
+      publicationSnapshotV1Schema.safeParse({
+        ...validSnapshot,
+        document: {
+          ...invitationFixture,
+          assets: [{ id: assetId, kind: "image" }],
+        },
+        assets: [
+          {
+            id: assetId,
+            kind: "image",
+            contentType: "image/webp",
+            width: 1600,
+            height: 1200,
+            renditions: [
+              {
+                width: 320,
+                height: 240,
+                objectKey: "publication-media/../private/original.webp",
+                byteLength: 12000,
+                sha256: "a".repeat(64),
+              },
+            ],
           },
         ],
       }).success,

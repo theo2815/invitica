@@ -5,6 +5,7 @@ import { resolveTemplateById, type TemplateCatalogEntry } from "@invitica/templa
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { getMapTileKey } from "../../lib/map-tile-key";
 import { Select } from "../forms/Select";
 import { ArrowRight, SlidersHorizontal } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
@@ -441,6 +442,7 @@ export function TemplateCatalog({
                     <PreviewRenderer
                       document={previewManifest.defaultDocument}
                       key={previewManifest.templateVersionId}
+                      mapTileKey={getMapTileKey()}
                       mode="preview"
                       onOpeningStateChange={setPreviewOpeningState}
                       openingReplayKey={previewReplayKey}

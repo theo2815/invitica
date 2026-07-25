@@ -1,3 +1,4 @@
+import type { InvitationDocument } from "@invitica/invitation-schema";
 import { resolveTemplateById } from "@invitica/template-kit";
 import { describe, expect, it, vi } from "vitest";
 
@@ -66,6 +67,27 @@ describe("initial invitation draft creation", () => {
         p_template_version_id: gardenPromise.templateVersionId,
       }),
     );
+  });
+
+  it("creates a Little Blessings draft from the starter rather than the showcase", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: invitationId, error: null });
+    const littleBlessings = resolveTemplateById("little-blessings");
+
+    await expect(
+      createInitialInvitationDraft({ rpc } as never, {
+        invitationId,
+        templateVersionId: littleBlessings.templateVersionId,
+      }),
+    ).resolves.toBe(invitationId);
+
+    const [, args] = rpc.mock.calls[0] as [string, { p_document: InvitationDocument }];
+
+    // The showcase's fifteen photographs belong to the catalog. A draft that
+    // declared them could never be published, because none of them has uploaded
+    // media in this invitation.
+    expect(littleBlessings.defaultDocument.assets).toHaveLength(15);
+    expect(args.p_document.assets).toEqual([]);
+    expect(args.p_document).toEqual(littleBlessings.starterDocument);
   });
 
   it("rejects fixture templates before persistence", async () => {

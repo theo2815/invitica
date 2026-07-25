@@ -7,7 +7,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist/client",
-    "run_worker_first": ["/i/*"]
+    "run_worker_first": ["/i/*", "/m/*"]
   },
   "r2_buckets": [
     {
@@ -19,6 +19,12 @@
     "enabled": true,
     "head_sampling_rate": 0.1
   },
+  // Client-exposed, domain-restricted MapTiler key for the guest venue map (ADR-006). Declared empty
+  // here so no key is committed: local `wrangler dev` reads .dev.vars and the deployed Workers read a
+  // plaintext Var set in the Cloudflare dashboard. Empty simply disables the map.
+  "vars": {
+    "MAPTILER_KEY": ""
+  },
   "env": {
     "production": {
       "name": "invitica-viewer-production",
@@ -27,7 +33,10 @@
           "binding": "PUBLICATION_BUCKET",
           "bucket_name": "invitica-storage"
         }
-      ]
+      ],
+      "vars": {
+        "MAPTILER_KEY": ""
+      }
     }
   }
 }

@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 
 import { CreatorShell } from "../../../../src/components/dashboard/CreatorShell";
 import { InvitationDraftEditor } from "../../../../src/components/invitations/InvitationDraftEditor";
+import { LittleBlessingsDraftEditor } from "../../../../src/components/invitations/LittleBlessingsDraftEditor";
+import { LITTLE_BLESSINGS_TEMPLATE_VERSION_ID } from "../../../../src/lib/invitations/little-blessings-details";
 import { ensurePersonalWorkspace } from "../../../../src/server/auth/session";
 import { loadInvitationDraft } from "../../../../src/server/invitations/drafts";
 import { loadInvitationPublicationStatus } from "../../../../src/server/invitations/publications";
+import { listInvitationImageAssets } from "../../../../src/server/media/library";
 import styles from "./Draft.module.css";
 
 interface InvitationDraftPageProps {
@@ -28,6 +31,16 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
   if (!draft) {
     notFound();
   }
+
+  // Little Blessings edits eleven sections, per-section visibility, and bounded
+  // photo and gift collections, so it has its own editor. Garden Promise keeps
+  // the narrow Opening/Venue/RSVP slice it was built for.
+  const isLittleBlessings =
+    draft.document.templateVersionId === LITTLE_BLESSINGS_TEMPLATE_VERSION_ID;
+  const assets = isLittleBlessings
+    ? await listInvitationImageAssets(supabase, draft.invitationId)
+    : [];
+
   return (
     <CreatorShell activePage="invitations" email={user.email} metadata={user.user_metadata}>
       <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
@@ -51,13 +64,24 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
         </div>
       </header>
 
-      <InvitationDraftEditor
-        initialDocument={draft.document}
-        initialPublication={publication}
-        initialRevision={draft.revision}
-        invitationId={draft.invitationId}
-        rendererKey={draft.manifest.rendererKey}
-      />
+      {isLittleBlessings ? (
+        <LittleBlessingsDraftEditor
+          initialAssets={assets}
+          initialDocument={draft.document}
+          initialPublication={publication}
+          initialRevision={draft.revision}
+          invitationId={draft.invitationId}
+          rendererKey={draft.manifest.rendererKey}
+        />
+      ) : (
+        <InvitationDraftEditor
+          initialDocument={draft.document}
+          initialPublication={publication}
+          initialRevision={draft.revision}
+          invitationId={draft.invitationId}
+          rendererKey={draft.manifest.rendererKey}
+        />
+      )}
     </CreatorShell>
   );
 }

@@ -4,6 +4,7 @@ import {
   type PublicationSnapshot,
   parsePublicationAlias,
   parsePublicationArtifact,
+  publicationMediaObjectKey,
 } from "@invitica/invitation-schema";
 import { resolveTemplateRendererRegistration } from "@invitica/renderer";
 import { resolveTemplateById } from "@invitica/template-kit";
@@ -293,5 +294,130 @@ describe("public guest viewer", () => {
     expect(response.status).toBe(200);
     expect(html).toContain("Mara &amp; Joaquin");
     expect(html).not.toContain("Changed after publication");
+  });
+});
+
+const littleBlessings = resolveTemplateById("little-blessings");
+const littleBlessingsRenderer = resolveTemplateRendererRegistration(littleBlessings.rendererKey);
+
+function littleBlessingsSnapshot(): PublicationSnapshot {
+  return {
+    snapshotVersion: 1,
+    invitationSchemaVersion: 1,
+    rendererKey: littleBlessings.rendererKey,
+    rendererVersion: littleBlessingsRenderer.version,
+    templateVersionId: littleBlessings.templateVersionId,
+    templateVersion: littleBlessings.version,
+    draftRevision: 3,
+    document: littleBlessings.defaultDocument,
+    assets: littleBlessings.defaultDocument.assets.map((asset, index) => {
+      const digest = index.toString(16).padStart(64, "0");
+      return {
+        id: asset.id,
+        kind: "image",
+        contentType: "image/webp",
+        width: 1600,
+        height: 1200,
+        renditions: [
+          {
+            width: 320,
+            height: 240,
+            objectKey: publicationMediaObjectKey(digest, 320),
+            byteLength: 12_000,
+            sha256: digest,
+          },
+          {
+            width: 640,
+            height: 480,
+            objectKey: publicationMediaObjectKey(digest, 640),
+            byteLength: 24_000,
+            sha256: digest,
+          },
+        ],
+      };
+    }),
+  };
+}
+
+describe("publication media route", () => {
+  const mediaSha = "e".repeat(64);
+  const mediaKey = publicationMediaObjectKey(mediaSha, 320);
+
+  it("streams an immutable content-addressed rendition with hardened image headers", async () => {
+    await env.PUBLICATION_BUCKET.put(mediaKey, new Uint8Array([1, 2, 3, 4]), {
+      httpMetadata: { contentType: "image/webp" },
+    });
+
+    const response = await fetchViewer(`/m/v1/${mediaSha}/w320.webp`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-robots-tag")).toContain("noindex");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]));
+
+    const head = await fetchViewer(`/m/v1/${mediaSha}/w320.webp`, { method: "HEAD" });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
+  });
+
+  it("returns a bodyless 404 for a rendition that is not stored", async () => {
+    const response = await fetchViewer(`/m/v1/${"f".repeat(64)}/w640.webp`);
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe("");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("rejects unsupported methods and out-of-contract media paths", async () => {
+    const post = await fetchViewer(`/m/v1/${mediaSha}/w320.webp`, { method: "POST" });
+    expect(post.status).toBe(405);
+    expect(post.headers.get("allow")).toBe("GET, HEAD");
+
+    const badWidth = await fetchViewer(`/m/v1/${mediaSha}/w500.webp`);
+    expect(badWidth.status).toBe(404);
+    expect(await badWidth.text()).toContain("This invitation is unavailable.");
+  });
+});
+
+describe("Little Blessings publications", () => {
+  it("serves a little-blessings-v1 christening publication with resolved responsive images", async () => {
+    const token = "e100000000000000000000000000001e";
+    const publicationId = "a0000000-0000-4000-8000-000000000020";
+    const written = await publish(token, publicationId, littleBlessingsSnapshot());
+    expect(() => renderPublicationHtml(written.artifact)).not.toThrow();
+
+    const response = await fetchViewer(`/i/eliana-christening-${token}`);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain(">Eliana</em>");
+    expect(html).toContain(">Grace</span>");
+    expect(html).toContain("<img");
+    expect(html).toContain("/m/v1/");
+    expect(html).toContain('width="1600"');
+    // Author-provided gallery alt text survives into the delivered markup.
+    expect(html).toContain("Eliana resting in a light blanket");
+    // No placeholder remains once every referenced asset resolves.
+    expect(html).not.toContain("pending creator upload");
+  });
+
+  it("injects the map key at serve time, keeps the snapshot keyless, and allows tile images", async () => {
+    const token = "e100000000000000000000000000002e";
+    const publicationId = "a0000000-0000-4000-8000-000000000021";
+    const written = await publish(token, publicationId, littleBlessingsSnapshot());
+
+    // A meta element carries the key: the CSP forbids the inline script that would otherwise be
+    // needed, and the immutable artifact must stay free of per-deployment configuration (ADR-006).
+    expect(renderPublicationHtml(written.artifact, "test-map-key")).toContain(
+      '<meta name="invitica-map-tile-key" content="test-map-key">',
+    );
+    expect(JSON.stringify(written.artifact)).not.toContain("test-map-key");
+    expect(renderPublicationHtml(written.artifact)).not.toContain("invitica-map-tile-key");
+
+    const response = await fetchViewer(`/i/eliana-christening-${token}`);
+    expect(response.headers.get("content-security-policy")).toContain(
+      "img-src 'self' data: https://api.maptiler.com",
+    );
   });
 });

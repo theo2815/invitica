@@ -1,11 +1,21 @@
 import {
   CURRENT_PUBLICATION_SNAPSHOT_VERSION,
+  type PublicationAssetManifestEntry,
   parsePublicationSnapshot,
 } from "@invitica/invitation-schema";
 import { resolveTemplateRendererRegistration } from "@invitica/renderer";
 import { z } from "zod";
 
 import type { createClient } from "../../lib/supabase/server";
+import {
+  type MediaObjectStore,
+  R2MediaObjectStore,
+  readR2MediaConfig,
+} from "../media/object-store";
+import {
+  PublicationMediaUnavailableError,
+  resolveInvitationPublicationAssets,
+} from "../media/publication-assets";
 import {
   InvitationDraftConflictError,
   InvitationDraftPersistenceError,
@@ -130,7 +140,11 @@ function deriveInvitationPublicationStatus(
   };
 }
 
-export async function requestInvitationPublication(supabase: SupabaseServerClient, input: unknown) {
+export async function requestInvitationPublication(
+  supabase: SupabaseServerClient,
+  input: unknown,
+  options: { readonly store?: MediaObjectStore } = {},
+) {
   const parsed = requestPublicationInputSchema.parse(input);
   const draft = await loadInvitationDraft(supabase, parsed.invitationId);
 
@@ -146,8 +160,20 @@ export async function requestInvitationPublication(supabase: SupabaseServerClien
     throw new TemplateUnavailableError();
   }
 
+  let assets: PublicationAssetManifestEntry[] = [];
   if (draft.document.assets.length > 0) {
-    throw new PublicationAssetsUnavailableError();
+    const store = options.store ?? new R2MediaObjectStore(readR2MediaConfig());
+    try {
+      assets = await resolveInvitationPublicationAssets(supabase, store, {
+        documentAssets: draft.document.assets,
+        invitationId: parsed.invitationId,
+      });
+    } catch (error) {
+      if (error instanceof PublicationMediaUnavailableError) {
+        throw new PublicationAssetsUnavailableError();
+      }
+      throw error;
+    }
   }
 
   const renderer = resolveTemplateRendererRegistration(draft.manifest.rendererKey);
@@ -160,7 +186,7 @@ export async function requestInvitationPublication(supabase: SupabaseServerClien
     templateVersion: draft.manifest.version,
     draftRevision: draft.revision,
     document: draft.document,
-    assets: [],
+    assets,
   });
   const { data, error } = await supabase.rpc("request_invitation_publication", {
     p_expected_draft_revision: parsed.expectedRevision,

@@ -94,7 +94,12 @@ test("gives the reply page to a personally invited guest", async ({ page }) => {
     await route.fulfill({
       body: JSON.stringify({
         recipientName: "The Santos Family",
-        rsvp: { capacity: 4, deadline: "2099-12-01T23:59:59+08:00", response: null, status: "open" },
+        rsvp: {
+          capacity: 4,
+          deadline: "2099-12-01T23:59:59+08:00",
+          response: null,
+          status: "open",
+        },
       }),
       contentType: "application/json",
       status: 200,

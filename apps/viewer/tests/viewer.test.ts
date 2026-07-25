@@ -391,7 +391,8 @@ describe("Little Blessings publications", () => {
     const html = await response.text();
 
     expect(response.status).toBe(200);
-    expect(html).toContain("Eliana Grace");
+    expect(html).toContain(">Eliana</em>");
+    expect(html).toContain(">Grace</span>");
     expect(html).toContain("<img");
     expect(html).toContain("/m/v1/");
     expect(html).toContain('width="1600"');
@@ -399,5 +400,24 @@ describe("Little Blessings publications", () => {
     expect(html).toContain("Eliana resting in a light blanket");
     // No placeholder remains once every referenced asset resolves.
     expect(html).not.toContain("pending creator upload");
+  });
+
+  it("injects the map key at serve time, keeps the snapshot keyless, and allows tile images", async () => {
+    const token = "e100000000000000000000000000002e";
+    const publicationId = "a0000000-0000-4000-8000-000000000021";
+    const written = await publish(token, publicationId, littleBlessingsSnapshot());
+
+    // A meta element carries the key: the CSP forbids the inline script that would otherwise be
+    // needed, and the immutable artifact must stay free of per-deployment configuration (ADR-006).
+    expect(renderPublicationHtml(written.artifact, "test-map-key")).toContain(
+      '<meta name="invitica-map-tile-key" content="test-map-key">',
+    );
+    expect(JSON.stringify(written.artifact)).not.toContain("test-map-key");
+    expect(renderPublicationHtml(written.artifact)).not.toContain("invitica-map-tile-key");
+
+    const response = await fetchViewer(`/i/eliana-christening-${token}`);
+    expect(response.headers.get("content-security-policy")).toContain(
+      "img-src 'self' data: https://api.maptiler.com",
+    );
   });
 });

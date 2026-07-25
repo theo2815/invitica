@@ -17,6 +17,8 @@ import { RsvpForm } from "./rsvp-form";
 
 interface PersonalizedPublicationProps {
   artifact: PublicationArtifact;
+  /** Per-deployment MapTiler key read from the served page, never from the snapshot (ADR-006). */
+  mapTileKey?: string;
 }
 
 interface GuestCapability {
@@ -47,7 +49,7 @@ async function requestGuestContext(
   return result.success ? result.data : null;
 }
 
-export function PersonalizedPublication({ artifact }: PersonalizedPublicationProps) {
+export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPublicationProps) {
   const [capability, setCapability] = useState<GuestCapability>();
   const [context, setContext] = useState<GuestContextResponse>();
   const [loadState, setLoadState] = useState<"idle" | "loading" | "unavailable">("idle");
@@ -133,6 +135,7 @@ export function PersonalizedPublication({ artifact }: PersonalizedPublicationPro
   return (
     <Renderer
       document={artifact.snapshot.document}
+      mapTileKey={mapTileKey ?? ""}
       mode="published"
       resolveImage={resolveImage}
       {...personalizedProps}

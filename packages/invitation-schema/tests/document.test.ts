@@ -303,4 +303,89 @@ describe("invitation document schema", () => {
 
     expect(safeParseInvitationDocument({ ...document, sections }).success).toBe(false);
   });
+
+  it("accepts optional in-range venue coordinates on event-detail items", () => {
+    const document = additiveSectionDocument();
+    const sections = document.sections.map((section) =>
+      section.type === "event-details"
+        ? {
+            ...section,
+            props: {
+              ...section.props,
+              events: section.props.events.map((event) => ({
+                ...event,
+                latitude: 14.6507,
+                longitude: 121.0494,
+              })),
+            },
+          }
+        : section,
+    );
+
+    expect(safeParseInvitationDocument({ ...document, sections }).success).toBe(true);
+  });
+
+  it("accepts an optional signature on a message section", () => {
+    const document = additiveSectionDocument();
+    const sections = document.sections.map((section) =>
+      section.type === "message"
+        ? {
+            ...section,
+            props: {
+              ...section.props,
+              signature: { lead: "With love,", names: ["Mika Reyes", "Daniel Reyes"] },
+            },
+          }
+        : section,
+    );
+
+    expect(safeParseInvitationDocument({ ...document, sections }).success).toBe(true);
+  });
+
+  it("rejects an empty or oversized message signature", () => {
+    const document = additiveSectionDocument();
+    const withSignature = (signature: unknown) =>
+      document.sections.map((section) =>
+        section.type === "message"
+          ? { ...section, props: { ...section.props, signature } }
+          : section,
+      );
+
+    expect(
+      safeParseInvitationDocument({ ...document, sections: withSignature({ names: [] }) }).success,
+    ).toBe(false);
+    expect(
+      safeParseInvitationDocument({
+        ...document,
+        sections: withSignature({ names: ["A", "B", "C", "D", "E"] }),
+      }).success,
+    ).toBe(false);
+    expect(
+      safeParseInvitationDocument({
+        ...document,
+        sections: withSignature({ names: ["Mika Reyes"], relation: "Parents" }),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects out-of-range venue coordinates", () => {
+    const document = additiveSectionDocument();
+    const sections = document.sections.map((section) =>
+      section.type === "event-details"
+        ? {
+            ...section,
+            props: {
+              ...section.props,
+              events: section.props.events.map((event) => ({
+                ...event,
+                latitude: 14.6507,
+                longitude: 999,
+              })),
+            },
+          }
+        : section,
+    );
+
+    expect(safeParseInvitationDocument({ ...document, sections }).success).toBe(false);
+  });
 });

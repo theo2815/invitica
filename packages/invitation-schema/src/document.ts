@@ -43,12 +43,20 @@ export const heroSectionSchema = z.strictObject({
   }),
 });
 
+// A closing signature lets a message be attributed to the people who wrote it, such as a
+// christening note signed by the parents. Backward compatible: documents without it are unchanged.
+const messageSignatureSchema = z.strictObject({
+  lead: z.string().trim().max(80).optional(),
+  names: z.array(shortTextSchema).min(1).max(4),
+});
+
 export const messageSectionSchema = z.strictObject({
   ...sectionBaseShape,
   type: z.literal("message"),
   props: z.strictObject({
     heading: z.string().trim().max(120).optional(),
     body: bodyTextSchema,
+    signature: messageSignatureSchema.optional(),
   }),
 });
 
@@ -83,6 +91,9 @@ export const countdownSectionSchema = z.strictObject({
   }),
 });
 
+const latitudeSchema = z.number().finite().min(-90).max(90);
+const longitudeSchema = z.number().finite().min(-180).max(180);
+
 const eventDetailsItemSchema = z.strictObject({
   label: shortTextSchema,
   startAt: z.string().datetime({ offset: true }),
@@ -91,6 +102,10 @@ const eventDetailsItemSchema = z.strictObject({
   address: mediumTextSchema,
   mapUrl: httpUrlSchema.optional(),
   arrivalNote: mediumTextSchema.optional(),
+  // Optional venue coordinates power the click-to-load guest map (ADR-006). Backward compatible:
+  // documents without both values fall back to the "Get directions" link.
+  latitude: latitudeSchema.optional(),
+  longitude: longitudeSchema.optional(),
 });
 
 export const eventDetailsSectionSchema = z.strictObject({

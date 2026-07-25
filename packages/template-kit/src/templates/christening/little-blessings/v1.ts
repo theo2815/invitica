@@ -35,10 +35,10 @@ export const littleBlessingsTemplate = {
     eventTimezone: "Asia/Manila",
     theme: {
       colors: {
-        background: "#f4efe5",
-        surface: "#fffdf7",
-        text: "#3f423a",
-        accent: "#87927a",
+        background: "#f9e5eb",
+        surface: "#fffbfc",
+        text: "#463640",
+        accent: "#dd7f9b",
         accentContrast: "#ffffff",
       },
       typography: {
@@ -75,6 +75,10 @@ export const littleBlessingsTemplate = {
         props: {
           heading: "Held in grace",
           body: "With joyful hearts, we invite you to share a day of prayer, family, and thanksgiving for our little blessing.",
+          signature: {
+            lead: "With love, her parents",
+            names: ["Mika Reyes", "Daniel Reyes"],
+          },
         },
       },
       {
@@ -103,6 +107,8 @@ export const littleBlessingsTemplate = {
               venueName: "New Hope Community Church",
               address: "Quezon City, Metro Manila, Philippines",
               mapUrl: "https://maps.google.com/",
+              latitude: 14.6507,
+              longitude: 121.0494,
               arrivalNote: "Please arrive 20 minutes early so everyone can be seated together.",
             },
             {
@@ -112,6 +118,8 @@ export const littleBlessingsTemplate = {
               venueName: "The Sunlit Hall",
               address: "Quezon City, Metro Manila, Philippines",
               mapUrl: "https://maps.google.com/",
+              latitude: 14.676,
+              longitude: 121.0437,
               arrivalNote: "Parking and step-free entry are available at the reception venue.",
             },
           ],
@@ -123,13 +131,10 @@ export const littleBlessingsTemplate = {
         visible: true,
         animationPreset: "fade-up",
         props: {
-          heading: "With our family and sponsors",
+          heading: "Our ninong and ninang",
           groups: [
-            { label: "Parents", names: ["Mika Reyes", "Daniel Reyes"] },
-            {
-              label: "Godparents and sponsors",
-              names: ["Alyssa Cruz", "Paolo Cruz", "Nina Flores", "Gabriel Flores"],
-            },
+            { label: "Tito", names: ["Paolo Cruz", "Gabriel Flores"] },
+            { label: "Tita", names: ["Alyssa Cruz", "Nina Flores"] },
           ],
         },
       },
@@ -169,9 +174,9 @@ export const littleBlessingsTemplate = {
           description:
             "Sunday best in light, comfortable colors. The ceremony and reception are both family friendly.",
           colors: [
-            { label: "Warm ivory", value: "#f4efe5" },
-            { label: "Quiet sage", value: "#87927a" },
-            { label: "Soft gold", value: "#c8aa72" },
+            { label: "Blush pink", value: "#f6dce0" },
+            { label: "Pearl white", value: "#fffbfc" },
+            { label: "Soft rose", value: "#dd7f9b" },
           ],
         },
       },

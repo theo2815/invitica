@@ -439,8 +439,7 @@ const gardenPromiseStyles = `
 }
 
 .gp-letter span,
-.gp-letter small,
-.gp-address span {
+.gp-letter small {
   font-size: clamp(0.48rem, 1.6cqi, 0.65rem);
   font-weight: 720;
   letter-spacing: 0.16em;
@@ -459,28 +458,6 @@ const gardenPromiseStyles = `
   margin-top: 0.7rem;
   color: color-mix(in srgb, var(--gp-ink) 66%, transparent);
   letter-spacing: 0.08em;
-}
-
-.gp-address {
-  position: absolute;
-  z-index: 7;
-  inset: 14% 12% auto;
-  display: grid;
-  gap: 0.35rem;
-  text-align: center;
-  transition: opacity 260ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.gp-address strong {
-  overflow-wrap: anywhere;
-  font-family: "Fraunces Variable", Georgia, serif;
-  font-size: clamp(0.7rem, 3.2cqi, 1.32rem);
-  font-weight: 500;
-  line-height: 1;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .gp-ribbon {
@@ -855,11 +832,6 @@ const gardenPromiseStyles = `
   z-index: 2;
   opacity: 0.9;
   transform: rotateX(176deg);
-}
-
-.gp-root .ie-root[data-opening-state="opening"] .gp-address {
-  opacity: 0;
-  transform: translateY(-0.35rem);
 }
 
 .gp-root .ie-root[data-opening-state="letter-revealing"] .gp-opening {

@@ -144,7 +144,11 @@ describe("InvitationRenderer", () => {
         throw new Error(`Template ${manifest.listing.id} requires a hero section`);
       }
 
-      expect(html).toContain(renderToStaticMarkup(hero.props.title));
+      // Every word of the hero title must survive; some renderers split it across elements
+      // (e.g. Little Blessings accents the given name), so assert per word rather than verbatim.
+      for (const word of hero.props.title.split(/\s+/)) {
+        expect(html).toContain(renderToStaticMarkup(word));
+      }
       expect(html).toContain(`data-invitation-schema-version="${manifest.schemaVersion}"`);
       expect(html).toContain('data-opening-state="closed"');
       expect(html).toContain("Open invitation for");
@@ -179,10 +183,22 @@ describe("InvitationRenderer", () => {
     );
 
     expect(littleBlessings.qualityStatus).toBe("fixture");
-    expect(html).toContain("Eliana Grace");
+    expect(html).toContain(">Eliana</em>");
+    expect(html).toContain(">Grace</span>");
     expect(html).toContain("New Hope Community Church");
-    expect(html).toContain("Godparents and sponsors");
+    expect(html).toContain(">Tito</h3>");
+    expect(html).toContain(">Tita</h3>");
+    // The parents now sign the dedication instead of appearing as a sponsor group.
+    expect(html).toContain("With love, her parents");
+    expect(html).toContain('class="lb-signature"');
     expect(html).toContain("Board books");
+    // The closed cover is titled, and every word on it also exists as real text below.
+    expect(html).toContain('class="lb-cover-plate"');
+    expect(html).toContain("A christening keepsake");
+    expect(html).toContain('class="iv-powered"');
+    // The agenda leads each line with its time, in its own column class. A shared `p` class here
+    // would put the time in the description's grid column and drop it onto a second row.
+    expect(html).toContain('<p class="lb-schedule-time">8:40 AM</p><h3>Guests arrive</h3>');
     expect(html).toContain("Baby portrait pending creator upload");
     expect(html).toContain('data-section-type="gallery"');
     expect(html).toContain('data-section-type="gifts"');
@@ -233,7 +249,7 @@ describe("InvitationRenderer", () => {
     expect(html).toContain("Gift image pending creator upload");
   });
 
-  it("renders the Little Blessings fixture through the Chapel Light family renderer", () => {
+  it("renders the Little Blessings fixture through the Keepsake Storybook family renderer", () => {
     const littleBlessings = templateRegistry.find(
       (manifest) => manifest.listing.id === "little-blessings",
     );
@@ -254,12 +270,12 @@ describe("InvitationRenderer", () => {
       />,
     );
 
-    // Chapel Light identity, not the recolored standard shell.
+    // Keepsake Storybook identity, not the recolored standard shell.
     expect(html).toContain('class="lb-root"');
     expect(html).toContain('data-envelope-variant="little-blessings"');
     expect(html).toContain("A little blessing awaits");
     expect(html).toContain("Prepared with love for");
-    expect(html).toContain("lb-arch");
+    expect(html).toContain("lb-mark");
     expect(html).toContain("With grateful hearts, thank you for celebrating with us");
     expect(html).not.toContain('class="sr-root"');
 
@@ -281,10 +297,11 @@ describe("InvitationRenderer", () => {
     }
 
     expect(html).toContain("Open invitation for The Reyes Family");
-    expect(html).toContain("Eliana Grace");
+    expect(html).toContain(">Eliana</em>");
+    expect(html).toContain(">Grace</span>");
     expect(html).toContain("Sunday, April 11, 2027 at 9:00 AM");
     expect(html).toContain("Kindly reply by March 28, 2027");
-    expect(html).toContain("Warm ivory");
+    expect(html).toContain("Blush pink");
     expect(html).toContain('data-opening-state="closed"');
     expect(html).toContain('data-envelope-gated="false"');
     expect(html).toContain('data-render-mode="published"');

@@ -2,7 +2,9 @@ import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:
 
 import { guestLinkTokenSchema } from "@invitica/invitation-schema";
 
-function getGuestLinkHashKey(): Buffer {
+// Exported for the public-endpoint throttle, which keys its own domain-separated
+// HMAC with the same server-only secret rather than requiring a second one.
+export function getGuestLinkHashKey(): Buffer {
   const encoded = process.env.GUEST_LINK_HASH_KEY;
 
   if (!encoded || !/^[A-Za-z0-9_-]{43}$/.test(encoded)) {

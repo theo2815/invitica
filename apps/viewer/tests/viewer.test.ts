@@ -116,6 +116,7 @@ describe("public guest viewer", () => {
     expect(html).toContain("Use your personalized invitation link to respond");
     expect(html).toContain('data-render-mode="published"');
     expect(html).toContain('id="publication-artifact"');
+    expect(html).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');
     expect(response.headers.get("content-language")).toBe("en-PH");
     expect(response.headers.get("x-robots-tag")).toContain("noindex");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");

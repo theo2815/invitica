@@ -295,6 +295,12 @@ select throws_ok(
   '22023', null, 'a rendition without a real digest cannot publish'
 );
 
+-- The two assertions below call the validator directly, which the first
+-- assertion in this file proves no client role may do. They therefore run as
+-- postgres; the authenticated role is restored before the publication calls
+-- that follow, which derive their owner from auth.uid().
+set local role postgres;
+
 select ok(
   not public.publication_assets_are_valid(
     jsonb_build_object(
@@ -321,6 +327,8 @@ select ok(
   ),
   'a document with no media needs no manifest'
 );
+
+set local role authenticated;
 
 -- Last, because publishing this draft closes revision 1 to any other snapshot.
 select ok(

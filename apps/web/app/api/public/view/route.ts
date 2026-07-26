@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createAdminClient } from "../../../../src/lib/supabase/admin";
+import { consumePublicRequest } from "../../../../src/server/guests/throttle";
 import { recordInvitationView } from "../../../../src/server/guests/views";
 
 const requestSchema = z.strictObject({
@@ -37,7 +38,12 @@ export async function POST(request: Request) {
   if (!parsed.success) return accepted();
 
   try {
-    await recordInvitationView(createAdminClient(), parsed.data.publicIdentifier);
+    const supabase = createAdminClient();
+    // Over budget simply stops counting. The contract stays "always 204" so a guest
+    // page never changes behaviour over view measurement.
+    if (await consumePublicRequest(supabase, "view", request)) {
+      await recordInvitationView(supabase, parsed.data.publicIdentifier);
+    }
   } catch {
     // View measurement is deliberately best effort and never affects invitation reading.
   }

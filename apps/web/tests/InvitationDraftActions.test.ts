@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ensurePersonalWorkspace } from "../src/server/auth/session";
+import { ensurePersonalWorkspace, requireConfirmedUser } from "../src/server/auth/session";
 import {
   createInvitationDraftAction,
   deleteInvitationAction,
@@ -22,6 +22,7 @@ vi.mock("next/cache", () => ({
 
 vi.mock("../src/server/auth/session", () => ({
   ensurePersonalWorkspace: vi.fn(),
+  requireConfirmedUser: vi.fn(),
 }));
 
 vi.mock("../src/server/invitations/publication-jobs", () => ({
@@ -71,6 +72,7 @@ beforeEach(() => {
   vi.mocked(redirect).mockReset();
   vi.mocked(revalidatePath).mockReset();
   vi.mocked(ensurePersonalWorkspace).mockReset();
+  vi.mocked(requireConfirmedUser).mockReset();
   vi.mocked(enqueueInvitationPublication).mockReset();
 });
 
@@ -145,17 +147,15 @@ describe("save Garden Promise action", () => {
         mapUrl: "javascript:alert('unsafe')",
       }),
     ).resolves.toMatchObject({ status: "error" });
-    expect(ensurePersonalWorkspace).not.toHaveBeenCalled();
+    expect(requireConfirmedUser).not.toHaveBeenCalled();
   });
 
   it("returns the persisted revision after a validated save", async () => {
     const query = createDraftQueryResult(1);
     const rpc = vi.fn().mockResolvedValue({ data: 2, error: null });
-    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
-      error: null,
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
       supabase: { from: query.from, rpc } as never,
       user: {} as never,
-      workspaceId: "workspace-id",
     });
 
     await expect(
@@ -170,11 +170,9 @@ describe("save Garden Promise action", () => {
   it("returns a recoverable conflict without attempting a stale save", async () => {
     const query = createDraftQueryResult(2);
     const rpc = vi.fn();
-    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
-      error: null,
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
       supabase: { from: query.from, rpc } as never,
       user: {} as never,
-      workspaceId: "workspace-id",
     });
 
     await expect(
@@ -193,11 +191,9 @@ describe("publish invitation action", () => {
     const query = createDraftQueryResult(1);
     const rpc = vi.fn().mockResolvedValue({ data: publicationId, error: null });
     vi.mocked(enqueueInvitationPublication).mockResolvedValue();
-    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
-      error: null,
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
       supabase: { from: query.from, rpc } as never,
       user: {} as never,
-      workspaceId: "workspace-id",
     });
 
     await expect(
@@ -218,11 +214,9 @@ describe("publish invitation action", () => {
 describe("delete invitation action", () => {
   it("deletes an unpublished invitation and refreshes the library", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
-    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
-      error: null,
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
       supabase: { rpc } as never,
       user: {} as never,
-      workspaceId: "workspace-id",
     });
 
     await expect(deleteInvitationAction({ invitationId })).resolves.toEqual({

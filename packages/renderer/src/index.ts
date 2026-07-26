@@ -16,6 +16,13 @@ export type {
 export { InvitationRenderer } from "./InvitationRenderer.js";
 export { buildIcsCalendar, formatIcsUtc, type IcsEvent } from "./ics.js";
 export { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
+export {
+  largestImageRendition,
+  PhotoPreviewDialog,
+  type PhotoPreviewItem,
+  PhotoPreviewTrigger,
+  photoPreviewStyles,
+} from "./PhotoPreview.js";
 export { PoweredByInvitica, poweredByInviticaStyles } from "./PoweredByInvitica.js";
 export {
   type InvitationOpeningState,

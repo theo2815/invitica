@@ -67,7 +67,7 @@ importers:
         version: 2.105.3
       '@trigger.dev/sdk':
         specifier: 4.5.4
-        version: 4.5.4(react@19.2.7)(zod@4.4.3)
+        version: 4.5.4(react@19.2.7)(supports-color@10.2.2)(zod@4.4.3)
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -168,7 +168,10 @@ importers:
         version: 2.105.3
       '@trigger.dev/sdk':
         specifier: 4.5.4
-        version: 4.5.4(react@19.2.7)(zod@4.4.3)
+        version: 4.5.4(react@19.2.7)(supports-color@10.2.2)(zod@4.4.3)
+      leaflet:
+        specifier: 1.9.4
+        version: 1.9.4
       next:
         specifier: 16.2.10
         version: 16.2.10(@opentelemetry/api@1.9.1)(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -191,6 +194,9 @@ importers:
       '@testing-library/react':
         specifier: 16.3.0
         version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@types/leaflet':
+        specifier: 1.9.21
+        version: 1.9.21
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -202,7 +208,7 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       jsdom:
         specifier: 26.1.0
-        version: 26.1.0
+        version: 26.1.0(supports-color@10.2.2)
       tailwindcss:
         specifier: 4.3.2
         version: 4.3.2
@@ -4654,7 +4660,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@trigger.dev/sdk@4.5.4(react@19.2.7)(zod@4.4.3)':
+  '@trigger.dev/sdk@4.5.4(react@19.2.7)(supports-color@10.2.2)(zod@4.4.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.41.1
@@ -5415,14 +5421,14 @@ snapshots:
       statuses: 2.0.2
       toidentifier: 1.0.1
 
-  http-proxy-agent@7.0.2:
+  http-proxy-agent@7.0.2(supports-color@10.2.2):
     dependencies:
       agent-base: 7.1.4
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
-  https-proxy-agent@7.0.6:
+  https-proxy-agent@7.0.6(supports-color@10.2.2):
     dependencies:
       agent-base: 7.1.4
       debug: 4.4.3(supports-color@10.2.2)
@@ -5518,14 +5524,14 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  jsdom@26.1.0:
+  jsdom@26.1.0(supports-color@10.2.2):
     dependencies:
       cssstyle: 4.6.0
       data-urls: 5.0.0
       decimal.js: 10.6.0
       html-encoding-sniffer: 4.0.0
-      http-proxy-agent: 7.0.2
-      https-proxy-agent: 7.0.6
+      http-proxy-agent: 7.0.2(supports-color@10.2.2)
+      https-proxy-agent: 7.0.6(supports-color@10.2.2)
       is-potential-custom-element-name: 1.0.1
       nwsapi: 2.2.24
       parse5: 7.3.0
@@ -6419,7 +6425,7 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/node': 24.13.3
-      jsdom: 26.1.0
+      jsdom: 26.1.0(supports-color@10.2.2)
     transitivePeerDependencies:
       - msw
 

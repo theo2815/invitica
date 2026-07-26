@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { ensurePersonalWorkspace } from "../auth/session";
+import { ensurePersonalWorkspace, requireConfirmedUser } from "../auth/session";
 import {
   createInitialInvitationDraft,
   deleteUnpublishedInvitation,
@@ -43,13 +43,19 @@ export interface CreateInvitationActionState {
   error: string | null;
 }
 
+/**
+ * `retryable` marks a failure the server knows wrote nothing, so the editor may send
+ * the same revision-guarded request again. Validation and conflict failures are never
+ * retryable, and a request that failed in transit is not described here at all —
+ * the client cannot know whether it was applied, so it does not retry on its own.
+ */
 export type SaveGardenPromiseActionResult =
   | { revision: number; status: "saved" }
-  | { message: string; status: "conflict" | "error" };
+  | { message: string; retryable?: boolean; status: "conflict" | "error" };
 
 export type SaveLittleBlessingsActionResult =
   | { revision: number; status: "saved" }
-  | { message: string; status: "conflict" | "error" };
+  | { message: string; retryable?: boolean; status: "conflict" | "error" };
 
 export type PublishInvitationActionResult =
   | { publicationId: string; status: "accepted" }
@@ -74,10 +80,7 @@ export async function deleteInvitationAction(
     };
   }
 
-  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
-  if (workspaceError || !workspaceId) {
-    return { message: "Your workspace is unavailable. Refresh and try again.", status: "error" };
-  }
+  const { supabase } = await requireConfirmedUser();
 
   try {
     await deleteUnpublishedInvitation(supabase, parsed.data.invitationId);
@@ -129,26 +132,46 @@ export async function createInvitationDraftAction(
   redirect(`/dashboard/invitations/${invitationId}`);
 }
 
+/**
+ * A failed save was previously indistinguishable from any other: every branch
+ * discarded the error and answered with prose. These records carry the branch that
+ * was taken and the invitation it concerned — never document content, guest data, or
+ * anything a creator typed — so a report of "it did not save" can be diagnosed.
+ */
+function logSaveFailure(
+  template: "garden-promise" | "little-blessings",
+  reason: string,
+  invitationId: string | null,
+  error?: unknown,
+): void {
+  console.error("[Invitation editor] draft save failed", {
+    invitationId: invitationId ?? undefined,
+    reason,
+    template,
+    ...(error instanceof Error ? { errorName: error.name } : {}),
+  });
+}
+
 export async function saveGardenPromiseAction(
   input: unknown,
 ): Promise<SaveGardenPromiseActionResult> {
   const parsed = saveGardenPromiseInputSchema.safeParse(input);
 
   if (!parsed.success) {
+    logSaveFailure("garden-promise", "invalid_payload", null);
     return { message: "Check the highlighted invitation details and try again.", status: "error" };
   }
 
-  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
-
-  if (workspaceError || !workspaceId) {
-    return { message: "Your workspace is unavailable. Refresh and try again.", status: "error" };
-  }
+  const { supabase } = await requireConfirmedUser();
 
   try {
     const revision = await saveGardenPromiseDraft(supabase, parsed.data);
     return { revision, status: "saved" };
   } catch (error: unknown) {
+    const invitationId = parsed.data.invitationId;
+
     if (error instanceof InvitationDraftConflictError) {
+      logSaveFailure("garden-promise", "revision_conflict", invitationId);
       return {
         message: "This draft changed in another session. Reload the latest version before saving.",
         status: "conflict",
@@ -156,10 +179,20 @@ export async function saveGardenPromiseAction(
     }
 
     if (error instanceof InvitationDraftPersistenceError) {
-      return { message: "Your latest changes could not be saved. Try again.", status: "error" };
+      logSaveFailure("garden-promise", "persistence_failed", invitationId);
+      return {
+        message: "Your latest changes could not be saved. Try again.",
+        retryable: true,
+        status: "error",
+      };
     }
 
-    return { message: "This invitation update could not be completed.", status: "error" };
+    logSaveFailure("garden-promise", "unexpected", invitationId, error);
+    return {
+      message: "This invitation update could not be completed.",
+      retryable: true,
+      status: "error",
+    };
   }
 }
 
@@ -169,20 +202,20 @@ export async function saveLittleBlessingsAction(
   const parsed = saveLittleBlessingsInputSchema.safeParse(input);
 
   if (!parsed.success) {
+    logSaveFailure("little-blessings", "invalid_payload", null);
     return { message: "Check the highlighted invitation details and try again.", status: "error" };
   }
 
-  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
-
-  if (workspaceError || !workspaceId) {
-    return { message: "Your workspace is unavailable. Refresh and try again.", status: "error" };
-  }
+  const { supabase } = await requireConfirmedUser();
 
   try {
     const revision = await saveLittleBlessingsDraft(supabase, parsed.data);
     return { revision, status: "saved" };
   } catch (error: unknown) {
+    const invitationId = parsed.data.invitationId;
+
     if (error instanceof InvitationDraftConflictError) {
+      logSaveFailure("little-blessings", "revision_conflict", invitationId);
       return {
         message: "This draft changed in another session. Reload the latest version before saving.",
         status: "conflict",
@@ -190,14 +223,25 @@ export async function saveLittleBlessingsAction(
     }
 
     if (error instanceof TemplateUnavailableError) {
+      logSaveFailure("little-blessings", "template_unavailable", invitationId);
       return { message: error.message, status: "error" };
     }
 
     if (error instanceof InvitationDraftPersistenceError) {
-      return { message: "Your latest changes could not be saved. Try again.", status: "error" };
+      logSaveFailure("little-blessings", "persistence_failed", invitationId);
+      return {
+        message: "Your latest changes could not be saved. Try again.",
+        retryable: true,
+        status: "error",
+      };
     }
 
-    return { message: "This invitation update could not be completed.", status: "error" };
+    logSaveFailure("little-blessings", "unexpected", invitationId, error);
+    return {
+      message: "This invitation update could not be completed.",
+      retryable: true,
+      status: "error",
+    };
   }
 }
 
@@ -212,10 +256,7 @@ export async function publishInvitationAction(
     };
   }
 
-  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
-  if (workspaceError || !workspaceId) {
-    return { message: "Your workspace is unavailable. Refresh and try again.", status: "error" };
-  }
+  const { supabase } = await requireConfirmedUser();
 
   try {
     const publication = await requestInvitationPublication(supabase, parsed.data);
@@ -261,10 +302,7 @@ export async function loadInvitationPublicationStatusAction(
     return { message: "This publication status request is no longer valid.", status: "error" };
   }
 
-  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
-  if (workspaceError || !workspaceId) {
-    return { message: "Your workspace is unavailable. Refresh and try again.", status: "error" };
-  }
+  const { supabase } = await requireConfirmedUser();
 
   try {
     return {

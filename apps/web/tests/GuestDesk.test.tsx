@@ -5,8 +5,11 @@ import { GuestDesk } from "../src/components/guests/GuestDesk";
 import {
   copyGuestInvitationAction,
   createGuestPartiesAction,
+  prepareGuestInvitationCopiesAction,
+  recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
   restoreGuestPartyAction,
+  setGuestInvitationSentAction,
   trashGuestPartyAction,
   updateGuestPartyAction,
 } from "../src/server/guests/actions";
@@ -20,9 +23,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("../src/server/guests/actions", () => ({
   copyGuestInvitationAction: vi.fn(),
   createGuestPartiesAction: vi.fn(),
+  prepareGuestInvitationCopiesAction: vi.fn(),
+  recordGuestInvitationCopyAction: vi.fn(),
   replaceGuestPartyLinkAction: vi.fn(),
   restoreGuestPartyAction: vi.fn(),
   revokeGuestPartyLinkAction: vi.fn(),
+  setGuestInvitationSentAction: vi.fn(),
   trashGuestPartyAction: vi.fn(),
   updateGuestPartyAction: vi.fn(),
 }));
@@ -50,11 +56,15 @@ function party(overrides: Partial<GuestPartySummary> = {}): GuestPartySummary {
   return {
     archivedAt: null,
     capacity: 2,
+    copyCount: 0,
     createdAt: "2026-07-22T08:00:00+08:00",
+    firstCopiedAt: null,
     guestMembers: [{ id: "74000000-0000-4000-8000-000000000001", name: "Lena Santos" }],
     id: "73000000-0000-4000-8000-000000000001",
     internalLabel: "Santos household",
+    lastCopiedAt: null,
     linkStatus: "active",
+    markedSentAt: null,
     recipientName: "Tita Lena and family",
     response: null,
     revision: 1,
@@ -83,6 +93,13 @@ function renderDesk(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Copies are prepared in the background on mount. Cases that assert the per-click
+  // path override this with a populated result.
+  vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
+    copies: [],
+    status: "ready",
+  });
+  vi.mocked(recordGuestInvitationCopyAction).mockResolvedValue({ status: "ignored" });
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText },
@@ -301,6 +318,188 @@ describe("GuestDesk", () => {
     );
     await waitFor(() => expect(replaceGuestPartyLinkAction).toHaveBeenCalledOnce());
     expect(writeText).toHaveBeenCalledWith(`Ready\n${replacement}`);
+  });
+
+  // Copy invitation used to resolve its token after the click, which cost several
+  // sequential round trips and spent the user gesture the clipboard needs.
+  it("copies a prepared invitation without a further server request", async () => {
+    const copyText = `Hi Tita Lena!\n${invitation.genericUrl}#g=${"B".repeat(43)}`;
+    vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
+      copies: [
+        {
+          copyText,
+          guestPartyId: "73000000-0000-4000-8000-000000000001",
+          personalizedUrl: `${invitation.genericUrl}#g=${"B".repeat(43)}`,
+        },
+      ],
+      status: "ready",
+    });
+    renderDesk([party()]);
+
+    await waitFor(() => expect(prepareGuestInvitationCopiesAction).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "Copy invitation for Santos household" }));
+
+    // Written synchronously inside the click, so the gesture is still valid on WebKit.
+    expect(writeText).toHaveBeenCalledWith(copyText);
+    expect(copyGuestInvitationAction).not.toHaveBeenCalled();
+  });
+
+  it("prepares copies only for parties whose private link is still active", async () => {
+    vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
+      copies: [],
+      status: "ready",
+    });
+    renderDesk([
+      party(),
+      party({
+        id: "73000000-0000-4000-8000-000000000002",
+        internalLabel: "Reyes couple",
+        linkStatus: "revoked",
+      }),
+    ]);
+
+    await waitFor(() => expect(prepareGuestInvitationCopiesAction).toHaveBeenCalledOnce());
+    expect(prepareGuestInvitationCopiesAction).toHaveBeenCalledWith({
+      guestPartyIds: ["73000000-0000-4000-8000-000000000001"],
+      invitationId: invitation.invitationId,
+    });
+  });
+
+  it("navigates once when a different invitation is chosen", () => {
+    renderDesk([party()]);
+
+    fireEvent.click(screen.getByRole("combobox", { name: /Published invitation/ }));
+    fireEvent.click(screen.getByRole("option", { name: "Select an invitation" }));
+
+    // The pending skeleton and disabled control that accompany this cannot be asserted
+    // here: `router.push` is a synchronous mock, so React ends the transition before
+    // the DOM is queried. Only the navigation contract is observable in this harness.
+    expect(push).toHaveBeenCalledOnce();
+    expect(push).toHaveBeenCalledWith("/dashboard/guests");
+  });
+
+  it("ignores a repeated selection of the invitation already open", () => {
+    renderDesk([party()]);
+
+    fireEvent.click(screen.getByRole("combobox", { name: /Published invitation/ }));
+    fireEvent.click(screen.getByRole("option", { name: invitation.title }));
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  // Copying is evidence of intent, never of delivery: a creator may copy a message and
+  // then never paste it. The two states stay separate on purpose.
+  it("does not treat a copied invitation as a sent one", async () => {
+    const copyText = "Hi Tita Lena!";
+    vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
+      copies: [
+        {
+          copyText,
+          guestPartyId: "73000000-0000-4000-8000-000000000001",
+          personalizedUrl: `${invitation.genericUrl}#g=${"B".repeat(43)}`,
+        },
+      ],
+      status: "ready",
+    });
+    vi.mocked(recordGuestInvitationCopyAction).mockResolvedValue({ status: "recorded" });
+    renderDesk([party()]);
+    await waitFor(() => expect(prepareGuestInvitationCopiesAction).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy invitation for Santos household" }));
+
+    expect(writeText).toHaveBeenCalledWith(copyText);
+    expect(screen.getByRole("checkbox", { name: /I have sent this/ })).toHaveProperty(
+      "checked",
+      false,
+    );
+    expect(setGuestInvitationSentAction).not.toHaveBeenCalled();
+  });
+
+  // The clipboard already holds the message before this runs, so a tracking failure must
+  // never surface as a failed copy.
+  it("records the copy after the clipboard write, not before it", async () => {
+    vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
+      copies: [
+        {
+          copyText: "Hi Tita Lena!",
+          guestPartyId: "73000000-0000-4000-8000-000000000001",
+          personalizedUrl: `${invitation.genericUrl}#g=${"B".repeat(43)}`,
+        },
+      ],
+      status: "ready",
+    });
+    vi.mocked(recordGuestInvitationCopyAction).mockResolvedValue({ status: "recorded" });
+    renderDesk([party()]);
+    await waitFor(() => expect(prepareGuestInvitationCopiesAction).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy invitation for Santos household" }));
+
+    expect(writeText).toHaveBeenCalledOnce();
+    await waitFor(() => expect(recordGuestInvitationCopyAction).toHaveBeenCalledOnce());
+    expect(recordGuestInvitationCopyAction).toHaveBeenCalledWith({
+      guestPartyId: "73000000-0000-4000-8000-000000000001",
+    });
+  });
+
+  it("marks a party as sent on the creator's own say-so", async () => {
+    vi.mocked(setGuestInvitationSentAction).mockResolvedValue({ status: "updated" });
+    renderDesk([party()]);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /I have sent this/ }));
+
+    await waitFor(() => expect(setGuestInvitationSentAction).toHaveBeenCalledOnce());
+    expect(setGuestInvitationSentAction).toHaveBeenCalledWith({
+      guestPartyId: "73000000-0000-4000-8000-000000000001",
+      sent: true,
+    });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  // Reversible on purpose: a mis-tap would otherwise permanently mislabel a guest as
+  // contacted, which is the mistake this feature exists to prevent.
+  it("lets the creator undo a sent mark", async () => {
+    vi.mocked(setGuestInvitationSentAction).mockResolvedValue({ status: "updated" });
+    renderDesk([party({ markedSentAt: "2026-07-26T10:00:00+08:00" })]);
+
+    const checkbox = screen.getByRole("checkbox", { name: /Sent/ });
+    expect(checkbox).toHaveProperty("checked", true);
+    fireEvent.click(checkbox);
+
+    await waitFor(() => expect(setGuestInvitationSentAction).toHaveBeenCalledOnce());
+    expect(setGuestInvitationSentAction).toHaveBeenCalledWith({
+      guestPartyId: "73000000-0000-4000-8000-000000000001",
+      sent: false,
+    });
+  });
+
+  it("shows the copy history quietly, separately from the sent mark", () => {
+    renderDesk([
+      party({
+        copyCount: 3,
+        firstCopiedAt: "2026-07-25T09:00:00+08:00",
+        lastCopiedAt: "2026-07-26T10:00:00+08:00",
+      }),
+    ]);
+
+    expect(screen.getByText(/Copied 3 times/)).toBeDefined();
+    expect(screen.getByRole("checkbox", { name: /I have sent this/ })).toHaveProperty(
+      "checked",
+      false,
+    );
+  });
+
+  it("reports a failure to save the sent mark instead of silently reverting", async () => {
+    vi.mocked(setGuestInvitationSentAction).mockResolvedValue({
+      message: "That could not be saved. Refresh and try again.",
+      status: "error",
+    });
+    renderDesk([party()]);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /I have sent this/ }));
+
+    await waitFor(() =>
+      expect(screen.getByText("That could not be saved. Refresh and try again.")).toBeDefined(),
+    );
   });
 
   it("keeps search and response filtering on the real party ledger", () => {

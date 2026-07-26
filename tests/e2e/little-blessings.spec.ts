@@ -160,12 +160,12 @@ test("gives the reply page to a personally invited guest", async ({ page }) => {
   await assertNoHorizontalOverflow(page);
 });
 
-test("opens, navigates, and closes the gallery lightbox accessibly", async ({
+test("previews invitation photos with keyboard, zoom, swipe, and focus restoration", async ({
   browser,
 }, testInfo) => {
   test.skip(
     !["chromium-narrow", "edge-desktop", "webkit-mobile"].includes(testInfo.project.name),
-    "Narrow Chromium, WebKit, and Edge lanes prove the lightbox",
+    "Narrow Chromium, WebKit, and Edge lanes prove the shared photo preview",
   );
   const context = await browser.newContext({
     reducedMotion: "reduce",
@@ -178,33 +178,89 @@ test("opens, navigates, and closes the gallery lightbox accessibly", async ({
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({ timeout: 750 });
 
-  const firstTrigger = page.getByRole("button", {
+  await expect(page.locator(".lb-hero-frame")).toHaveAttribute(
+    "data-photo-orientation",
+    "portrait",
+  );
+  await expect(page.locator(".lb-gallery-grid figure").first()).toHaveAttribute(
+    "data-photo-orientation",
+    "landscape",
+  );
+  await expect(page.locator(".lb-gift-grid article").first()).toHaveAttribute(
+    "data-photo-orientation",
+    "square",
+  );
+
+  const heroTrigger = page.getByRole("link", { name: "View celebrant photo of Eliana Grace" });
+  await heroTrigger.click();
+  await expect(
+    page.getByRole("dialog", { name: "Photo preview: Celebrant photo of Eliana Grace" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close photo view" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(heroTrigger).toBeFocused();
+
+  const firstTrigger = page.getByRole("link", {
     name: "View photo: Eliana resting in a light blanket",
   });
   await firstTrigger.scrollIntoViewIfNeeded();
   await firstTrigger.click();
 
-  const dialog = page.getByRole("dialog", { name: /Photo:/ });
+  const dialog = page.getByRole("dialog", { name: /Photo preview:/ });
   await expect(dialog).toBeVisible();
   await expect(page.getByRole("button", { name: "Close photo view" })).toBeFocused();
   await expect(dialog.locator("img")).toBeVisible();
 
   await page.keyboard.press("ArrowRight");
   await expect(
-    page.getByRole("dialog", { name: "Photo: Eliana smiling during family time" }),
+    page.getByRole("dialog", { name: "Photo preview: Eliana smiling during family time" }),
   ).toBeVisible();
   await page.keyboard.press("ArrowLeft");
   await expect(
-    page.getByRole("dialog", { name: "Photo: Eliana resting in a light blanket" }),
+    page.getByRole("dialog", { name: "Photo preview: Eliana resting in a light blanket" }),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect(dialog).toHaveAttribute("data-zoomed", "true");
+  await expect(page.getByRole("button", { name: "Next photo" })).toBeDisabled();
+  await page.getByRole("button", { name: "Fit image" }).click();
+
+  if (testInfo.project.name === "chromium-narrow") {
+    const viewport = dialog.locator(".ip-photo-viewport");
+    await viewport.dispatchEvent("pointerdown", {
+      clientX: 260,
+      clientY: 320,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    await viewport.dispatchEvent("pointerup", {
+      clientX: 120,
+      clientY: 320,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    await expect(
+      page.getByRole("dialog", { name: "Photo preview: Eliana smiling during family time" }),
+    ).toBeVisible();
+    await page.keyboard.press("ArrowLeft");
+  }
 
   await page.getByRole("button", { name: "Next photo" }).focus();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Previous photo" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Close photo view" })).toBeFocused();
 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(firstTrigger).toBeFocused();
+
+  const giftTrigger = page.getByRole("link", { name: "View gift idea photo: Board books" });
+  await giftTrigger.scrollIntoViewIfNeeded();
+  await giftTrigger.click();
+  await expect(
+    page.getByRole("dialog", { name: "Photo preview: Gift idea: Board books" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(giftTrigger).toBeFocused();
   await assertNoHorizontalOverflow(page);
   await context.close();
 });

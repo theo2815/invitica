@@ -13,6 +13,7 @@ const shaB = "b".repeat(64);
 
 class FakeStore implements MediaObjectStore {
   readonly copies: Array<{ source: string; destination: string }> = [];
+  readonly heads: string[] = [];
   existingKeys = new Set<string>();
 
   async put(): Promise<void> {}
@@ -21,20 +22,25 @@ class FakeStore implements MediaObjectStore {
     this.existingKeys.add(destination);
   }
   async head(key: string): Promise<boolean> {
+    this.heads.push(key);
     return this.existingKeys.has(key);
   }
   async delete(): Promise<void> {}
 }
 
-function fakeSupabaseWithMedia(row: unknown | null) {
-  const maybeSingle = vi.fn().mockResolvedValue({ data: row, error: null });
+/**
+ * Every ready media row for the invitation now arrives from one `in` query, so the
+ * terminal call is the awaited builder itself rather than `maybeSingle`.
+ */
+function fakeSupabaseWithMedia(rows: readonly unknown[]) {
+  const result = { data: rows, error: null };
   const builder = {
     eq: vi.fn(() => builder),
-    maybeSingle,
+    in: vi.fn(() => Promise.resolve(result)),
     select: vi.fn(() => builder),
   };
   const from = vi.fn(() => builder);
-  return { client: { from } as never };
+  return { builder, client: { from } as never };
 }
 
 const readyRow = {
@@ -50,7 +56,7 @@ const readyRow = {
 describe("resolveInvitationPublicationAssets", () => {
   it("copies renditions to content-addressed keys and builds the manifest", async () => {
     const store = new FakeStore();
-    const { client } = fakeSupabaseWithMedia(readyRow);
+    const { client } = fakeSupabaseWithMedia([readyRow]);
 
     const manifest = await resolveInvitationPublicationAssets(client, store, {
       documentAssets: [{ id: assetId, kind: "image" }],
@@ -94,23 +100,82 @@ describe("resolveInvitationPublicationAssets", () => {
     ]);
   });
 
-  it("skips copying renditions that already exist at their immutable key", async () => {
+  // Deliberate change: the HEAD probe that used to skip an existing key was removed.
+  // A probe and a copy each cost one request, so it only paid off when the key already
+  // existed and doubled the cost otherwise — and a publish of fresh media is the common
+  // case. Re-copying is safe because the destination key is derived from the
+  // rendition's own digest, so the bytes written are identical.
+  it("re-copies an existing immutable key rather than probing for it first", async () => {
     const store = new FakeStore();
     store.existingKeys.add(`publication-media/v1/${shaA}/w320.webp`);
     store.existingKeys.add(`publication-media/v1/${shaB}/w640.webp`);
-    const { client } = fakeSupabaseWithMedia(readyRow);
+    const { client } = fakeSupabaseWithMedia([readyRow]);
 
     await resolveInvitationPublicationAssets(client, store, {
       documentAssets: [{ id: assetId, kind: "image" }],
       invitationId,
     });
 
-    expect(store.copies).toHaveLength(0);
+    expect(store.copies).toHaveLength(2);
+    expect(store.heads).toHaveLength(0);
+  });
+
+  it("reads every referenced asset in one query scoped to the invitation", async () => {
+    const store = new FakeStore();
+    const secondAssetId = "4b000000-0000-4000-8000-000000000003";
+    const { builder, client } = fakeSupabaseWithMedia([
+      readyRow,
+      { ...readyRow, id: secondAssetId },
+    ]);
+
+    await resolveInvitationPublicationAssets(client, store, {
+      documentAssets: [
+        { id: assetId, kind: "image" },
+        { id: secondAssetId, kind: "image" },
+      ],
+      invitationId,
+    });
+
+    expect(builder.in).toHaveBeenCalledOnce();
+    expect(builder.in).toHaveBeenCalledWith("id", [assetId, secondAssetId]);
+    expect(builder.eq).toHaveBeenCalledWith("invitation_id", invitationId);
+    expect(builder.eq).toHaveBeenCalledWith("status", "ready");
+  });
+
+  it("keeps the manifest in document order however the rows came back", async () => {
+    const store = new FakeStore();
+    const secondAssetId = "4b000000-0000-4000-8000-000000000003";
+    const { client } = fakeSupabaseWithMedia([{ ...readyRow, id: secondAssetId }, readyRow]);
+
+    const manifest = await resolveInvitationPublicationAssets(client, store, {
+      documentAssets: [
+        { id: assetId, kind: "image" },
+        { id: secondAssetId, kind: "image" },
+      ],
+      invitationId,
+    });
+
+    expect(manifest.map((entry) => entry.id)).toEqual([assetId, secondAssetId]);
+  });
+
+  it("refuses to publish when only some referenced assets are ready", async () => {
+    const store = new FakeStore();
+    const { client } = fakeSupabaseWithMedia([readyRow]);
+
+    await expect(
+      resolveInvitationPublicationAssets(client, store, {
+        documentAssets: [
+          { id: assetId, kind: "image" },
+          { id: "4b000000-0000-4000-8000-000000000003", kind: "image" },
+        ],
+        invitationId,
+      }),
+    ).rejects.toBeInstanceOf(PublicationMediaUnavailableError);
   });
 
   it("fails when a referenced image has no ready media row", async () => {
     const store = new FakeStore();
-    const { client } = fakeSupabaseWithMedia(null);
+    const { client } = fakeSupabaseWithMedia([]);
 
     await expect(
       resolveInvitationPublicationAssets(client, store, {
@@ -122,7 +187,7 @@ describe("resolveInvitationPublicationAssets", () => {
 
   it("rejects unsupported audio references in this batch", async () => {
     const store = new FakeStore();
-    const { client } = fakeSupabaseWithMedia(readyRow);
+    const { client } = fakeSupabaseWithMedia([readyRow]);
 
     await expect(
       resolveInvitationPublicationAssets(client, store, {

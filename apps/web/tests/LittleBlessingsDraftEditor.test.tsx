@@ -22,7 +22,14 @@ vi.mock("../src/server/media/actions", () => ({
 // eight photographs, eight gift ideas, envelope, and map — beside the editor.
 // In jsdom that costs a few seconds per render and exceeded the 5 s default
 // once under full-suite load, so this file gets its own generous budget.
-vi.setConfig({ testTimeout: 30_000 });
+//
+// Raised from 30 s once the photo preview landed: every photograph and gift plate now
+// also renders a preview trigger and its dialog, so a render carries materially more
+// DOM. The file takes ~24 s for all fourteen cases on its own, and a single case
+// crossed 30 s under full-suite contention. This is a liveness bound, not a
+// performance budget — if a case ever approaches this, measure the render instead of
+// raising it again.
+vi.setConfig({ testTimeout: 60_000 });
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const littleBlessings = resolveTemplateById("little-blessings");
@@ -315,6 +322,29 @@ describe("Little Blessings editor", () => {
 
     expect(preview().textContent).not.toContain("Celebrate with us");
     expect(screen.getByText(/without a reply section/)).toBeDefined();
+  });
+
+  // The editor preview and the published page share one renderer, so a venue map
+  // the guest will see has to be visible while the creator is placing it. The key
+  // is what gates the map (ADR-006): without it the renderer keeps the directions
+  // link alone, which is also what a deployment with no Workers Var produces.
+  it("shows the venue map in the preview only when a tile key is configured", () => {
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "editor-preview-key");
+    renderEditor();
+
+    // Queried inside the preview rather than by role: the envelope is closed, so
+    // its gated contents are deliberately kept out of the accessibility tree.
+    expect(preview().querySelectorAll(".im-map").length).toBeGreaterThan(0);
+    expect([...preview().querySelectorAll(".im-toggle")].map((node) => node.textContent)).toContain(
+      "Show map",
+    );
+
+    cleanup();
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "");
+    renderEditor();
+
+    expect(preview().querySelectorAll(".im-map")).toHaveLength(0);
+    expect(preview().textContent).toContain("Get directions");
   });
 
   it("carries an unusually long Philippine name through to the preview", async () => {

@@ -396,7 +396,7 @@ describe("Little Blessings publications", () => {
     expect(html).toContain(">Grace</span>");
     expect(html).toContain("<img");
     expect(html).toContain("/m/v1/");
-    expect(html).toContain('width="1600"');
+    expect(html).toContain('width="640"');
     // Author-provided gallery alt text survives into the delivered markup.
     expect(html).toContain("Eliana resting in a light blanket");
     // No placeholder remains once every referenced asset resolves.

@@ -3,12 +3,13 @@
 import type { InvitationDocument, InvitationSection } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
 import type { TemplateManifest } from "@invitica/template-kit";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   applyLittleBlessingsDetails,
   littleBlessingsDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
+import { getMapTileKey } from "../../lib/map-tile-key";
 import { saveLittleBlessingsAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
 import { listInvitationImagesAction } from "../../server/media/actions";
@@ -26,8 +27,9 @@ import {
   TextField,
 } from "./LittleBlessingsEditorFields";
 import { LittleBlessingsImageField } from "./LittleBlessingsImageField";
+import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
+import { VenueLocationPicker } from "./VenueLocationPicker";
 
-const AUTOSAVE_DELAY_MS = 800;
 const MAX_PHOTOS = 8;
 const MAX_GIFTS = 8;
 
@@ -99,7 +101,6 @@ const SECTION_NOTES: Partial<Record<SectionKey, string>> = {
 
 type MobilePanel = "edit" | "preview";
 type PreviewAudience = "general" | "personalized";
-type SaveStatus = "conflict" | "error" | "saved" | "saving" | "unsaved";
 
 interface ColorState {
   label: string;
@@ -366,17 +367,25 @@ function toDetails(document: InvitationDocument, state: EditorState): Record<str
     target: joinDateTime(state.countdown.date, state.countdown.time),
   });
   add("event-details", {
-    events: state.eventDetails.events.map((event) => ({
-      address: event.address,
-      arrivalNote: event.arrivalNote,
-      dateLabel: event.dateLabel,
-      label: event.label,
-      latitude: numberOrUndefined(event.latitude),
-      longitude: numberOrUndefined(event.longitude),
-      mapUrl: event.mapUrl,
-      startAt: joinDateTime(event.date, event.time),
-      venueName: event.venueName,
-    })),
+    events: state.eventDetails.events.map((event) => {
+      // The renderer shows a map only when both coordinates are present, so a lone one
+      // is silently inert. Dropping the pair together keeps the document honest about
+      // whether a location was actually set.
+      const latitude = numberOrUndefined(event.latitude);
+      const longitude = numberOrUndefined(event.longitude);
+      const located = latitude !== undefined && longitude !== undefined;
+      return {
+        address: event.address,
+        arrivalNote: event.arrivalNote,
+        dateLabel: event.dateLabel,
+        label: event.label,
+        latitude: located ? latitude : undefined,
+        longitude: located ? longitude : undefined,
+        mapUrl: event.mapUrl,
+        startAt: joinDateTime(event.date, event.time),
+        venueName: event.venueName,
+      };
+    }),
     heading: state.eventDetails.heading,
   });
   add("participants", {
@@ -438,7 +447,7 @@ function toDetails(document: InvitationDocument, state: EditorState): Record<str
   return details;
 }
 
-const saveStatusLabel: Record<SaveStatus, string> = {
+const saveStatusLabel: Record<DraftSaveStatus, string> = {
   conflict: "Save conflict",
   error: "Save failed",
   saved: "Saved",
@@ -455,6 +464,7 @@ export function LittleBlessingsDraftEditor({
   rendererKey,
 }: LittleBlessingsDraftEditorProps) {
   const Renderer = resolveTemplateRenderer(rendererKey);
+  const mapTileKey = getMapTileKey();
   const [assets, setAssets] = useState<readonly CreatorImageAsset[]>(initialAssets);
   const [lastItemPrompt, setLastItemPrompt] = useState<SectionKey | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("edit");
@@ -463,17 +473,32 @@ export function LittleBlessingsDraftEditor({
   const [previewOpeningState, setPreviewOpeningState] = useState<InvitationOpeningState>("closed");
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
-  const [revision, setRevision] = useState(initialRevision);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [state, setState] = useState<EditorState>(() => buildInitialState(initialDocument));
 
   const details = useMemo(() => toDetails(initialDocument, state), [initialDocument, state]);
   const parsed = useMemo(() => littleBlessingsDetailsSchema.safeParse(details), [details]);
   const signature = useMemo(() => JSON.stringify(details), [details]);
-  const [lastSavedSignature, setLastSavedSignature] = useState(signature);
-  const latestSignature = useRef(signature);
-  latestSignature.current = signature;
+
+  const save = useCallback(
+    ({ expectedRevision, payload }: { expectedRevision: number; payload: unknown }) =>
+      saveLittleBlessingsAction({ details: payload, expectedRevision, invitationId }),
+    [invitationId],
+  );
+
+  const autosave = useDraftAutosave<unknown>({
+    initialRevision,
+    invitationId,
+    payload: parsed.success ? parsed.data : null,
+    save,
+    signature,
+  });
+  const {
+    message: saveMessage,
+    recoveredContent,
+    revision,
+    retryAttempt,
+    status: saveStatus,
+  } = autosave;
 
   // The invitation the creator is looking at. A momentarily incomplete field
   // must not blank the preview, so the last document that satisfied the strict
@@ -507,95 +532,24 @@ export function LittleBlessingsDraftEditor({
   }, [invitationId]);
 
   const fieldsAreValid = parsed.success;
-  const draftIsSaved = saveStatus === "saved" && signature === lastSavedSignature;
+  const draftIsSaved = autosave.isSaved;
   const referencedImageIds = previewDocument.assets
     .filter((asset) => asset.kind === "image")
     .map((asset) => asset.id);
   const assetsAreReady = referencedImageIds.every((id) => assetsById.has(id));
 
-  const edit = useCallback((next: (current: EditorState) => EditorState) => {
-    setState(next);
-    setSaveMessage(null);
-    setRecoveryMessage(null);
-    setLastItemPrompt(null);
-    setSaveStatus((status) => (status === "conflict" ? status : "unsaved"));
-  }, []);
-
-  const persist = useCallback(
-    async (payload: unknown, submittedSignature: string, expectedRevision: number) => {
-      setSaveMessage(null);
-      setSaveStatus("saving");
-
-      try {
-        const result = await saveLittleBlessingsAction({
-          details: payload,
-          expectedRevision,
-          invitationId,
-        });
-
-        if (result.status === "saved") {
-          setRevision(result.revision);
-          setLastSavedSignature(submittedSignature);
-          setSaveStatus(latestSignature.current === submittedSignature ? "saved" : "unsaved");
-          return;
-        }
-
-        setSaveMessage(result.message);
-        setSaveStatus(result.status);
-      } catch {
-        setSaveMessage("Check your connection and try saving again.");
-        setSaveStatus("error");
-      }
+  const markEdited = autosave.markEdited;
+  const edit = useCallback(
+    (next: (current: EditorState) => EditorState) => {
+      setState(next);
+      setRecoveryMessage(null);
+      setLastItemPrompt(null);
+      markEdited();
     },
-    [invitationId],
+    [markEdited],
   );
 
-  useEffect(() => {
-    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
-      if (signature === lastSavedSignature) return;
-      event.preventDefault();
-    };
-
-    const guardCreatorLink = (event: MouseEvent) => {
-      if (signature === lastSavedSignature || event.defaultPrevented) return;
-      const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
-      if (!(target instanceof HTMLAnchorElement) || target.target || target.download) return;
-      const destination = new URL(target.href, window.location.href);
-      if (destination.origin !== window.location.origin) return;
-      if (
-        !window.confirm("Your latest invitation changes are not saved. Leave this page anyway?")
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-
-    window.addEventListener("beforeunload", warnBeforeLeaving);
-    window.document.addEventListener("click", guardCreatorLink, true);
-    return () => {
-      window.removeEventListener("beforeunload", warnBeforeLeaving);
-      window.document.removeEventListener("click", guardCreatorLink, true);
-    };
-  }, [lastSavedSignature, signature]);
-
-  useEffect(() => {
-    if (signature === lastSavedSignature || !parsed.success) return;
-    if (saveStatus === "conflict" || saveStatus === "error" || saveStatus === "saving") return;
-
-    const payload = parsed.data;
-    const submittedSignature = signature;
-    const expectedRevision = revision;
-    const timer = window.setTimeout(() => {
-      void persist(payload, submittedSignature, expectedRevision);
-    }, AUTOSAVE_DELAY_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [lastSavedSignature, parsed, persist, revision, saveStatus, signature]);
-
-  function saveNow() {
-    if (!parsed.success || saveStatus === "saving" || saveStatus === "conflict") return;
-    void persist(parsed.data, signature, revision);
-  }
+  const saveNow = autosave.saveNow;
 
   async function copyUnsavedDetails() {
     try {
@@ -627,12 +581,33 @@ export function LittleBlessingsDraftEditor({
     saveStatus === "saved"
       ? `Revision ${revision}`
       : saveStatus === "saving"
-        ? "Keeping this invitation up to date"
+        ? retryAttempt > 0
+          ? `Trying again — attempt ${retryAttempt + 1}`
+          : "Keeping this invitation up to date"
         : saveStatus === "conflict"
           ? "Preserve or discard your local changes"
           : saveStatus === "error"
             ? "Not saved yet"
             : "Not yet saved";
+
+  /**
+   * Reapplies content recovered from an interrupted session. The snapshot is the same
+   * serialized details the editor submits, so it is re-validated and routed back
+   * through the document the editor builds its state from rather than trusted as state.
+   */
+  function restoreRecoveredContent() {
+    if (!recoveredContent) return;
+    try {
+      const recovered = littleBlessingsDetailsSchema.parse(JSON.parse(recoveredContent));
+      setState(buildInitialState(applyLittleBlessingsDetails(initialDocument, recovered)));
+      autosave.discardRecoveredSnapshot();
+      markEdited();
+      setRecoveryMessage("Your recovered changes are back. They will save automatically.");
+    } catch {
+      autosave.discardRecoveredSnapshot();
+      setRecoveryMessage("Those recovered changes could not be read, so they were discarded.");
+    }
+  }
 
   // A general-link guest never receives the reply section. Previewing that is a
   // document question, not a renderer one: the section is simply not shown.
@@ -1147,47 +1122,26 @@ export function LittleBlessingsDraftEditor({
                             rows={2}
                             value={event.arrivalNote}
                           />
-                          <div className={styles.fieldRow}>
-                            <TextField
-                              hint="Both coordinates together show the map. Leave them empty for a directions link only."
-                              id={`lb-event-latitude-${index}`}
-                              label="Latitude"
-                              maxLength={20}
-                              onChange={(value) =>
-                                edit((current) => ({
-                                  ...current,
-                                  eventDetails: {
-                                    ...current.eventDetails,
-                                    events: replaceAt(current.eventDetails.events, index, {
-                                      ...event,
-                                      latitude: value,
-                                    }),
-                                  },
-                                }))
-                              }
-                              requirement="Optional"
-                              value={event.latitude}
-                            />
-                            <TextField
-                              id={`lb-event-longitude-${index}`}
-                              label="Longitude"
-                              maxLength={20}
-                              onChange={(value) =>
-                                edit((current) => ({
-                                  ...current,
-                                  eventDetails: {
-                                    ...current.eventDetails,
-                                    events: replaceAt(current.eventDetails.events, index, {
-                                      ...event,
-                                      longitude: value,
-                                    }),
-                                  },
-                                }))
-                              }
-                              requirement="Optional"
-                              value={event.longitude}
-                            />
-                          </div>
+                          <VenueLocationPicker
+                            idPrefix={`lb-event-${index}`}
+                            latitude={event.latitude}
+                            longitude={event.longitude}
+                            onChange={(next) =>
+                              edit((current) => ({
+                                ...current,
+                                eventDetails: {
+                                  ...current.eventDetails,
+                                  events: replaceAt(current.eventDetails.events, index, {
+                                    ...event,
+                                    latitude: next.latitude,
+                                    longitude: next.longitude,
+                                  }),
+                                },
+                              }))
+                            }
+                            tileKey={mapTileKey}
+                            venueName={event.venueName}
+                          />
                         </CollectionItem>
                       ))}
                       <AddItemButton
@@ -2186,15 +2140,41 @@ export function LittleBlessingsDraftEditor({
             })}
           </div>
 
+          {recoveredContent ? (
+            <div className={styles.saveNotice} data-kind="conflict" role="alert">
+              <div>
+                <strong>Unsaved changes were found from an interrupted session.</strong>
+                <p>
+                  They were edited against this same revision and never reached the server. Bring
+                  them back, or discard them to keep what is on screen now.
+                </p>
+              </div>
+              <div className={styles.saveNoticeActions}>
+                <button onClick={() => restoreRecoveredContent()} type="button">
+                  Restore my changes
+                </button>
+                <button onClick={() => autosave.discardRecoveredSnapshot()} type="button">
+                  Discard them
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {saveStatus === "error" && saveMessage ? (
             <div className={styles.saveNotice} data-kind="error" role="alert">
               <div>
                 <strong>We could not save these changes.</strong>
                 <p>{saveMessage}</p>
               </div>
-              <button onClick={() => saveNow()} type="button">
-                Try again
-              </button>
+              <div className={styles.saveNoticeActions}>
+                <button disabled={!fieldsAreValid} onClick={() => saveNow()} type="button">
+                  Try again
+                </button>
+                <button onClick={() => void copyUnsavedDetails()} type="button">
+                  Copy unsaved details
+                </button>
+              </div>
+              {recoveryMessage ? <p role="status">{recoveryMessage}</p> : null}
             </div>
           ) : null}
 
@@ -2225,7 +2205,7 @@ export function LittleBlessingsDraftEditor({
           {saveStatus === "unsaved" ? (
             <button
               className={styles.saveNowButton}
-              disabled={!fieldsAreValid}
+              disabled={!autosave.canSaveNow}
               onClick={() => saveNow()}
               type="button"
             >
@@ -2300,6 +2280,7 @@ export function LittleBlessingsDraftEditor({
             <Renderer
               audience={previewAudience}
               document={previewedDocument}
+              mapTileKey={mapTileKey}
               mode="preview"
               onOpeningStateChange={setPreviewOpeningState}
               openingReplayKey={previewReplayKey}

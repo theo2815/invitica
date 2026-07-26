@@ -1,7 +1,10 @@
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { enqueueInvitationPublication } from "../src/server/invitations/publication-jobs";
+import {
+  enqueueInvitationPublication,
+  PublicationEnqueueError,
+} from "../src/server/invitations/publication-jobs";
 
 vi.mock("@trigger.dev/sdk", () => ({
   idempotencyKeys: { create: vi.fn() },
@@ -33,5 +36,28 @@ describe("publication job enqueue", () => {
       { publicationId },
       { idempotencyKey: key },
     );
+  });
+
+  // The creator-facing message is deliberately generic, so the provider's reason has
+  // to survive on the error and reach the server log or the failure is undiagnosable.
+  it("keeps the provider's reason when the enqueue fails", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("Invalid API key for environment");
+    vi.mocked(idempotencyKeys.create).mockResolvedValue("global-key" as never);
+    vi.mocked(tasks.trigger).mockRejectedValue(cause);
+
+    const thrown = await enqueueInvitationPublication(publicationId, requestIdempotencyKey).catch(
+      (error: unknown) => error,
+    );
+
+    expect(thrown).toBeInstanceOf(PublicationEnqueueError);
+    expect((thrown as PublicationEnqueueError).cause).toBe(cause);
+    expect((thrown as PublicationEnqueueError).message).not.toContain("API key");
+    expect(logged).toHaveBeenCalledWith(
+      "[publication] enqueue failed",
+      expect.objectContaining({ publicationId, reason: "Invalid API key for environment" }),
+    );
+
+    logged.mockRestore();
   });
 });

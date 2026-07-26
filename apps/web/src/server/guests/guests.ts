@@ -240,6 +240,27 @@ export async function loadDeliveredGuestInvitation(
   };
 }
 
+/**
+ * Guest Desk reads used to throw a bare `GuestPersistenceError`, which made a hosted
+ * failure indistinguishable from any other — a missing column, a revoked column grant,
+ * and an RLS denial all surfaced as the same sentence. The PostgreSQL code is the only
+ * thing that separates them. Identifiers and codes only; never guest names or messages.
+ */
+function logGuestReadFailure(
+  stage: string,
+  error: { code?: string; details?: string | null; hint?: string | null; message: string },
+  context: Readonly<Record<string, string>>,
+): void {
+  console.error("[Guest Desk] read failed", {
+    ...context,
+    code: error.code,
+    details: error.details || undefined,
+    hint: error.hint || undefined,
+    message: error.message,
+    stage,
+  });
+}
+
 async function listGuestPartiesByArchiveState(
   supabase: SupabaseClient,
   workspaceId: string,
@@ -262,7 +283,13 @@ async function listGuestPartiesByArchiveState(
     : parties.is("archived_at", null);
 
   const partiesResult = await filteredParties;
-  if (partiesResult.error) throw new GuestPersistenceError();
+  if (partiesResult.error) {
+    logGuestReadFailure("guest_parties", partiesResult.error, {
+      archived: String(archived),
+      invitationId: parsedInvitationId,
+    });
+    throw new GuestPersistenceError();
+  }
   const parsedParties = z.array(guestPartySchema).parse(partiesResult.data ?? []);
   if (parsedParties.length === 0) return [];
   const partyIds = parsedParties.map((party) => party.id);
@@ -286,7 +313,17 @@ async function listGuestPartiesByArchiveState(
       .in("guest_party_id", partyIds),
   ]);
 
-  if (guests.error || links.error || responses.error) throw new GuestPersistenceError();
+  if (guests.error || links.error || responses.error) {
+    const failure = guests.error ?? links.error ?? responses.error;
+    if (failure) {
+      logGuestReadFailure(
+        guests.error ? "guests" : links.error ? "guest_party_links" : "rsvp_responses",
+        failure,
+        { invitationId: parsedInvitationId },
+      );
+    }
+    throw new GuestPersistenceError();
+  }
   const namedGuests = z.array(namedGuestSchema).parse(guests.data ?? []);
   const linkStates = z.array(guestLinkStateSchema).parse(links.data ?? []);
   const responseByParty = new Map(

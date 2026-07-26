@@ -1,3 +1,6 @@
+import { existsSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import nextConfig from "../next.config";
@@ -16,10 +19,27 @@ describe("guest-lane routing", () => {
     await expect(nextConfig.rewrites?.()).resolves.toEqual([
       { destination: "http://127.0.0.1:8787/i/:path*", source: "/i/:path*" },
       { destination: "http://127.0.0.1:8787/m/:path*", source: "/m/:path*" },
+      { destination: "http://127.0.0.1:8787/chunks/:path*", source: "/chunks/:path*" },
+      { destination: "http://127.0.0.1:8787/fonts/:path*", source: "/fonts/:path*" },
       { destination: "http://127.0.0.1:8787/viewer.css", source: "/viewer.css" },
       { destination: "http://127.0.0.1:8787/viewer.js", source: "/viewer.js" },
-      { destination: "http://127.0.0.1:8787/fonts/:path*", source: "/fonts/:path*" },
     ]);
+  });
+
+  // An asset the viewer emits but this list does not cover fails silently: Next answers
+  // its own 404, the guest page loads, and only the card never opens. That is how
+  // `chunks/` — the dynamically imported map — was missed.
+  it("covers every top-level asset the viewer build emits", async () => {
+    const clientRoot = resolve(__dirname, "../../viewer/dist/client");
+    if (!existsSync(clientRoot)) return;
+
+    const rewrites = (await nextConfig.rewrites?.()) ?? [];
+    const uncovered = readdirSync(clientRoot).filter(
+      (entry) =>
+        !rewrites.some(({ source }) => source === `/${entry}` || source === `/${entry}/:path*`),
+    );
+
+    expect(uncovered).toEqual([]);
   });
 
   it("sends the guest lane to the deployed worker when an origin is configured", async () => {

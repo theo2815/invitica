@@ -51,12 +51,18 @@ const nextConfig: NextConfig = {
       );
     }
 
+    // Everything below `/i/*` and `/m/*` is the Viewer's client bundle, and this list
+    // must cover every top-level entry of `apps/viewer/dist/client` — currently
+    // `chunks/`, `fonts/`, `viewer.css`, and `viewer.js`. A missing entry does not
+    // fail the build: Next answers its own 404 and the guest card silently never
+    // opens. `chunks/` holds the dynamically imported map (ADR-006).
     return [
       { destination: `${viewerOrigin}/i/:path*`, source: "/i/:path*" },
       { destination: `${viewerOrigin}/m/:path*`, source: "/m/:path*" },
+      { destination: `${viewerOrigin}/chunks/:path*`, source: "/chunks/:path*" },
+      { destination: `${viewerOrigin}/fonts/:path*`, source: "/fonts/:path*" },
       { destination: `${viewerOrigin}/viewer.css`, source: "/viewer.css" },
       { destination: `${viewerOrigin}/viewer.js`, source: "/viewer.js" },
-      { destination: `${viewerOrigin}/fonts/:path*`, source: "/fonts/:path*" },
     ];
   },
 };

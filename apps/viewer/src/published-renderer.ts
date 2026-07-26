@@ -15,6 +15,7 @@ export class IncompatiblePublicationRendererError extends Error {
 const SUPPORTED_RENDERER_KEYS: ReadonlySet<string> = new Set([
   "garden-promise-v1",
   "little-blessings-v1",
+  "little-blessings-v2",
   "standard-v1",
 ]);
 

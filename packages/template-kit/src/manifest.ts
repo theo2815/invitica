@@ -8,6 +8,7 @@ export const templateRendererKeySchema = z.enum([
   "standard-v1",
   "garden-promise-v1",
   "little-blessings-v1",
+  "little-blessings-v2",
 ]);
 export const templateQualityStatusSchema = z.enum(["production", "fixture"]);
 export const templateOccasionSchema = z.enum([
@@ -49,6 +50,7 @@ export const templateManifestSchema = z
   .strictObject({
     listing: templateListingSchema,
     templateVersionId: z.string().uuid(),
+    supersedesTemplateVersionId: z.string().uuid().optional(),
     version: z.number().int().positive(),
     qualityStatus: templateQualityStatusSchema,
     rendererKey: templateRendererKeySchema,

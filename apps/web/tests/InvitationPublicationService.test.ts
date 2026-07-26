@@ -215,7 +215,7 @@ describe("invitation publication requests", () => {
     );
 
     expect(result.snapshot).toMatchObject({
-      rendererKey: "little-blessings-v1",
+      rendererKey: littleBlessings.rendererKey,
       templateVersionId: littleBlessings.templateVersionId,
     });
     expect(result.snapshot.assets.map((asset) => asset.id)).toEqual([assetId]);

@@ -27,6 +27,7 @@ import {
   TextField,
 } from "./LittleBlessingsEditorFields";
 import { LittleBlessingsImageField } from "./LittleBlessingsImageField";
+import { type AvailableTemplateUpgrade, TemplateUpgradePanel } from "./TemplateUpgradePanel";
 import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
 import { VenueLocationPicker } from "./VenueLocationPicker";
 
@@ -166,6 +167,7 @@ interface LittleBlessingsDraftEditorProps {
   initialRevision: number;
   invitationId: string;
   rendererKey: TemplateManifest["rendererKey"];
+  templateUpgrade?: AvailableTemplateUpgrade | null;
 }
 
 const idlePublication: InvitationPublicationStatus = {
@@ -462,6 +464,7 @@ export function LittleBlessingsDraftEditor({
   initialRevision,
   invitationId,
   rendererKey,
+  templateUpgrade = null,
 }: LittleBlessingsDraftEditorProps) {
   const Renderer = resolveTemplateRenderer(rendererKey);
   const mapTileKey = getMapTileKey();
@@ -2212,6 +2215,13 @@ export function LittleBlessingsDraftEditor({
               Save now
             </button>
           ) : null}
+
+          <TemplateUpgradePanel
+            draftReady={draftIsSaved}
+            invitationId={invitationId}
+            revision={revision}
+            upgrade={templateUpgrade}
+          />
 
           <InvitationPublicationPanel
             assetsReady={assetsAreReady}

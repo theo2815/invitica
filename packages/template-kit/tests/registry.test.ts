@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   createTemplateRegistry,
   DuplicateTemplateRegistrationError,
+  InvalidTemplateUpgradeError,
+  InvalidTemplateVersionChainError,
+  migrateTemplateDocument,
   resolveTemplateById,
+  resolveTemplateUpgrade,
   resolveTemplateVersion,
   templateCatalog,
   templateManifestSchema,
@@ -13,8 +17,8 @@ import {
 } from "../src/index.js";
 
 describe("template registry", () => {
-  it("registers four immutable schema-valid template fixtures", () => {
-    expect(templateRegistry).toHaveLength(4);
+  it("registers five immutable schema-valid template versions", () => {
+    expect(templateRegistry).toHaveLength(5);
     expect(Object.isFrozen(templateRegistry)).toBe(true);
 
     for (const manifest of templateRegistry) {
@@ -35,13 +39,16 @@ describe("template registry", () => {
       ["standard-v1", "fixture"],
       ["standard-v1", "fixture"],
       ["little-blessings-v1", "production"],
+      ["little-blessings-v2", "production"],
     ]);
 
     expect(resolveTemplateById("little-blessings")).toMatchObject({
       listing: { occasion: "Christening", name: "Little Blessings" },
       qualityStatus: "production",
-      rendererKey: "little-blessings-v1",
+      rendererKey: "little-blessings-v2",
       schemaVersion: 1,
+      supersedesTemplateVersionId: "40000000-0000-4000-8000-000000000004",
+      version: 2,
     });
   });
 
@@ -190,5 +197,54 @@ describe("template registry", () => {
       "Ninong and ninang",
       "Our guests",
     ]);
+  });
+
+  it("selects the latest stable version while retaining immutable version lookup", () => {
+    const latest = resolveTemplateById("little-blessings");
+    const previous = resolveTemplateVersion("40000000-0000-4000-8000-000000000004");
+
+    expect(latest.version).toBe(2);
+    expect(latest.templateVersionId).not.toBe(previous.templateVersionId);
+    expect(resolveTemplateUpgrade(previous.templateVersionId)).toBe(latest);
+    expect(resolveTemplateUpgrade(latest.templateVersionId)).toBeNull();
+    expect(templateCatalog.filter((template) => template.id === "little-blessings")).toHaveLength(
+      1,
+    );
+  });
+
+  it("migrates only the version pin and preserves every creator-owned field", () => {
+    const latest = resolveTemplateById("little-blessings");
+    const previous = resolveTemplateVersion("40000000-0000-4000-8000-000000000004");
+    const customized = structuredClone(templateStarterDocument(previous));
+    const hero = customized.sections.find((section) => section.type === "hero");
+    const gallery = customized.sections.find((section) => section.type === "gallery");
+
+    if (!hero || !gallery) throw new Error("Little Blessings sections are required");
+    hero.props.title = "A creator's saved child name";
+    gallery.props.heading = "Creator-owned album heading";
+
+    const migrated = migrateTemplateDocument(customized, latest.templateVersionId);
+
+    expect(migrated).not.toBe(customized);
+    expect(migrated.templateVersionId).toBe(latest.templateVersionId);
+    expect({ ...migrated, templateVersionId: previous.templateVersionId }).toEqual(customized);
+    expect(() => migrateTemplateDocument(migrated, previous.templateVersionId)).toThrow(
+      InvalidTemplateUpgradeError,
+    );
+  });
+
+  it("rejects orphaned or cross-family version chains", () => {
+    const latest = resolveTemplateById("little-blessings");
+    expect(() => createTemplateRegistry([latest])).toThrow(InvalidTemplateVersionChainError);
+
+    expect(() =>
+      createTemplateRegistry([
+        resolveTemplateById("garden-promise"),
+        {
+          ...latest,
+          supersedesTemplateVersionId: resolveTemplateById("garden-promise").templateVersionId,
+        },
+      ]),
+    ).toThrow(InvalidTemplateVersionChainError);
   });
 });

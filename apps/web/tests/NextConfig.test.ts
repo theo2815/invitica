@@ -33,7 +33,10 @@ describe("guest-lane routing", () => {
     const clientRoot = resolve(__dirname, "../../viewer/dist/client");
     if (!existsSync(clientRoot)) return;
 
-    const rewrites = (await nextConfig.rewrites?.()) ?? [];
+    // `rewrites()` may return a bare array or the phased object; this config returns the
+    // bare array, but the declared type covers both.
+    const declared = (await nextConfig.rewrites?.()) ?? [];
+    const rewrites = Array.isArray(declared) ? declared : (declared.afterFiles ?? []);
     const uncovered = readdirSync(clientRoot).filter(
       (entry) =>
         !rewrites.some(({ source }) => source === `/${entry}` || source === `/${entry}/:path*`),

@@ -22,7 +22,14 @@ vi.mock("../src/server/media/actions", () => ({
 // eight photographs, eight gift ideas, envelope, and map — beside the editor.
 // In jsdom that costs a few seconds per render and exceeded the 5 s default
 // once under full-suite load, so this file gets its own generous budget.
-vi.setConfig({ testTimeout: 30_000 });
+//
+// Raised from 30 s once the photo preview landed: every photograph and gift plate now
+// also renders a preview trigger and its dialog, so a render carries materially more
+// DOM. The file takes ~24 s for all fourteen cases on its own, and a single case
+// crossed 30 s under full-suite contention. This is a liveness bound, not a
+// performance budget — if a case ever approaches this, measure the render instead of
+// raising it again.
+vi.setConfig({ testTimeout: 60_000 });
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const littleBlessings = resolveTemplateById("little-blessings");

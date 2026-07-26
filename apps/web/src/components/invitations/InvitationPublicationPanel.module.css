@@ -84,6 +84,7 @@
   color: #8c382b;
 }
 .publishButton,
+.statusCheckButton,
 .nextStep a,
 .dialogActions button {
   display: inline-flex;
@@ -100,6 +101,13 @@
   border: 1px solid var(--accent);
   background: var(--accent);
   color: #fff;
+}
+.statusCheckButton {
+  width: fit-content;
+  padding-inline: 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
 }
 .nextStep {
   display: grid;
@@ -122,6 +130,7 @@
   color: var(--accent);
 }
 .publishButton:focus-visible,
+.statusCheckButton:focus-visible,
 .nextStep a:focus-visible,
 .dialogActions button:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
@@ -132,6 +141,10 @@
   background: var(--surface-muted);
   color: var(--muted);
   cursor: not-allowed;
+}
+.statusCheckButton:disabled {
+  color: var(--muted);
+  cursor: wait;
 }
 .dialogBackdrop {
   --surface: #fffdf8;

@@ -5,6 +5,11 @@ const publicIdentifier = "e000000000000000000000000000000e";
 const invitationPath = `/i/alexandria-and-maximiliano-${publicIdentifier}`;
 const personalizedToken = "A".repeat(43);
 const wcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+const phase4LabBudgets = {
+  cumulativeLayoutShift: 0.1,
+  feedbackLatencyMs: 200,
+  largestContentfulPaintMs: 2_500,
+};
 
 function origin(): string {
   const value = process.env.INVITICA_VIEWER_TEST_ORIGIN;
@@ -250,6 +255,176 @@ test("remains usable on a constrained 3G profile", async ({ page }, testInfo) =>
   }
 });
 
+test("keeps feedback responsive under slow 4G and mid-range CPU constraints", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-android",
+    "One Chromium mobile lane owns the Phase 4 lab budgets",
+  );
+  test.slow();
+
+  let releaseRsvp = () => {};
+  let rsvpAttempts = 0;
+  const rsvpGate = new Promise<void>((resolve) => {
+    releaseRsvp = resolve;
+  });
+
+  await page.addInitScript(() => {
+    const metrics = { cumulativeLayoutShift: 0, largestContentfulPaintMs: 0 };
+    (
+      window as Window & {
+        __inviticaPhase4Metrics?: typeof metrics;
+      }
+    ).__inviticaPhase4Metrics = metrics;
+
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        metrics.largestContentfulPaintMs = entry.startTime;
+      }
+    }).observe({ buffered: true, type: "largest-contentful-paint" });
+
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const shift = entry as PerformanceEntry & { hadRecentInput: boolean; value: number };
+        if (!shift.hadRecentInput) metrics.cumulativeLayoutShift += shift.value;
+      }
+    }).observe({ buffered: true, type: "layout-shift" });
+  });
+
+  await page.route("**/api/public/guest-context", (route) =>
+    route.fulfill({
+      body: JSON.stringify(availableGuestContext),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
+  await page.route("**/api/public/rsvp", async (route) => {
+    rsvpAttempts += 1;
+    await rsvpGate;
+    await route.fulfill({
+      body: JSON.stringify({ error: "fixture_unavailable" }),
+      contentType: "application/json",
+      status: 503,
+    });
+  });
+
+  const session = await page.context().newCDPSession(page);
+  await session.send("Network.enable");
+  await session.send("Network.emulateNetworkConditions", {
+    connectionType: "cellular4g",
+    downloadThroughput: (1_600 * 1024) / 8,
+    latency: 150,
+    offline: false,
+    uploadThroughput: (750 * 1024) / 8,
+  });
+  await session.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+
+  try {
+    await page.goto(`${origin()}${invitationPath}#g=${personalizedToken}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.locator(".gp-recipient-line strong")).toHaveText("The Santos Family", {
+      timeout: 15_000,
+    });
+    await skipOpening(page);
+    await page.getByRole("spinbutton", { name: "Guests attending" }).fill("2");
+
+    const submitButton = page.locator('button.rsvp-card__primary[type="submit"]');
+    const feedbackLatencyMs = await submitButton.evaluate(
+      (element) =>
+        new Promise<number>((resolve, reject) => {
+          const button = element as HTMLButtonElement;
+          const startedAt = performance.now();
+          const timeout = window.setTimeout(() => {
+            observer.disconnect();
+            reject(new Error("The RSVP button did not expose its saving state within one second"));
+          }, 1_000);
+          const finishWhenSaving = () => {
+            if (button.textContent?.includes("Saving response")) {
+              window.clearTimeout(timeout);
+              observer.disconnect();
+              resolve(performance.now() - startedAt);
+            }
+          };
+          const observer = new MutationObserver(finishWhenSaving);
+          observer.observe(button, { childList: true, characterData: true, subtree: true });
+          button.click();
+          finishWhenSaving();
+        }),
+    );
+
+    expect(feedbackLatencyMs).toBeLessThanOrEqual(phase4LabBudgets.feedbackLatencyMs);
+    await expect(page.getByRole("button", { name: "Saving response..." })).toBeDisabled();
+    await expect.poll(() => rsvpAttempts).toBe(1);
+
+    await submitButton.evaluate((element) => {
+      const form = element.closest("form");
+      form?.requestSubmit();
+      form?.requestSubmit();
+    });
+    await page.waitForTimeout(500);
+    expect(rsvpAttempts).toBe(1);
+
+    await expect(page.getByRole("button", { name: "Still saving..." })).toBeDisabled({
+      timeout: 9_000,
+    });
+    await expect(page.getByText(/This is taking longer than usual/)).toBeVisible();
+
+    const metrics = await page.evaluate(
+      () =>
+        (
+          window as Window & {
+            __inviticaPhase4Metrics?: {
+              cumulativeLayoutShift: number;
+              largestContentfulPaintMs: number;
+            };
+          }
+        ).__inviticaPhase4Metrics,
+    );
+    expect(metrics).toBeDefined();
+    expect(metrics?.largestContentfulPaintMs).toBeGreaterThan(0);
+    expect(metrics?.largestContentfulPaintMs).toBeLessThanOrEqual(
+      phase4LabBudgets.largestContentfulPaintMs,
+    );
+    expect(metrics?.cumulativeLayoutShift).toBeLessThanOrEqual(
+      phase4LabBudgets.cumulativeLayoutShift,
+    );
+    await testInfo.attach("phase4-lab-metrics", {
+      body: JSON.stringify(
+        {
+          budgets: phase4LabBudgets,
+          feedbackLatencyMs,
+          profile: { cpuThrottle: 4, network: "slow-4g" },
+          results: metrics,
+          rsvpAttempts,
+        },
+        null,
+        2,
+      ),
+      contentType: "application/json",
+    });
+    await assertNoHorizontalOverflow(page);
+
+    releaseRsvp();
+    await expect(page.getByRole("alert")).toHaveText(
+      "We could not confirm that your response was saved. Your answers are still here; try again safely.",
+    );
+  } finally {
+    releaseRsvp();
+    if (!page.isClosed()) {
+      await session.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+      await session.send("Network.emulateNetworkConditions", {
+        downloadThroughput: -1,
+        latency: 0,
+        offline: false,
+        uploadThroughput: -1,
+      });
+      await session.detach();
+    }
+  }
+});
+
 test("recovers when guest context and RSVP go offline", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-android", "One mobile engine proves resilience");
   let contextAttempts = 0;
@@ -302,21 +477,23 @@ test("recovers when guest context and RSVP go offline", async ({ page }, testInf
     ),
   ).toBeAttached();
 
-  await page.context().setOffline(false);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator(".gp-recipient-line strong")).toHaveText("The Santos Family");
   await skipOpening(page);
+  await page.context().setOffline(false);
+  await page.getByRole("button", { name: "Try online response again" }).press("Enter");
+  await expect(page.locator(".gp-recipient-line strong")).toHaveText("The Santos Family");
+  expect(contextAttempts).toBe(2);
   await page.getByRole("spinbutton", { name: "Guests attending" }).fill("2");
   await page
     .getByRole("textbox", { name: /Message to the hosts/ })
     .fill("Looking forward to celebrating.");
   await page.getByRole("button", { name: "Send response" }).press("Enter");
   await expect(page.getByRole("alert")).toHaveText(
-    "Your response could not be saved. Check your connection and try again.",
+    "You appear to be offline. Your answers are still here; reconnect and try again safely.",
   );
   await page.context().setOffline(false);
-  await page.getByRole("button", { name: "Send response" }).press("Enter");
+  await page.getByRole("button", { name: "Try saving again" }).press("Enter");
   await expect(page.getByRole("heading", { name: "We saved your place." })).toBeVisible();
+  expect(rsvpAttempts).toBe(2);
   expect(mutationIds).toHaveLength(2);
   expect(mutationIds[1]).toBe(mutationIds[0]);
   await assertNoHorizontalOverflow(page);

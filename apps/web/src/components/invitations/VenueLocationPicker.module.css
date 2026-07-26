@@ -152,9 +152,18 @@
   justify-self: start;
 }
 
+.mapToggle:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .mapPanel {
   display: grid;
   gap: 0.35rem;
+}
+
+.canvasShell {
+  position: relative;
 }
 
 .canvas {
@@ -162,6 +171,21 @@
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   background: var(--surface-muted);
+}
+
+.mapFeedback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  margin: 0;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 680;
+  line-height: 1.5;
+  text-align: center;
+  place-items: center;
 }
 
 .canvas:focus-visible {

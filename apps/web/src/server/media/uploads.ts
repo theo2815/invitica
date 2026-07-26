@@ -51,6 +51,10 @@ export class MediaPersistenceError extends Error {
 export interface UploadedInvitationImage {
   readonly assetId: string;
   readonly height: number;
+  readonly renditions: readonly {
+    readonly height: number;
+    readonly width: number;
+  }[];
   readonly width: number;
 }
 
@@ -120,6 +124,7 @@ export async function uploadInvitationImage(
   return {
     assetId: parsed.assetId,
     height: processed.asset.height,
+    renditions: processed.asset.renditions.map(({ height, width }) => ({ height, width })),
     width: processed.asset.width,
   };
 }

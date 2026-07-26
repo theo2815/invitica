@@ -106,21 +106,28 @@ export function GuestPartyEditor({
 
     setIsPending(true);
     setMessage(null);
-    const result = await updateGuestPartyAction({
-      capacity: normalizedCapacity,
-      expectedRevision: party.revision,
-      guestNames: normalizedGuestNames,
-      guestPartyId: party.id,
-      internalLabel: normalizedLabel,
-      invitationId,
-      recipientName: normalizedRecipient,
-    });
-    setIsPending(false);
-    if (result.status === "error") {
-      setMessage(result.message);
-      return;
+    let updated = false;
+    try {
+      const result = await updateGuestPartyAction({
+        capacity: normalizedCapacity,
+        expectedRevision: party.revision,
+        guestNames: normalizedGuestNames,
+        guestPartyId: party.id,
+        internalLabel: normalizedLabel,
+        invitationId,
+        recipientName: normalizedRecipient,
+      });
+      if (result.status === "error") {
+        setMessage(result.message);
+        return;
+      }
+      updated = true;
+    } catch {
+      setMessage("Invitica could not save this guest party. Check your connection and try again.");
+    } finally {
+      setIsPending(false);
     }
-    onUpdated();
+    if (updated) onUpdated();
   }
 
   return (
@@ -152,10 +159,15 @@ export function GuestPartyEditor({
           </button>
         </header>
 
-        <form className={styles.editPartyForm} onSubmit={(event) => void submit(event)}>
+        <form
+          aria-busy={isPending || undefined}
+          className={styles.editPartyForm}
+          onSubmit={(event) => void submit(event)}
+        >
           <label>
             <span>Guest or party name</span>
             <input
+              disabled={isPending}
               maxLength={120}
               onChange={(event) => setInternalLabel(event.currentTarget.value)}
               ref={firstFieldRef}
@@ -165,6 +177,7 @@ export function GuestPartyEditor({
           <label>
             <span>Envelope greeting</span>
             <input
+              disabled={isPending}
               maxLength={120}
               onChange={(event) => setRecipientName(event.currentTarget.value)}
               value={recipientName}
@@ -173,6 +186,7 @@ export function GuestPartyEditor({
           <label>
             <span>Seats</span>
             <input
+              disabled={isPending}
               inputMode="numeric"
               max={50}
               min={minimumCapacity}
@@ -189,6 +203,7 @@ export function GuestPartyEditor({
           <label>
             <span>Named members</span>
             <textarea
+              disabled={isPending}
               maxLength={6049}
               onChange={(event) => setGuestNames(event.currentTarget.value)}
               placeholder="One name per line, or separate names with commas"

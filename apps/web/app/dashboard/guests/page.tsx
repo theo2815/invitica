@@ -1,4 +1,3 @@
-import { CreatorShell } from "../../../src/components/dashboard/CreatorShell";
 import { GuestDesk } from "../../../src/components/guests/GuestDesk";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import {
@@ -17,7 +16,7 @@ interface GuestsPageProps {
 }
 
 export default async function GuestsPage({ searchParams }: GuestsPageProps) {
-  const { error, supabase, user, workspaceId } = await ensurePersonalWorkspace();
+  const { error, supabase, workspaceId } = await ensurePersonalWorkspace();
   const query = await searchParams;
   const requestedInvitationId =
     typeof query.invitationId === "string" ? query.invitationId : undefined;
@@ -43,7 +42,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const trashedParties = partyData[1];
 
   return (
-    <CreatorShell activePage="guests" email={user.email} metadata={user.user_metadata}>
+    <>
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>Guest desk</p>
@@ -95,6 +94,6 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
         <span>Invitica guest desk</span>
         <span>Thoughtful invitations, respectfully managed.</span>
       </footer>
-    </CreatorShell>
+    </>
   );
 }

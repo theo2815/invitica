@@ -177,6 +177,37 @@ describe("VenueLocationPicker", () => {
     expect(screen.getByText(/Tap anywhere on the map to move the pin/)).toBeDefined();
   });
 
+  it("replaces the blank map canvas with accessible loading feedback", async () => {
+    vi.useRealTimers();
+    renderPicker({ latitude: "14.5896", longitude: "120.9739" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Check the pin on the map" }));
+
+    const loadingButton = screen.getByRole("button", { name: "Loading map…" });
+    expect(loadingButton).toHaveProperty("disabled", true);
+    expect(screen.getByRole("status").textContent).toContain("Loading the interactive map");
+    expect(screen.getByRole("application").getAttribute("aria-busy")).toBe("true");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Hide map" })).toBeDefined());
+  });
+
+  it("offers an explicit retry after the map fails", async () => {
+    vi.useRealTimers();
+    mapInstance.setView.mockImplementationOnce(() => {
+      throw new Error("Map failed");
+    });
+    renderPicker();
+
+    fireEvent.click(screen.getByRole("button", { name: "Point at the map instead" }));
+
+    const retry = await screen.findByRole("button", { name: "Try loading the map again" });
+    expect(retry).toHaveProperty("disabled", false);
+    expect(screen.getByRole("status").textContent).toContain("The map could not load");
+
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Hide map" })).toBeDefined());
+  });
+
   it("moves the pin when the map is tapped", async () => {
     vi.useRealTimers();
     const onChange = renderPicker({ latitude: "14.5896", longitude: "120.9739" });

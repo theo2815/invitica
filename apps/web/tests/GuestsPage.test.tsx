@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import GuestsError from "../app/dashboard/guests/error";
@@ -71,16 +71,11 @@ describe("guests and RSVPs page", () => {
     render(await GuestsPage(pageProps()));
 
     expect(screen.getByRole("heading", { level: 1, name: "Guests & RSVPs" })).toBeDefined();
-    const desktopNavigation = screen.getByRole("navigation", { name: "Creator workspace" });
-    const guestsLink = within(desktopNavigation).getByRole("link", { name: "Guests & RSVPs" });
-    expect(guestsLink.getAttribute("href")).toBe("/dashboard/guests");
-    expect(guestsLink.getAttribute("aria-current")).toBe("page");
     expect(screen.getByText("Choose a published invitation")).toBeDefined();
     expect(screen.getByRole("link", { name: "View invitations" }).getAttribute("href")).toBe(
       "/dashboard/invitations",
     );
     expect(screen.queryByRole("button", { name: "Add guests" })).toBeNull();
-    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("loads only the requested delivered invitation context", async () => {

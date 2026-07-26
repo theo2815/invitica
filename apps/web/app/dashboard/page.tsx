@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CreatorShell, getCreatorName } from "../../src/components/dashboard/CreatorShell";
+import { getCreatorName } from "../../src/components/dashboard/CreatorShell";
 import { ArrowRight, Plus, Users } from "../../src/components/Icons";
 import { ensurePersonalWorkspace } from "../../src/server/auth/session";
 import {
@@ -90,7 +90,7 @@ export default async function DashboardPage() {
   }).length;
 
   return (
-    <CreatorShell activePage="overview" email={user.email} metadata={user.user_metadata}>
+    <>
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>Personal workspace</p>
@@ -354,6 +354,6 @@ export default async function DashboardPage() {
         <span>Invitica creator workspace</span>
         <span>Invitations, thoughtfully made.</span>
       </footer>
-    </CreatorShell>
+    </>
   );
 }

@@ -147,9 +147,11 @@ export function InteractiveMap({
   return (
     <div className="im-map">
       <button
+        aria-busy={state === "loading" || undefined}
         aria-controls={panelId}
         aria-expanded={state !== "idle"}
         className="im-toggle"
+        disabled={state === "loading"}
         onClick={toggle}
         type="button"
       >
@@ -157,20 +159,25 @@ export function InteractiveMap({
       </button>
       {state === "idle" ? null : (
         <div className="im-panel" id={panelId}>
-          <section
-            aria-label={`Map of ${label}`}
-            className="im-canvas"
-            data-state={state}
-            ref={canvasRef}
-          />
+          <div className="im-canvas-shell">
+            <section
+              aria-busy={state === "loading" || undefined}
+              aria-label={`Map of ${label}`}
+              className="im-canvas"
+              data-state={state}
+              ref={canvasRef}
+            />
+            {state === "loading" || state === "failed" ? (
+              <p aria-atomic="true" className="im-feedback" role="status">
+                {state === "loading"
+                  ? "Loading the interactive map..."
+                  : "The map could not load. Use “Get directions” instead."}
+              </p>
+            ) : null}
+          </div>
           {state === "ready" ? (
             <p className="im-notice im-hint">
               Drag to move the map, or pinch with two fingers to zoom.
-            </p>
-          ) : null}
-          {state === "failed" ? (
-            <p className="im-notice" role="status">
-              The map could not load. Use “Get directions” instead.
             </p>
           ) : null}
         </div>
@@ -188,7 +195,22 @@ export function InteractiveMap({
 export const interactiveMapStyles = `
 .im-map { display: grid; justify-items: center; gap: 0.7rem; margin-top: 0.7rem; }
 .im-panel { width: 100%; }
+.im-canvas-shell { position: relative; }
 .im-canvas { height: 15rem; }
+.im-feedback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  margin: 0;
+  padding: 1rem;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  font-size: 0.8rem;
+  font-weight: 620;
+  line-height: 1.5;
+  text-align: center;
+  place-items: center;
+}
+.im-toggle:disabled { cursor: wait; opacity: 0.65; }
 .im-notice { margin: 0.6rem 0 0; font-size: 0.8rem; }
 .im-hint { font-size: 0.72rem; }
 

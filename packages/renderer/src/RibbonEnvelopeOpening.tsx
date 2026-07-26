@@ -230,7 +230,7 @@ export function RibbonEnvelopeOpening({
   }, [openingState, shouldReduceMotion]);
 
   function openInvitation() {
-    if (openingState !== "closed") return;
+    if (!hydrated || openingState !== "closed") return;
 
     activatedRef.current = true;
     setOpeningState(shouldReduceMotion ? "opened" : "untying");
@@ -242,14 +242,16 @@ export function RibbonEnvelopeOpening({
     setOpeningState("opened");
   }
 
-  const status =
-    openingState === "closed"
+  const status = !hydrated
+    ? "Preparing invitation"
+    : openingState === "closed"
       ? "Invitation closed"
       : openingState === "opened"
         ? "Invitation opened"
         : "Opening invitation";
-  const openerLabel =
-    openingState === "closed"
+  const openerLabel = !hydrated
+    ? `Preparing invitation for ${recipient}`
+    : openingState === "closed"
       ? `Open invitation for ${recipient}`
       : openingState === "opened"
         ? `Invitation for ${recipient} opened`
@@ -279,10 +281,11 @@ export function RibbonEnvelopeOpening({
 
         <button
           aria-controls={invitationContentId}
-          aria-disabled={openingState !== "closed"}
+          aria-disabled={!hydrated || openingState !== "closed"}
           aria-expanded={openingState === "opened"}
           aria-label={openerLabel}
           className={gardenClass("scene", gardenPromise)}
+          disabled={!hydrated}
           onClick={openInvitation}
           ref={openerRef}
           type="button"
@@ -344,11 +347,13 @@ export function RibbonEnvelopeOpening({
           <strong>{recipient}</strong>
         </p>
         <p aria-hidden="true" className={gardenClass("opening-hint", gardenPromise)}>
-          {openingState === "closed"
-            ? "Tap the invitation card to open"
-            : openingState === "opened"
-              ? "Your invitation is open"
-              : "Opening invitation…"}
+          {!hydrated
+            ? "Preparing invitation…"
+            : openingState === "closed"
+              ? "Tap the invitation card to open"
+              : openingState === "opened"
+                ? "Your invitation is open"
+                : "Opening invitation…"}
         </p>
         {slowOpening && sequenceActive ? (
           <button
@@ -449,6 +454,7 @@ export const ribbonEnvelopeStyles = `
   place-items: center;
 }
 .ie-scene[aria-disabled="true"] { cursor: default; }
+.ie-scene:disabled { opacity: 1; }
 .ie-scene:focus-visible {
   outline: 3px solid var(--ie-ink);
   outline-offset: 0.45rem;

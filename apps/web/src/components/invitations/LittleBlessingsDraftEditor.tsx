@@ -12,7 +12,6 @@ import {
 import { getMapTileKey } from "../../lib/map-tile-key";
 import { saveLittleBlessingsAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
-import { listInvitationImagesAction } from "../../server/media/actions";
 import type { CreatorImageAsset } from "../../server/media/library";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
 import styles from "./LittleBlessingsDraftEditor.module.css";
@@ -526,10 +525,15 @@ export function LittleBlessingsDraftEditor({
     [assetsById],
   );
 
-  const refreshAssets = useCallback(async () => {
-    const result = await listInvitationImagesAction({ invitationId });
-    if (result.status === "loaded") setAssets(result.assets);
-  }, [invitationId]);
+  const rememberUploadedAsset = useCallback((uploadedAsset: CreatorImageAsset) => {
+    setAssets((current) => [
+      ...current.filter((candidate) => candidate.id !== uploadedAsset.id),
+      uploadedAsset,
+    ]);
+  }, []);
+  const forgetRemovedAsset = useCallback((removedAssetId: string) => {
+    setAssets((current) => current.filter((candidate) => candidate.id !== removedAssetId));
+  }, []);
 
   const fieldsAreValid = parsed.success;
   const draftIsSaved = autosave.isSaved;
@@ -754,7 +758,8 @@ export function LittleBlessingsDraftEditor({
                       imageRole="hero"
                       invitationId={invitationId}
                       label="the portrait"
-                      onAssetsChanged={refreshAssets}
+                      onAssetRemoved={forgetRemovedAsset}
+                      onAssetUploaded={rememberUploadedAsset}
                       onChange={(assetId) =>
                         edit((current) => ({
                           ...current,
@@ -1768,7 +1773,8 @@ export function LittleBlessingsDraftEditor({
                             imageRole="gallery"
                             invitationId={invitationId}
                             label={`photograph ${index + 1}`}
-                            onAssetsChanged={refreshAssets}
+                            onAssetRemoved={forgetRemovedAsset}
+                            onAssetUploaded={rememberUploadedAsset}
                             onChange={(assetId) => {
                               if (!assetId) return;
                               edit((current) => ({
@@ -1840,7 +1846,8 @@ export function LittleBlessingsDraftEditor({
                             },
                           }))
                         }
-                        onAssetsChanged={refreshAssets}
+                        onAssetRemoved={forgetRemovedAsset}
+                        onAssetUploaded={rememberUploadedAsset}
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
@@ -2057,7 +2064,8 @@ export function LittleBlessingsDraftEditor({
                             imageRole="gift"
                             invitationId={invitationId}
                             label={`the picture for ${item.name || `gift idea ${index + 1}`}`}
-                            onAssetsChanged={refreshAssets}
+                            onAssetRemoved={forgetRemovedAsset}
+                            onAssetUploaded={rememberUploadedAsset}
                             onChange={(assetId) =>
                               edit((current) => ({
                                 ...current,
@@ -2297,7 +2305,8 @@ interface GalleryPhotoAdderProps {
   atLimit: boolean;
   invitationId: string;
   onAdded: (assetId: string) => void;
-  onAssetsChanged: () => Promise<void>;
+  onAssetRemoved: (assetId: string) => void;
+  onAssetUploaded: (asset: CreatorImageAsset) => void;
 }
 
 /**
@@ -2308,7 +2317,8 @@ function GalleryPhotoAdder({
   atLimit,
   invitationId,
   onAdded,
-  onAssetsChanged,
+  onAssetRemoved,
+  onAssetUploaded,
 }: GalleryPhotoAdderProps) {
   if (atLimit) {
     return <p className={styles.fieldHint}>The album holds {MAX_PHOTOS} photographs.</p>;
@@ -2321,7 +2331,8 @@ function GalleryPhotoAdder({
       imageRole="gallery"
       invitationId={invitationId}
       label="a photograph"
-      onAssetsChanged={onAssetsChanged}
+      onAssetRemoved={onAssetRemoved}
+      onAssetUploaded={onAssetUploaded}
       onChange={(assetId) => {
         if (assetId) onAdded(assetId);
       }}

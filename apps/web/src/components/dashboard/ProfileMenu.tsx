@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { signOut } from "../../server/auth/actions";
+import { PendingFormButton } from "../feedback/PendingFormButton";
 import { ChevronDown, LogOut, Settings } from "../Icons";
 import styles from "./ProfileMenu.module.css";
 
@@ -87,14 +88,23 @@ export function ProfileMenu({ creatorName, email, variant }: ProfileMenuProps) {
             <small>Coming soon</small>
           </button>
           <form action={signOut}>
-            <button
+            <PendingFormButton
               className={`${styles.menuAction} ${styles.signOut}`}
+              idleContent={
+                <>
+                  <LogOut />
+                  <span>Sign out</span>
+                </>
+              }
+              pendingContent={
+                <>
+                  <LogOut />
+                  <span>Signing out…</span>
+                </>
+              }
               ref={signOutRef}
               type="submit"
-            >
-              <LogOut />
-              <span>Sign out</span>
-            </button>
+            />
           </form>
         </div>
       ) : null}

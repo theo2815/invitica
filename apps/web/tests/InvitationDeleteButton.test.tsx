@@ -55,4 +55,25 @@ describe("invitation delete button", () => {
       invitationId: "71000000-0000-4000-8000-000000000001",
     });
   });
+
+  it("recovers when the deletion request is rejected", async () => {
+    vi.mocked(deleteInvitationAction).mockRejectedValue(new Error("Network unavailable"));
+    render(
+      <InvitationDeleteButton
+        invitationId="71000000-0000-4000-8000-000000000001"
+        title="Mara & Joaquin"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("Check your connection"),
+    );
+    expect(screen.getByRole("button", { name: "Delete permanently" })).toHaveProperty(
+      "disabled",
+      false,
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
 });

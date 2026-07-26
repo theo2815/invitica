@@ -1,0 +1,168 @@
+.skeleton {
+  display: grid;
+  min-height: 34rem;
+  align-content: start;
+  gap: 1.25rem;
+}
+
+.skeletonHeader,
+.skeletonPanel,
+.skeletonCards > span {
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  background: color-mix(in srgb, var(--surface) 64%, var(--background));
+}
+
+.skeletonHeader {
+  display: grid;
+  min-height: 7rem;
+  align-content: end;
+  gap: 0.7rem;
+  padding-bottom: 1.25rem;
+  border-width: 0 0 1px;
+  background: transparent;
+}
+
+.skeletonHeader span,
+.skeletonPanel::before,
+.skeletonPanel::after {
+  display: block;
+  border-radius: 0.2rem;
+  background: var(--surface-muted);
+  content: "";
+}
+
+.skeletonHeader span:first-child {
+  width: 5.5rem;
+  height: 0.65rem;
+}
+
+.skeletonHeader span:nth-child(2) {
+  width: min(22rem, 72%);
+  height: 2.25rem;
+}
+
+.skeletonHeader span:last-child {
+  width: min(34rem, 90%);
+  height: 0.8rem;
+}
+
+.skeletonPanel {
+  min-height: 12rem;
+  padding: 1.5rem;
+  border-radius: 0.55rem;
+}
+
+.skeletonPanel::before {
+  width: 42%;
+  height: 1rem;
+}
+
+.skeletonPanel::after {
+  width: 74%;
+  height: 0.75rem;
+  margin-top: 1rem;
+}
+
+.skeletonCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.skeletonCards > span {
+  min-height: 9rem;
+  border-radius: 0.55rem;
+}
+
+.skeleton[data-variant="editor"] .skeletonPanel,
+.skeleton[data-variant="guests"] .skeletonPanel {
+  min-height: 20rem;
+}
+
+.skeleton[data-variant="templates"] .skeletonCards > span {
+  min-height: 16rem;
+}
+
+.error {
+  display: grid;
+  min-height: min(34rem, 70dvh);
+  align-content: center;
+  justify-items: start;
+  gap: 0.8rem;
+  max-width: 38rem;
+}
+
+.error p,
+.error h1 {
+  margin: 0;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.error h1 {
+  max-width: 22ch;
+  font-family: var(--display-font);
+  font-size: clamp(2rem, 5vw, 3.75rem);
+  font-weight: 520;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.description {
+  max-width: 54ch;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.error button {
+  min-height: 2.75rem;
+  margin-top: 0.35rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: #fffaf6;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.error button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .skeleton {
+    min-height: 27rem;
+  }
+
+  .skeletonCards {
+    grid-template-columns: 1fr;
+  }
+
+  .skeletonCards > span:not(:first-child) {
+    display: none;
+  }
+
+  .error {
+    min-height: 28rem;
+  }
+}

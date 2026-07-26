@@ -534,6 +534,7 @@
 }
 
 .imageStatus {
+  min-height: 2.7em;
   margin: 0;
   color: var(--muted);
   font-size: 0.6rem;
@@ -542,6 +543,14 @@
 
 .imageStatus[data-kind="error"] {
   color: #8c382b;
+}
+
+.imageStatus[data-kind="success"] {
+  color: #3f613d;
+}
+
+.imageStatus[data-kind="warning"] {
+  color: #76521f;
 }
 
 /* Preview ----------------------------------------------------------------- */

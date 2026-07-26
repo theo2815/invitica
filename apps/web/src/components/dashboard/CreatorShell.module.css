@@ -54,11 +54,8 @@
 
 .navItem,
 .activeNavItem {
-  display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr);
-  align-items: center;
+  display: block;
   min-height: 2.85rem;
-  padding-inline: 0.8rem;
   border-radius: 0.35rem;
   color: var(--muted);
   font-size: 0.82rem;
@@ -69,10 +66,28 @@
     color 160ms ease;
 }
 
-.navItem svg,
-.activeNavItem svg {
+.navLinkContent {
+  display: grid;
+  min-height: 2.85rem;
+  grid-template-columns: 1.25rem minmax(0, 1fr) 0.75rem;
+  align-items: center;
+  gap: 0.05rem;
+  padding-inline: 0.8rem 0.55rem;
+}
+
+.navLinkContent svg,
+.mobileNavContent svg {
   width: 1.15rem;
   height: 1.15rem;
+}
+
+.pendingMark {
+  display: inline-grid;
+  width: 0.75rem;
+  color: var(--accent);
+  font-size: 1rem;
+  line-height: 1;
+  place-items: center;
 }
 
 .navItem:hover {
@@ -112,6 +127,16 @@
 
 .content:focus {
   outline: none;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
@@ -160,16 +185,35 @@
   }
 
   .mobileNavigation a {
-    display: flex;
+    display: block;
     min-height: 4.5rem;
-    flex-direction: column;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .mobileNavContent {
+    display: grid;
+    min-height: 4.5rem;
+    grid-template-rows: 1.2rem auto;
+    grid-template-columns: minmax(0, 1fr) 0.65rem;
     align-items: center;
     justify-content: center;
     gap: 0.3rem;
-    color: var(--muted);
     font-size: 0.62rem;
     font-weight: 700;
-    text-decoration: none;
+  }
+
+  .mobileNavContent svg {
+    grid-column: 1 / -1;
+  }
+
+  .mobileNavContent > span:nth-child(2) {
+    justify-self: end;
+  }
+
+  .mobileNavContent .pendingMark {
+    width: 0.65rem;
+    justify-self: start;
   }
 
   .mobileNavigation a[aria-current="page"] {

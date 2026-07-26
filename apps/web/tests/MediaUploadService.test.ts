@@ -58,7 +58,16 @@ describe("uploadInvitationImage", () => {
       role: "hero",
     });
 
-    expect(result).toEqual({ assetId, height: 900, width: 1200 });
+    expect(result).toMatchObject({
+      assetId,
+      height: 900,
+      renditions: [
+        { height: 240, width: 320 },
+        { height: 480, width: 640 },
+        { height: 720, width: 960 },
+      ],
+      width: 1200,
+    });
     expect(store.puts).toContain(`media/originals/v1/${assetId}.jpg`);
     expect(store.puts.some((key) => key.startsWith(`media/renditions/v1/${assetId}/`))).toBe(true);
     expect(rpc).toHaveBeenCalledWith(

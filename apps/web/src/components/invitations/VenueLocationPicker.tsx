@@ -346,7 +346,9 @@ export function VenueLocationPicker({
       </div>
 
       <button
+        aria-busy={mapState === "loading" || undefined}
         className={styles.mapToggle}
+        disabled={mapState === "loading"}
         onClick={() => {
           if (mapState === "ready") {
             mapRef.current?.remove();
@@ -363,33 +365,40 @@ export function VenueLocationPicker({
           ? "Hide map"
           : mapState === "loading"
             ? "Loading map…"
-            : hasLocation
-              ? "Check the pin on the map"
-              : "Point at the map instead"}
+            : mapState === "failed"
+              ? "Try loading the map again"
+              : hasLocation
+                ? "Check the pin on the map"
+                : "Point at the map instead"}
       </button>
 
       {mapState === "hidden" ? null : (
         <div className={styles.mapPanel}>
           <style>{mapStyles}</style>
-          <div
-            aria-label={
-              venueName
-                ? `Map for ${venueName}. Tap to place the pin.`
-                : "Map. Tap to place the pin."
-            }
-            className={styles.canvas}
-            data-state={mapState}
-            ref={canvasRef}
-            role="application"
-          />
+          <div className={styles.canvasShell}>
+            <div
+              aria-busy={mapState === "loading" || undefined}
+              aria-label={
+                venueName
+                  ? `Map for ${venueName}. Tap to place the pin.`
+                  : "Map. Tap to place the pin."
+              }
+              className={styles.canvas}
+              data-state={mapState}
+              ref={canvasRef}
+              role="application"
+            />
+            {mapState === "loading" || mapState === "failed" ? (
+              <p aria-atomic="true" className={styles.mapFeedback} role="status">
+                {mapState === "loading"
+                  ? "Loading the interactive map…"
+                  : "The map could not load. Search for the venue above instead."}
+              </p>
+            ) : null}
+          </div>
           {mapState === "ready" ? (
             <p className={styles.mapHint}>
               Tap anywhere on the map to move the pin. Searching for the venue above also sets it.
-            </p>
-          ) : null}
-          {mapState === "failed" ? (
-            <p className={styles.mapHint} role="status">
-              The map could not load. Search for the venue above instead.
             </p>
           ) : null}
         </div>

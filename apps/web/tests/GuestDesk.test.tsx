@@ -229,6 +229,16 @@ describe("GuestDesk", () => {
     expect((fallback as HTMLTextAreaElement).value).toContain(invitation.genericUrl);
   });
 
+  it("offers manual copy when the Clipboard API is unavailable", async () => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Copy general invitation" }));
+
+    expect(
+      await screen.findByRole("textbox", { name: "General invitation message" }),
+    ).toHaveProperty("value", expect.stringContaining(invitation.genericUrl));
+  });
+
   it("edits the complete party while preserving link and response state", async () => {
     vi.mocked(updateGuestPartyAction).mockResolvedValue({ status: "updated" });
     renderDesk([party()]);
@@ -273,6 +283,22 @@ describe("GuestDesk", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add guests" }));
   });
 
+  it("re-enables the add-guests composer after a rejected request", async () => {
+    vi.mocked(createGuestPartiesAction).mockRejectedValue(new Error("Network unavailable"));
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Add guests" }));
+    const nameField = screen.getByLabelText("Guest or party name");
+    fireEvent.change(nameField, { target: { value: "John Cruz" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create 1 party" }));
+
+    await screen.findByText(/could not create these guest parties/i);
+    expect(nameField).toHaveProperty("disabled", false);
+    expect(screen.getByRole("button", { name: "Create 1 party" })).toHaveProperty(
+      "disabled",
+      false,
+    );
+  });
+
   it("moves a party to reversible trash and restores it", async () => {
     vi.mocked(trashGuestPartyAction).mockResolvedValue({ status: "trashed" });
     vi.mocked(restoreGuestPartyAction).mockResolvedValue({ status: "restored" });
@@ -301,6 +327,16 @@ describe("GuestDesk", () => {
     await waitFor(() => expect(restoreGuestPartyAction).toHaveBeenCalledOnce());
   });
 
+  it("re-enables restore after a rejected request", async () => {
+    vi.mocked(restoreGuestPartyAction).mockRejectedValue(new Error("Network unavailable"));
+    renderDesk([], [party({ archivedAt: "2026-07-23T08:00:00+08:00", revision: 2 })]);
+    fireEvent.click(screen.getByText("Recently deleted (1)"));
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+
+    await screen.findByText(/could not restore this guest party/i);
+    expect(screen.getByRole("button", { name: "Restore" })).toHaveProperty("disabled", false);
+  });
+
   it("replaces an active link only after confirmation and copies the new message", async () => {
     const replacement = `${invitation.genericUrl}#g=${"B".repeat(43)}`;
     vi.mocked(replaceGuestPartyLinkAction).mockResolvedValue({
@@ -318,6 +354,18 @@ describe("GuestDesk", () => {
     );
     await waitFor(() => expect(replaceGuestPartyLinkAction).toHaveBeenCalledOnce());
     expect(writeText).toHaveBeenCalledWith(`Ready\n${replacement}`);
+  });
+
+  it("keeps a confirmation recoverable after a rejected guest action", async () => {
+    vi.mocked(trashGuestPartyAction).mockRejectedValue(new Error("Network unavailable"));
+    renderDesk([party()]);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Santos household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move party to trash" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move to trash" }));
+
+    await screen.findByText(/could not complete this guest action/i);
+    expect(screen.getByRole("dialog")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Move to trash" })).toHaveProperty("disabled", false);
   });
 
   // Copy invitation used to resolve its token after the click, which cost several
@@ -500,6 +548,28 @@ describe("GuestDesk", () => {
     await waitFor(() =>
       expect(screen.getByText("That could not be saved. Refresh and try again.")).toBeDefined(),
     );
+  });
+
+  it("re-enables the sent control after a rejected request", async () => {
+    vi.mocked(setGuestInvitationSentAction).mockRejectedValue(new Error("Network unavailable"));
+    renderDesk([party()]);
+    const checkbox = screen.getByRole("checkbox", { name: /I have sent this/ });
+    fireEvent.click(checkbox);
+
+    await screen.findByText(/could not update the sent status/i);
+    expect(checkbox).toHaveProperty("disabled", false);
+  });
+
+  it("re-enables guest editing after a rejected request", async () => {
+    vi.mocked(updateGuestPartyAction).mockRejectedValue(new Error("Network unavailable"));
+    renderDesk([party()]);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Santos household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Santos household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await screen.findByText(/could not save this guest party/i);
+    expect(screen.getByLabelText("Guest or party name")).toHaveProperty("disabled", false);
+    expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false);
   });
 
   it("keeps search and response filtering on the real party ledger", () => {

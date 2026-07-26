@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { deleteInvitationAction } from "../../server/invitations/actions";
 import styles from "./InvitationDeleteButton.module.css";
@@ -16,6 +16,7 @@ export function InvitationDeleteButton({ invitationId, title }: InvitationDelete
   const [dialogOpen, setDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, startRefresh] = useTransition();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -40,24 +41,35 @@ export function InvitationDeleteButton({ invitationId, title }: InvitationDelete
   }
 
   async function confirmDeletion() {
+    if (isDeleting || isRefreshing) return;
+
     setErrorMessage(null);
     setIsDeleting(true);
-    const result = await deleteInvitationAction({ invitationId });
-    setIsDeleting(false);
+    try {
+      const result = await deleteInvitationAction({ invitationId });
 
-    if (result.status === "deleted") {
-      setDialogOpen(false);
-      router.refresh();
-      return;
+      if (result.status === "deleted") {
+        setDialogOpen(false);
+        startRefresh(() => router.refresh());
+        return;
+      }
+
+      setErrorMessage(result.message);
+    } catch {
+      setErrorMessage(
+        "Invitica could not delete this invitation. Check your connection and try again.",
+      );
+    } finally {
+      setIsDeleting(false);
     }
-
-    setErrorMessage(result.message);
   }
 
   return (
     <>
       <button
+        aria-busy={isRefreshing || undefined}
         className={styles.deleteButton}
+        disabled={isRefreshing}
         onClick={() => {
           setErrorMessage(null);
           setDialogOpen(true);
@@ -65,7 +77,7 @@ export function InvitationDeleteButton({ invitationId, title }: InvitationDelete
         ref={deleteButtonRef}
         type="button"
       >
-        Delete
+        {isRefreshing ? "Updating…" : "Delete"}
       </button>
 
       {dialogOpen ? (
@@ -73,6 +85,7 @@ export function InvitationDeleteButton({ invitationId, title }: InvitationDelete
           <section
             aria-describedby="delete-invitation-description"
             aria-labelledby="delete-invitation-title"
+            aria-busy={isDeleting || undefined}
             aria-modal="true"
             className={styles.dialog}
             role="dialog"

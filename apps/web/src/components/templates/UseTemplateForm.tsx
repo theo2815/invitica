@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 
 import { createInvitationDraftAction } from "../../server/invitations/actions";
+import { PendingFormButton } from "../feedback/PendingFormButton";
 import styles from "./UseTemplateForm.module.css";
 
 interface UseTemplateFormProps {
@@ -45,6 +46,7 @@ export function UseTemplateForm({
   return (
     <form
       action={formAction}
+      aria-busy={pending || undefined}
       className={`${styles.creationForm} ${confirmingReuse ? styles.creationFormExpanded : ""}`}
       data-variant={variant}
     >
@@ -70,11 +72,25 @@ export function UseTemplateForm({
             for a different event?
           </p>
           <div>
-            <button ref={confirmButtonRef} type="submit">
-              Create another
-            </button>
-            <Link href="/dashboard/invitations">View invitations</Link>
-            <button onClick={() => setConfirmingReuse(false)} type="button">
+            <PendingFormButton
+              idleContent="Create another"
+              pendingContent="Creating draft…"
+              ref={confirmButtonRef}
+              type="submit"
+            />
+            <Link
+              href="/dashboard/invitations"
+              {...(pending
+                ? {
+                    "aria-disabled": true,
+                    onClick: (event: React.MouseEvent<HTMLAnchorElement>) => event.preventDefault(),
+                    tabIndex: -1,
+                  }
+                : {})}
+            >
+              View invitations
+            </Link>
+            <button disabled={pending} onClick={() => setConfirmingReuse(false)} type="button">
               Not now
             </button>
           </div>

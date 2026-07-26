@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CreatorShell } from "../../../../src/components/dashboard/CreatorShell";
 import { InvitationDraftEditor } from "../../../../src/components/invitations/InvitationDraftEditor";
 import { LittleBlessingsDraftEditor } from "../../../../src/components/invitations/LittleBlessingsDraftEditor";
 import { LITTLE_BLESSINGS_TEMPLATE_VERSION_ID } from "../../../../src/lib/invitations/little-blessings-details";
@@ -17,7 +16,7 @@ interface InvitationDraftPageProps {
 
 export default async function InvitationDraftPage({ params }: InvitationDraftPageProps) {
   const { invitationId } = await params;
-  const { error: workspaceError, supabase, user, workspaceId } = await ensurePersonalWorkspace();
+  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
 
   if (workspaceError || !workspaceId) {
     throw new Error("The creator workspace is unavailable.");
@@ -42,7 +41,7 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
     : [];
 
   return (
-    <CreatorShell activePage="invitations" email={user.email} metadata={user.user_metadata}>
+    <>
       <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
         <Link href="/dashboard/invitations">Invitations</Link>
         <span aria-hidden="true">/</span>
@@ -82,6 +81,6 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
           rendererKey={draft.manifest.rendererKey}
         />
       )}
-    </CreatorShell>
+    </>
   );
 }

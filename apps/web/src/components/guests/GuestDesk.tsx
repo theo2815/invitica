@@ -103,6 +103,12 @@ function confirmationCopy(confirmation: Exclude<Confirmation, null>): {
   };
 }
 
+function confirmationPendingLabel(confirmation: Exclude<Confirmation, null>): string {
+  if (confirmation.kind === "trash") return "Moving to trash…";
+  if (confirmation.kind === "revoke") return "Revoking link…";
+  return confirmation.party.linkStatus === "active" ? "Replacing link…" : "Creating link…";
+}
+
 export function GuestDesk({
   invitations,
   parties,
@@ -115,6 +121,7 @@ export function GuestDesk({
   // mounted, which does not re-trigger `loading.tsx`. Without this transition the click
   // produced no feedback at all for the whole server round trip.
   const [isSelecting, startSelecting] = useTransition();
+  const [isRefreshing, startRefreshing] = useTransition();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [copyFallback, setCopyFallback] = useState<CopyFallback>(null);
@@ -125,6 +132,7 @@ export function GuestDesk({
   const [createOpen, setCreateOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<GuestPartySummary | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [restoringPartyId, setRestoringPartyId] = useState<string | null>(null);
   const [openPartyMenuId, setOpenPartyMenuId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [responseFilter, setResponseFilter] = useState<
@@ -215,13 +223,22 @@ export function GuestDesk({
    * rejects the write, which is why copying used to land in the manual box on iOS.
    */
   const writeCopyNow = useCallback(
-    (text: string, target: string, fallbackLabel: string) => {
+    (text: string, target: string, fallbackLabel: string): Promise<void> => {
       setCopyFeedback(null);
       setCopyFallback(null);
-      navigator.clipboard.writeText(text).then(
-        () => copySucceeded(target),
-        () => copyFailed(text, target, fallbackLabel),
-      );
+      if (!navigator.clipboard?.writeText) {
+        copyFailed(text, target, fallbackLabel);
+        return Promise.resolve();
+      }
+      try {
+        return navigator.clipboard.writeText(text).then(
+          () => copySucceeded(target),
+          () => copyFailed(text, target, fallbackLabel),
+        );
+      } catch {
+        copyFailed(text, target, fallbackLabel);
+        return Promise.resolve();
+      }
     },
     [copyFailed, copySucceeded],
   );
@@ -231,6 +248,7 @@ export function GuestDesk({
     setCopyFeedback(null);
     setCopyFallback(null);
     try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(text);
       copySucceeded(target);
     } catch {
@@ -251,19 +269,23 @@ export function GuestDesk({
     let cancelled = false;
 
     void (async () => {
-      const result = await prepareGuestInvitationCopiesAction({
-        guestPartyIds: activePartyIds.split(","),
-        invitationId,
-      });
-      if (cancelled || result.status === "error") return;
-      setPreparedCopies(
-        new Map(
-          result.copies.map((copy) => [
-            copy.guestPartyId,
-            { copyText: copy.copyText, personalizedUrl: copy.personalizedUrl },
-          ]),
-        ),
-      );
+      try {
+        const result = await prepareGuestInvitationCopiesAction({
+          guestPartyIds: activePartyIds.split(","),
+          invitationId,
+        });
+        if (cancelled || result.status === "error") return;
+        setPreparedCopies(
+          new Map(
+            result.copies.map((copy) => [
+              copy.guestPartyId,
+              { copyText: copy.copyText, personalizedUrl: copy.personalizedUrl },
+            ]),
+          ),
+        );
+      } catch {
+        // Copy preparation is an optional acceleration. The click path remains available.
+      }
     })();
 
     return () => {
@@ -272,17 +294,19 @@ export function GuestDesk({
   }, [activePartyIds, invitationId]);
 
   function copyGeneralInvitation() {
-    if (!selectedInvitation) return;
+    if (!selectedInvitation || copyingPartyId) return;
     setActionMessage(null);
-    writeCopyNow(
+    setCopyingPartyId("general");
+    void writeCopyNow(
       buildGeneralInvitationMessage(selectedInvitation.title, selectedInvitation.genericUrl),
       "general",
       "General invitation message",
-    );
+    ).finally(() => setCopyingPartyId(null));
   }
 
   async function copyPersonalInvitation(party: GuestPartySummary) {
     if (!selectedInvitation) return;
+    if (copyingPartyId) return;
     if (party.linkStatus !== "active") {
       requestConfirmation(party, "replace", partyMenuButtonRefs.current.get(party.id));
       return;
@@ -291,27 +315,39 @@ export function GuestDesk({
 
     const prepared = preparedCopies.get(party.id);
     if (prepared) {
-      writeCopyNow(prepared.copyText, party.id, `Invitation message for ${party.internalLabel}`);
+      setCopyingPartyId(party.id);
+      void writeCopyNow(
+        prepared.copyText,
+        party.id,
+        `Invitation message for ${party.internalLabel}`,
+      ).finally(() => setCopyingPartyId(null));
       trackCopy(party.id);
       return;
     }
 
     setCopyingPartyId(party.id);
-    const result = await copyGuestInvitationAction({
-      guestPartyId: party.id,
-      invitationId: selectedInvitation.invitationId,
-    });
-    setCopyingPartyId(null);
-    if (result.status === "error") {
-      setActionMessage(result.message);
-      return;
+    try {
+      const result = await copyGuestInvitationAction({
+        guestPartyId: party.id,
+        invitationId: selectedInvitation.invitationId,
+      });
+      if (result.status === "error") {
+        setActionMessage(result.message);
+        return;
+      }
+      await writeCopyAfterAwait(
+        result.copyText,
+        party.id,
+        `Invitation message for ${party.internalLabel}`,
+      );
+      trackCopy(party.id);
+    } catch {
+      setActionMessage(
+        "Invitica could not prepare this invitation message. Check your connection and try again.",
+      );
+    } finally {
+      setCopyingPartyId(null);
     }
-    await writeCopyAfterAwait(
-      result.copyText,
-      party.id,
-      `Invitation message for ${party.internalLabel}`,
-    );
-    trackCopy(party.id);
   }
 
   /**
@@ -320,26 +356,42 @@ export function GuestDesk({
    * never be reported as one. Losing a count beats a false alarm.
    */
   function trackCopy(guestPartyId: string) {
-    void recordGuestInvitationCopyAction({ guestPartyId }).then((result) => {
-      if (result.status === "recorded") router.refresh();
-    });
+    void recordGuestInvitationCopyAction({ guestPartyId })
+      .then((result) => {
+        if (result.status === "recorded") refreshDesk();
+      })
+      .catch(() => undefined);
+  }
+
+  function refreshDesk() {
+    setOpenPartyMenuId(null);
+    startRefreshing(() => router.refresh());
   }
 
   async function toggleSent(party: GuestPartySummary, sent: boolean) {
+    if (sendingPartyId || isRefreshing) return;
+
     setSendingPartyId(party.id);
     setActionMessage(null);
-    const result = await setGuestInvitationSentAction({ guestPartyId: party.id, sent });
-    setSendingPartyId(null);
-    if (result.status === "error") {
-      setActionMessage(result.message);
-      return;
+    try {
+      const result = await setGuestInvitationSentAction({ guestPartyId: party.id, sent });
+      if (result.status === "error") {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(
+        sent
+          ? `Marked as sent to ${party.internalLabel}.`
+          : `${party.internalLabel} is no longer marked as sent.`,
+      );
+      refreshDesk();
+    } catch {
+      setActionMessage(
+        "Invitica could not update the sent status. Check your connection and try again.",
+      );
+    } finally {
+      setSendingPartyId(null);
     }
-    setActionMessage(
-      sent
-        ? `Marked as sent to ${party.internalLabel}.`
-        : `${party.internalLabel} is no longer marked as sent.`,
-    );
-    router.refresh();
   }
 
   function requestConfirmation(
@@ -361,99 +413,113 @@ export function GuestDesk({
   }
 
   async function confirmAction() {
-    if (!confirmation || !selectedInvitation) return;
+    if (!confirmation || !selectedInvitation || isPending || isRefreshing) return;
+    const pendingConfirmation = confirmation;
     setIsPending(true);
     setActionMessage(null);
 
-    if (confirmation.kind === "replace") {
-      const result = await replaceGuestPartyLinkAction({
-        guestPartyId: confirmation.party.id,
+    try {
+      if (pendingConfirmation.kind === "replace") {
+        const result = await replaceGuestPartyLinkAction({
+          guestPartyId: pendingConfirmation.party.id,
+          invitationId: selectedInvitation.invitationId,
+        });
+        if (result.status === "error") {
+          setActionMessage(result.message);
+          return;
+        }
+        const replacedParty = pendingConfirmation.party;
+        setConfirmation(null);
+        // The replacement invalidates whatever was prepared for this party, and the
+        // action already returned the message for the link it just created.
+        setPreparedCopies((current) => {
+          const next = new Map(current);
+          next.set(replacedParty.id, {
+            copyText: result.copyText,
+            personalizedUrl: result.personalizedUrl,
+          });
+          return next;
+        });
+        await writeCopyAfterAwait(
+          result.copyText,
+          replacedParty.id,
+          `Invitation message for ${replacedParty.internalLabel}`,
+        );
+        setActionMessage("A fresh private link is active. The previous link no longer works.");
+        refreshDesk();
+        partyMenuButtonRefs.current.get(replacedParty.id)?.focus();
+        return;
+      }
+
+      const confirmedParty = pendingConfirmation.party;
+      const baseInput = {
+        expectedRevision: confirmedParty.revision,
+        guestPartyId: confirmedParty.id,
         invitationId: selectedInvitation.invitationId,
-      });
-      setIsPending(false);
+      };
+      const result =
+        pendingConfirmation.kind === "revoke"
+          ? await revokeGuestPartyLinkAction({
+              guestPartyId: confirmedParty.id,
+              invitationId: selectedInvitation.invitationId,
+            })
+          : await trashGuestPartyAction(baseInput);
       if (result.status === "error") {
         setActionMessage(result.message);
         return;
       }
-      const replacedParty = confirmation.party;
+
+      const completedKind = pendingConfirmation.kind;
       setConfirmation(null);
-      // The replacement invalidates whatever was prepared for this party, and the
-      // action already returned the message for the link it just created.
+      // Both paths revoke the link, so any prepared message for it is now dead.
       setPreparedCopies((current) => {
         const next = new Map(current);
-        next.set(replacedParty.id, {
-          copyText: result.copyText,
-          personalizedUrl: result.personalizedUrl,
-        });
+        next.delete(confirmedParty.id);
         return next;
       });
-      await writeCopyAfterAwait(
-        result.copyText,
-        replacedParty.id,
-        `Invitation message for ${replacedParty.internalLabel}`,
+      setActionMessage(
+        completedKind === "revoke"
+          ? "The private link was revoked. The general invitation remains available."
+          : "The party was moved to Recently deleted and its private link was revoked.",
       );
-      setActionMessage("A fresh private link is active. The previous link no longer works.");
-      router.refresh();
-      partyMenuButtonRefs.current.get(replacedParty.id)?.focus();
-      return;
+      refreshDesk();
+      window.requestAnimationFrame(() => {
+        if (completedKind === "trash") ledgerHeadingRef.current?.focus();
+        else partyMenuButtonRefs.current.get(confirmedParty.id)?.focus();
+      });
+    } catch {
+      setActionMessage(
+        "Invitica could not complete this guest action. Check your connection and try again.",
+      );
+    } finally {
+      setIsPending(false);
     }
-
-    const confirmedParty = confirmation.party;
-    const baseInput = {
-      expectedRevision: confirmedParty.revision,
-      guestPartyId: confirmedParty.id,
-      invitationId: selectedInvitation.invitationId,
-    };
-    const result =
-      confirmation.kind === "revoke"
-        ? await revokeGuestPartyLinkAction({
-            guestPartyId: confirmedParty.id,
-            invitationId: selectedInvitation.invitationId,
-          })
-        : await trashGuestPartyAction(baseInput);
-    setIsPending(false);
-    if (result.status === "error") {
-      setActionMessage(result.message);
-      return;
-    }
-
-    const completedKind = confirmation.kind;
-    setConfirmation(null);
-    // Both paths revoke the link, so any prepared message for it is now dead.
-    setPreparedCopies((current) => {
-      const next = new Map(current);
-      next.delete(confirmedParty.id);
-      return next;
-    });
-    setActionMessage(
-      completedKind === "revoke"
-        ? "The private link was revoked. The general invitation remains available."
-        : "The party was moved to Recently deleted and its private link was revoked.",
-    );
-    router.refresh();
-    window.requestAnimationFrame(() => {
-      if (completedKind === "trash") ledgerHeadingRef.current?.focus();
-      else partyMenuButtonRefs.current.get(confirmedParty.id)?.focus();
-    });
   }
 
   async function restoreParty(party: GuestPartySummary) {
-    if (!selectedInvitation) return;
-    setIsPending(true);
+    if (!selectedInvitation || restoringPartyId || isRefreshing) return;
+    setRestoringPartyId(party.id);
     setActionMessage(null);
-    const result = await restoreGuestPartyAction({
-      expectedRevision: party.revision,
-      guestPartyId: party.id,
-      invitationId: selectedInvitation.invitationId,
-    });
-    setIsPending(false);
-    if (result.status === "error") {
-      setActionMessage(result.message);
-      return;
+    try {
+      const result = await restoreGuestPartyAction({
+        expectedRevision: party.revision,
+        guestPartyId: party.id,
+        invitationId: selectedInvitation.invitationId,
+      });
+      if (result.status === "error") {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage("The guest party was restored. Create a fresh private link when ready.");
+      refreshDesk();
+      window.requestAnimationFrame(() => ledgerHeadingRef.current?.focus());
+    } catch {
+      setActionMessage(
+        "Invitica could not restore this guest party. Check your connection and try again.",
+      );
+    } finally {
+      setRestoringPartyId(null);
     }
-    setActionMessage("The guest party was restored. Create a fresh private link when ready.");
-    router.refresh();
-    window.requestAnimationFrame(() => ledgerHeadingRef.current?.focus());
   }
 
   const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
@@ -476,7 +542,7 @@ export function GuestDesk({
     });
 
   return (
-    <div className={styles.desk}>
+    <div aria-busy={isSelecting || isRefreshing || undefined} className={styles.desk}>
       <section aria-labelledby="invitation-context-heading" className={styles.context}>
         <div>
           <p className={styles.eyebrow}>Invitation context</p>
@@ -493,7 +559,7 @@ export function GuestDesk({
           <div className={styles.invitationPickerGroup}>
             <Select
               className={styles.invitationPicker}
-              disabled={isSelecting}
+              disabled={isSelecting || isRefreshing}
               id="guest-invitation"
               label="Published invitation"
               onChange={(nextInvitationId) => {
@@ -556,11 +622,15 @@ export function GuestDesk({
             </div>
             <div className={styles.copyStack}>
               <button
+                aria-label={copyingPartyId === "general" ? "Copying general invitation" : undefined}
                 className={styles.copyInvitationButton}
+                disabled={copyingPartyId !== null || isRefreshing}
                 onClick={() => copyGeneralInvitation()}
                 type="button"
               >
-                {copyFeedback?.target === "general" && copyFeedback.status === "success" ? (
+                {copyingPartyId === "general" ? (
+                  "Copying…"
+                ) : copyFeedback?.target === "general" && copyFeedback.status === "success" ? (
                   <>
                     <Check /> Copied
                   </>
@@ -646,6 +716,7 @@ export function GuestDesk({
               <button
                 aria-label="Add guests"
                 className={styles.primaryAction}
+                disabled={isRefreshing}
                 onClick={() => {
                   setActionMessage(null);
                   setCreateOpen(true);
@@ -664,7 +735,7 @@ export function GuestDesk({
                 </span>
                 <h3>No guest parties yet</h3>
                 <p>Add one person, a family, or paste a full guest list in a single action.</p>
-                <button onClick={() => setCreateOpen(true)} type="button">
+                <button disabled={isRefreshing} onClick={() => setCreateOpen(true)} type="button">
                   Add the first guests
                 </button>
               </div>
@@ -810,7 +881,7 @@ export function GuestDesk({
                                           : `Create and copy invitation for ${party.internalLabel}`
                                   }
                                   className={`${styles.rowCopyAction} ${styles.invitationCopyAction}`}
-                                  disabled={copyingPartyId === party.id}
+                                  disabled={copyingPartyId !== null || isRefreshing}
                                   onClick={() => void copyPersonalInvitation(party)}
                                   type="button"
                                 >
@@ -832,7 +903,7 @@ export function GuestDesk({
                                 <label className={styles.sentCheck}>
                                   <input
                                     checked={party.markedSentAt !== null}
-                                    disabled={sendingPartyId === party.id}
+                                    disabled={sendingPartyId === party.id || isRefreshing}
                                     onChange={(event) =>
                                       void toggleSent(party, event.currentTarget.checked)
                                     }
@@ -871,6 +942,7 @@ export function GuestDesk({
                                   aria-haspopup="true"
                                   aria-label={`More actions for ${party.internalLabel}`}
                                   className={styles.moreAction}
+                                  disabled={isRefreshing}
                                   onClick={() =>
                                     setOpenPartyMenuId((current) =>
                                       current === party.id ? null : party.id,
@@ -967,11 +1039,11 @@ export function GuestDesk({
                       <small>{party.recipientName}</small>
                     </span>
                     <button
-                      disabled={isPending}
+                      disabled={restoringPartyId !== null || isRefreshing}
                       onClick={() => void restoreParty(party)}
                       type="button"
                     >
-                      Restore
+                      {restoringPartyId === party.id ? "Restoring…" : "Restore"}
                     </button>
                   </li>
                 ))}
@@ -982,7 +1054,7 @@ export function GuestDesk({
       ) : null}
 
       <p aria-live="polite" className={styles.status} role="status">
-        {actionMessage}
+        {confirmation ? null : actionMessage}
       </p>
 
       {createOpen && selectedInvitation ? (
@@ -997,7 +1069,7 @@ export function GuestDesk({
             setActionMessage(
               `${count} ${count === 1 ? "guest party is" : "guest parties are"} ready to share.`,
             );
-            router.refresh();
+            refreshDesk();
             window.requestAnimationFrame(() => createButtonRef.current?.focus());
           }}
           returnFocusRef={createButtonRef}
@@ -1020,7 +1092,7 @@ export function GuestDesk({
             setActionMessage(
               "The guest party was updated. Its private link and RSVP are unchanged.",
             );
-            router.refresh();
+            refreshDesk();
             window.requestAnimationFrame(() =>
               partyMenuButtonRefs.current.get(editedPartyId)?.focus(),
             );
@@ -1035,6 +1107,7 @@ export function GuestDesk({
             aria-describedby="guest-confirmation-description"
             aria-labelledby="guest-confirmation-title"
             aria-modal="true"
+            aria-busy={isPending || undefined}
             className={styles.dialog}
             ref={dialogRef}
             role="dialog"
@@ -1043,18 +1116,24 @@ export function GuestDesk({
             <p className={styles.eyebrow}>{confirmationCopy(confirmation).eyebrow}</p>
             <h2 id="guest-confirmation-title">{confirmationCopy(confirmation).title}</h2>
             <p id="guest-confirmation-description">{confirmationCopy(confirmation).description}</p>
-            {actionMessage ? <p className={styles.dialogStatus}>{actionMessage}</p> : null}
+            {actionMessage ? (
+              <p className={styles.dialogStatus} role="alert">
+                {actionMessage}
+              </p>
+            ) : null}
             <div className={styles.dialogActions}>
               <button disabled={isPending} onClick={closeConfirmation} type="button">
                 Cancel
               </button>
               <button
                 className={confirmation.kind === "replace" ? undefined : styles.confirmDanger}
-                disabled={isPending}
+                disabled={isPending || isRefreshing}
                 onClick={() => void confirmAction()}
                 type="button"
               >
-                {isPending ? "Working..." : confirmationCopy(confirmation).action}
+                {isPending
+                  ? confirmationPendingLabel(confirmation)
+                  : confirmationCopy(confirmation).action}
               </button>
             </div>
           </section>

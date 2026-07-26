@@ -57,11 +57,6 @@ describe("templates page", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeDefined();
     expect(screen.getAllByRole("article")).toHaveLength(4);
-    expect(screen.getAllByRole("link", { name: "Templates" })).toHaveLength(2);
-    expect(screen.getAllByRole("link", { name: "Templates" })[0]?.getAttribute("href")).toBe(
-      "/dashboard/templates",
-    );
-    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows the workspace failure instead of a template collection", async () => {

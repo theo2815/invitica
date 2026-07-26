@@ -18,6 +18,7 @@
   "devDependencies": {
     "@trigger.dev/build": "4.5.4",
     "@types/node": "catalog:",
+    "trigger.dev": "4.5.4",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

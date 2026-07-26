@@ -46,13 +46,23 @@ How to Run the jobs dev:
 
 ## Deploying
 
-Deploy from this directory, not the repository root. The CLI version must match the
-`@trigger.dev/sdk` version in `package.json`.
+Deploy from this directory using the CLI installed in the workspace. The bin is `trigger`,
+not `trigger.dev`.
 
 ```bash
 cd apps/jobs
-pnpm dlx trigger.dev@4.5.4 deploy
+pnpm exec trigger deploy
 ```
+
+**Do not use `pnpm dlx trigger.dev@... deploy`.** `dlx` resolves the CLI from pnpm's global
+store, which sits outside the repository, so the CLI roots its container build context at the
+common ancestor of the store and the project — the user's home directory on Windows. Every path
+inside the build then carries that prefix, and a space anywhere in it is percent-encoded and
+never decoded, so the build fails with
+`Cannot find module '/app/.../Start%20Up%20project/.../trigger.config.mjs'`. Running the
+workspace copy roots the context at the repository instead, where the relative path is a plain
+`apps/jobs/trigger.config.mjs`. The CLI is a devDependency here so its version stays pinned
+alongside `@trigger.dev/sdk`; keep the two equal, and never let `@latest` bump one alone.
 
 This targets the **production** environment. `apps/web` reaches the deployed task through
 `TRIGGER_SECRET_KEY`, so that key must belong to the same project and the same environment this

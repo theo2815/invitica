@@ -1,7 +1,8 @@
 /*
  * Creator venue picker. Deliberately plain product chrome rather than any template's art
- * direction, matching the surrounding inspector fields. Leaflet's structural rules come
- * from the renderer package's shared stylesheet; only the picker's own frame lives here.
+ * direction, matching the surrounding inspector fields. The interactive map lives in a
+ * full-screen picker; the inspector keeps only a compact summary and the trigger. Leaflet's
+ * structural rules come from the renderer package's shared stylesheet.
  */
 .picker {
   display: grid;
@@ -12,41 +13,209 @@
   background: color-mix(in srgb, var(--surface) 60%, var(--background));
 }
 
-.searchField {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.searchField label {
+.summaryHead {
   display: grid;
   gap: 0.15rem;
+}
+
+.summaryLabel {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
   color: var(--text);
   font-size: 0.72rem;
   font-weight: 760;
 }
 
-.searchField label span {
+.summaryLabel span {
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 620;
 }
 
-.searchField input {
-  width: 100%;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.65rem;
+.locationSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+}
+
+.locationSummary[data-set] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.locationSummary p {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+}
+
+.locationSummary p strong {
+  font-size: 0.74rem;
+  font-weight: 780;
+}
+
+.locationSummary p span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.locationSummary button {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.72rem;
+  font-weight: 720;
+  cursor: pointer;
 }
 
-.searchField input:focus-visible,
-.manualPair input:focus-visible {
+.openButton {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: #fffdf8;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.openButton:hover {
+  background: var(--accent-hover, #5d2632);
+}
+
+.locationSummary button:focus-visible,
+.openButton:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- full-screen picker */
+
+.backdrop {
+  /* The picker is portalled to <body>, outside the `.page` element that declares the Warm Editorial
+     tokens, so they are redeclared here. Without this the surfaces resolve to an empty `var()` and
+     the modal chrome renders transparent over the page. */
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --accent-hover: #5d2632;
+  --focus: #2457c5;
+  --display-font: "Fraunces Variable", Georgia, serif;
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  background: rgb(35 28 24 / 58%);
+  place-items: center;
+}
+
+/* One opaque, bordered card at every size — full on phones, a large centred card on desktop —
+   sharing the surface, burgundy hairline, and shadow of the other creator dialogs. */
+.dialog {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  width: 100%;
+  max-width: 60rem;
+  height: 100%;
+  max-height: 48rem;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 0.9rem;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 2rem 6rem rgb(30 24 20 / 32%);
+}
+
+.dialogHeader {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.9rem 1rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.dialogTitle {
+  margin: 0.2rem 0 0;
+  font-family: var(--display-font, "Fraunces Variable", Georgia, serif);
+  font-size: 1.25rem;
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+
+.dialogClose {
+  display: inline-grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  place-items: center;
+}
+
+.dialogClose svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.searchField {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem 1rem 0.5rem;
+}
+
+.searchLabel {
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.searchField input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
 }
 
 .searchStatus {
@@ -58,10 +227,21 @@
 }
 
 .results {
+  position: absolute;
+  top: 100%;
+  right: 1rem;
+  left: 1rem;
+  z-index: 6;
   display: grid;
   gap: 0.2rem;
+  max-height: 15rem;
   margin: 0;
-  padding: 0;
+  padding: 0.35rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  box-shadow: 0 1rem 2.5rem rgb(30 24 20 / 22%);
   list-style: none;
 }
 
@@ -69,11 +249,10 @@
   display: grid;
   gap: 0.1rem;
   width: 100%;
-  /* Two lines of text already clear 44 px; stated so it cannot regress. */
   min-height: 2.75rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -94,94 +273,59 @@
 .results button:hover,
 .results button:focus-visible {
   border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
-.results button:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 1px;
-}
-
-.locationSummary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.locationSummary p {
-  display: grid;
-  gap: 0.1rem;
-  margin: 0;
-}
-
-/* Scoped through the paragraph they actually sit in, so their specificity matches the
-   other label rules above rather than descending below them. */
-.locationSummary p strong {
-  font-size: 0.74rem;
-  font-weight: 780;
-}
-
-.locationSummary p span {
-  color: var(--muted);
-  font-size: 0.68rem;
-  overflow-wrap: anywhere;
-}
-
-.locationSummary button,
-.mapToggle {
-  min-height: 2.75rem;
-  padding: 0.5rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 740;
-  cursor: pointer;
-}
-
-.locationSummary button:focus-visible,
-.mapToggle:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 1px;
-}
-
-.mapToggle {
-  justify-self: start;
-}
-
-.mapToggle:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.mapPanel {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.canvasShell {
+.mapArea {
   position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-muted);
 }
 
 .canvas {
-  height: 15rem;
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
-  background: var(--surface-muted);
+  width: 100%;
+  height: 100%;
+}
+
+/* The centre pin sits at the map's exact centre, tip down. The map is dragged underneath it, so it
+   never intercepts pointer events. */
+.centerPin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.centerPin .im-pin-svg {
+  width: 34px;
+  height: 45px;
+}
+
+.centerPin::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  width: 10px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(41 35 31 / 28%);
+  transform: translateX(-50%);
 }
 
 .mapFeedback {
   position: absolute;
   inset: 0;
+  z-index: 3;
   display: grid;
   margin: 0;
   padding: 1rem;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 680;
   line-height: 1.5;
   text-align: center;
@@ -190,14 +334,84 @@
 
 .canvas:focus-visible {
   outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 
-.mapHint {
+.dialogFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.readout {
+  display: grid;
+  gap: 0.05rem;
   margin: 0;
+  min-width: 0;
+}
+
+/* Qualified by the footer so these match the specificity of the earlier `... strong` / `... span`
+   rules above and do not read as descending-specificity overrides. */
+.dialogFooter .readout strong {
+  font-size: 0.76rem;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.dialogFooter .readout span {
   color: var(--muted);
   font-size: 0.68rem;
 }
+
+.dialogActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.cancelButton,
+.confirmButton {
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.confirmButton {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fffdf8;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: var(--accent-hover, #5d2632);
+}
+
+.confirmButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.cancelButton:focus-visible,
+.confirmButton:focus-visible,
+.dialogClose:focus-visible,
+.searchField input:focus-visible,
+.results button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- no-key fallback */
 
 .unavailable {
   margin: 0;
@@ -229,4 +443,9 @@
   color: var(--text);
   font: inherit;
   font-size: 0.8rem;
+}
+
+.manualPair input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
 }

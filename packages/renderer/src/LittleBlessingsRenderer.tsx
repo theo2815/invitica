@@ -1969,11 +1969,8 @@ const littleBlessingsStyles = `
   padding: 0 0.5rem 0.35rem;
   color: var(--lb-muted);
 }
-.lb-root .im-marker {
-  fill: var(--lb-pearl);
-  stroke: var(--lb-rose);
-  stroke-width: 4;
-}
+.lb-root .im-pin-body { fill: var(--lb-rose); }
+.lb-root .im-pin-dot { fill: var(--lb-pearl); }
 .lb-root .leaflet-container { background: color-mix(in srgb, var(--lb-blush) 40%, #e7e2e4); }
 .lb-root .leaflet-bar {
   border: 1px solid var(--lb-hairline);

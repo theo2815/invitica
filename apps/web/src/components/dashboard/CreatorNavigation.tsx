@@ -35,18 +35,23 @@ function creatorPageFromPath(pathname: string): CreatorPage {
 
 function PendingLinkContent({ icon, label, mobileLabel, variant }: PendingLinkContentProps) {
   const { pending } = useLinkStatus();
+  const isMobile = variant === "mobile";
 
   return (
     <>
       <span
-        className={variant === "mobile" ? styles.mobileNavContent : styles.navLinkContent}
+        className={isMobile ? styles.mobileNavContent : styles.navLinkContent}
         data-pending={pending}
       >
-        {icon}
-        <span>{variant === "mobile" ? (mobileLabel ?? label) : label}</span>
-        <span aria-hidden="true" className={styles.pendingMark}>
-          {pending ? "…" : ""}
-        </span>
+        {/* Mobile has no room for an inline mark beside a stacked icon/label, so a pending route
+            swaps the tab's icon for a spinner instead. Desktop keeps the inline "…" after the label. */}
+        {isMobile && pending ? <span aria-hidden="true" className={styles.navSpinner} /> : icon}
+        <span>{isMobile ? (mobileLabel ?? label) : label}</span>
+        {isMobile ? null : (
+          <span aria-hidden="true" className={styles.pendingMark}>
+            {pending ? "…" : ""}
+          </span>
+        )}
       </span>
       <span aria-live="polite" className={styles.visuallyHidden}>
         {pending ? `Loading ${label}…` : ""}

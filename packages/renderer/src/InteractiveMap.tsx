@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
  * MapTiler raster style used for guest venue maps. Raster tiles load as plain `<img>` elements, so
  * the published Viewer only has to allow `https://api.maptiler.com` in `img-src` (ADR-006).
  */
-const MAPTILER_STYLE = "basic-v2";
+const MAPTILER_STYLE = "streets-v2";
 const DEFAULT_ZOOM = 16;
 const MAX_ZOOM = 19;
 const MIN_ZOOM = 3;
@@ -22,6 +22,18 @@ export const MAP_ATTRIBUTION =
 export function buildMapTileUrl(tileKey: string): string {
   return `https://api.maptiler.com/maps/${MAPTILER_STYLE}/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(tileKey)}`;
 }
+
+/**
+ * A teardrop venue pin as inline SVG, shared by the guest map (a Leaflet `divIcon`) and the editor's
+ * center-pin overlay. Inline markup keeps it out of the CSP `img-src` allowlist and off any external
+ * marker asset, and leaves colour to the stylesheet (`.im-pin-body` / `.im-pin-dot`) so each template
+ * can theme it. Anchored at its tip: (12, 31.25) of the 24x32 viewBox.
+ */
+export const MAP_PIN_SVG =
+  '<svg class="im-pin-svg" viewBox="0 0 24 32" aria-hidden="true" focusable="false">' +
+  '<path class="im-pin-body" d="M12 .75C5.65.75.5 5.9.5 12.25.5 20.5 12 31.25 12 31.25S23.5 20.5 23.5 12.25C23.5 5.9 18.35.75 12 .75Z"/>' +
+  '<circle class="im-pin-dot" cx="12" cy="12.25" r="4.25"/>' +
+  "</svg>";
 
 export interface InteractiveMapProps {
   latitude: number;
@@ -75,7 +87,7 @@ export function InteractiveMap({
         // rather than as statically analyzable named exports.
         const leafletModule = await import("leaflet");
         const leaflet = leafletModule.default ?? leafletModule;
-        const { circleMarker, map: createMap, tileLayer } = leaflet;
+        const { divIcon, map: createMap, marker: createMarker, tileLayer } = leaflet;
         const canvas = canvasRef.current;
         if (cancelled || !canvas) return;
 
@@ -103,12 +115,18 @@ export function InteractiveMap({
           zoomOffset: -1,
         }).addTo(instance);
 
-        // A circle marker is drawn as SVG, so the map needs no marker image asset and stays
-        // themeable from the template stylesheet.
-        circleMarker([latitude, longitude], {
-          className: "im-marker",
+        // A teardrop `divIcon` built from inline SVG: no marker image asset (so no CSP img-src
+        // entry), themeable from the template stylesheet, and a fixed pixel size that reads as a
+        // proper pin at every zoom instead of a bare dot.
+        createMarker([latitude, longitude], {
+          icon: divIcon({
+            className: "im-pin",
+            html: MAP_PIN_SVG,
+            iconAnchor: [15, 39],
+            iconSize: [30, 40],
+          }),
           interactive: false,
-          radius: 9,
+          keyboard: false,
         }).addTo(instance);
 
         mapRef.current = instance;
@@ -214,6 +232,18 @@ export const interactiveMapStyles = `
 .im-notice { margin: 0.6rem 0 0; font-size: 0.8rem; }
 .im-hint { font-size: 0.72rem; }
 
+/* Teardrop venue pin. Neutral defaults; a template themes .im-pin-body / .im-pin-dot. */
+.im-pin { pointer-events: none; }
+.im-pin-svg {
+  display: block;
+  width: 30px;
+  height: 40px;
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px rgb(41 35 31 / 32%));
+}
+.im-pin-body { fill: #7a3442; }
+.im-pin-dot { fill: #fffdf8; }
+
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
@@ -224,7 +254,9 @@ export const interactiveMapStyles = `
 .leaflet-zoom-box,
 .leaflet-image-layer,
 .leaflet-layer { position: absolute; top: 0; left: 0; }
-.leaflet-container { overflow: hidden; background: #e7e2e4; -webkit-tap-highlight-color: transparent; }
+/* isolation confines Leaflet's own z-index scale (panes 400-600, controls up to 1000) to the map's
+   own stacking context, so it can never paint over a sticky app header or fixed bottom navigation. */
+.leaflet-container { isolation: isolate; overflow: hidden; background: #e7e2e4; -webkit-tap-highlight-color: transparent; }
 .leaflet-tile,
 .leaflet-marker-icon,
 .leaflet-marker-shadow { user-select: none; -webkit-user-drag: none; }

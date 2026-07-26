@@ -18,8 +18,9 @@ const marker = { addTo: vi.fn(() => marker) };
 
 vi.mock("leaflet", () => ({
   default: {
-    circleMarker: vi.fn(() => marker),
+    divIcon: vi.fn(() => ({})),
     map: vi.fn(() => mapInstance),
+    marker: vi.fn(() => marker),
     tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
   },
 }));

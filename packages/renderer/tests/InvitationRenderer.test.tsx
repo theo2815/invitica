@@ -8,6 +8,7 @@ import {
   GardenPromiseRenderer,
   InvitationRenderer,
   LittleBlessingsRenderer,
+  LittleBlessingsRendererV2,
   resolveTemplateRenderer,
   resolveTemplateRendererRegistration,
   UnknownTemplateRendererError,
@@ -52,6 +53,10 @@ describe("InvitationRenderer", () => {
     expect(resolveTemplateRenderer("standard-v1")).toBe(InvitationRenderer);
     expect(resolveTemplateRenderer("garden-promise-v1")).toBe(GardenPromiseRenderer);
     expect(resolveTemplateRenderer("little-blessings-v1")).toBe(LittleBlessingsRenderer);
+    expect(resolveTemplateRenderer("little-blessings-v2")).toBe(LittleBlessingsRendererV2);
+    expect(resolveTemplateRendererRegistration("little-blessings-v1").version).toBe(1);
+    expect(resolveTemplateRendererRegistration("little-blessings-v2").version).toBe(2);
+    expect(resolveTemplateRenderer("little-blessings-v2")).not.toBe(LittleBlessingsRenderer);
     expect(() => resolveTemplateRenderer("remote-template-code")).toThrow(
       UnknownTemplateRendererError,
     );

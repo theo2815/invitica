@@ -24,6 +24,11 @@ import {
   PublicationPersistenceError,
   requestInvitationPublication,
 } from "./publications";
+import {
+  TemplateUpgradeUnavailableError,
+  upgradeInvitationTemplate,
+  upgradeInvitationTemplateInputSchema,
+} from "./template-upgrades";
 
 const createInvitationFormSchema = z.strictObject({
   invitationId: z.string().uuid(),
@@ -49,6 +54,10 @@ export interface CreateInvitationActionState {
  * retryable, and a request that failed in transit is not described here at all —
  * the client cannot know whether it was applied, so it does not retry on its own.
  */
+export type UpgradeInvitationTemplateActionResult =
+  | { revision: number; status: "updated"; templateVersionId: string }
+  | { message: string; status: "conflict" | "error" };
+
 export type SaveGardenPromiseActionResult =
   | { revision: number; status: "saved" }
   | { message: string; retryable?: boolean; status: "conflict" | "error" };
@@ -240,6 +249,49 @@ export async function saveLittleBlessingsAction(
     return {
       message: "This invitation update could not be completed.",
       retryable: true,
+      status: "error",
+    };
+  }
+}
+
+export async function upgradeInvitationTemplateAction(
+  input: unknown,
+): Promise<UpgradeInvitationTemplateActionResult> {
+  const parsed = upgradeInvitationTemplateInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      message: "This template update request is no longer valid. Refresh and try again.",
+      status: "error",
+    };
+  }
+
+  const { supabase } = await requireConfirmedUser();
+
+  try {
+    const result = await upgradeInvitationTemplate(supabase, parsed.data);
+    revalidatePath(`/dashboard/invitations/${parsed.data.invitationId}`);
+    return { ...result, status: "updated" };
+  } catch (error: unknown) {
+    if (error instanceof InvitationDraftConflictError) {
+      return {
+        message: "This draft changed in another session. Reload before updating the template.",
+        status: "conflict",
+      };
+    }
+
+    if (error instanceof TemplateUpgradeUnavailableError) {
+      return { message: error.message, status: "error" };
+    }
+
+    if (error instanceof InvitationDraftPersistenceError) {
+      return {
+        message: "The template could not be updated. Your saved draft is unchanged.",
+        status: "error",
+      };
+    }
+
+    return {
+      message: "This template update could not be completed.",
       status: "error",
     };
   }

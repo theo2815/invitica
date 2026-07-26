@@ -24,8 +24,6 @@ import { z } from "zod";
  * contract the server and migration `0016` will enforce.
  */
 
-export const LITTLE_BLESSINGS_TEMPLATE_VERSION_ID = "40000000-0000-4000-8000-000000000004";
-
 /**
  * Sections a creator may never hide. The hero carries the celebrant's name,
  * date, and portrait and is the source for the envelope cover plate; without

@@ -1,8 +1,13 @@
-import type { InvitationSection } from "@invitica/invitation-schema";
+import {
+  type InvitationDocument,
+  type InvitationSection,
+  parseInvitationDocument,
+} from "@invitica/invitation-schema";
 
 import { type TemplateManifest, templateManifestSchema } from "./manifest.js";
 import { sundayJoyTemplate } from "./templates/birthday/sunday-joy/v1.js";
 import { littleBlessingsTemplate } from "./templates/christening/little-blessings/v1.js";
+import { littleBlessingsTemplateV2 } from "./templates/christening/little-blessings/v2.js";
 import { goldenHourTemplate } from "./templates/debut/golden-hour/v1.js";
 import { gardenPromiseTemplate } from "./templates/wedding/garden-promise/v1.js";
 
@@ -20,6 +25,20 @@ export class UnknownTemplateError extends Error {
   }
 }
 
+export class InvalidTemplateVersionChainError extends Error {
+  constructor(identifier: string) {
+    super(`Invalid template version chain: ${identifier}`);
+    this.name = "InvalidTemplateVersionChainError";
+  }
+}
+
+export class InvalidTemplateUpgradeError extends Error {
+  constructor() {
+    super("The requested template upgrade is not available.");
+    this.name = "InvalidTemplateUpgradeError";
+  }
+}
+
 function deepFreeze<T>(value: T): T {
   if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
     return value;
@@ -33,27 +52,49 @@ function deepFreeze<T>(value: T): T {
 }
 
 export function createTemplateRegistry(inputs: readonly unknown[]): readonly TemplateManifest[] {
-  const templateIds = new Set<string>();
+  const templateVersions = new Set<string>();
   const templateVersionIds = new Set<string>();
 
-  return Object.freeze(
-    inputs.map((input) => {
-      const manifest = templateManifestSchema.parse(input);
+  const manifests = inputs.map((input) => {
+    const manifest = templateManifestSchema.parse(input);
+    const stableVersion = `${manifest.listing.id}@${manifest.version}`;
 
-      if (templateIds.has(manifest.listing.id)) {
-        throw new DuplicateTemplateRegistrationError(manifest.listing.id);
+    if (templateVersions.has(stableVersion)) {
+      throw new DuplicateTemplateRegistrationError(stableVersion);
+    }
+
+    if (templateVersionIds.has(manifest.templateVersionId)) {
+      throw new DuplicateTemplateRegistrationError(manifest.templateVersionId);
+    }
+
+    templateVersions.add(stableVersion);
+    templateVersionIds.add(manifest.templateVersionId);
+
+    return manifest;
+  });
+
+  for (const manifest of manifests) {
+    if (manifest.version === 1) {
+      if (manifest.supersedesTemplateVersionId) {
+        throw new InvalidTemplateVersionChainError(manifest.templateVersionId);
       }
+      continue;
+    }
 
-      if (templateVersionIds.has(manifest.templateVersionId)) {
-        throw new DuplicateTemplateRegistrationError(manifest.templateVersionId);
-      }
+    const predecessor = manifests.find(
+      (candidate) => candidate.templateVersionId === manifest.supersedesTemplateVersionId,
+    );
 
-      templateIds.add(manifest.listing.id);
-      templateVersionIds.add(manifest.templateVersionId);
+    if (
+      !predecessor ||
+      predecessor.listing.id !== manifest.listing.id ||
+      predecessor.version !== manifest.version - 1
+    ) {
+      throw new InvalidTemplateVersionChainError(manifest.templateVersionId);
+    }
+  }
 
-      return deepFreeze(manifest);
-    }),
-  );
+  return Object.freeze(manifests.map((manifest) => deepFreeze(manifest)));
 }
 
 export const templateRegistry = createTemplateRegistry([
@@ -61,6 +102,7 @@ export const templateRegistry = createTemplateRegistry([
   goldenHourTemplate,
   sundayJoyTemplate,
   littleBlessingsTemplate,
+  littleBlessingsTemplateV2,
 ]);
 
 const sectionLabels: Record<InvitationSection["type"], string> = {
@@ -91,21 +133,26 @@ export interface TemplateCatalogEntry {
 }
 
 export const templateCatalog: readonly TemplateCatalogEntry[] = deepFreeze(
-  templateRegistry.map((manifest) => ({
-    ...manifest.listing,
-    sections: [
-      "Opening",
-      ...new Set(
-        manifest.defaultDocument.sections
-          .filter((section) => section.visible)
-          .map((section) => sectionLabels[section.type]),
-      ),
-    ],
-  })),
+  [...new Set(templateRegistry.map((manifest) => manifest.listing.id))].map((templateId) => {
+    const manifest = resolveTemplateById(templateId);
+    return {
+      ...manifest.listing,
+      sections: [
+        "Opening",
+        ...new Set(
+          manifest.defaultDocument.sections
+            .filter((section) => section.visible)
+            .map((section) => sectionLabels[section.type]),
+        ),
+      ],
+    };
+  }),
 );
 
 export function resolveTemplateById(templateId: string): TemplateManifest {
-  const manifest = templateRegistry.find((candidate) => candidate.listing.id === templateId);
+  const manifest = templateRegistry
+    .filter((candidate) => candidate.listing.id === templateId)
+    .sort((left, right) => right.version - left.version)[0];
 
   if (!manifest) {
     throw new UnknownTemplateError(templateId);
@@ -124,4 +171,29 @@ export function resolveTemplateVersion(templateVersionId: string): TemplateManif
   }
 
   return manifest;
+}
+
+export function resolveTemplateUpgrade(templateVersionId: string): TemplateManifest | null {
+  resolveTemplateVersion(templateVersionId);
+  return (
+    templateRegistry.find(
+      (candidate) => candidate.supersedesTemplateVersionId === templateVersionId,
+    ) ?? null
+  );
+}
+
+export function migrateTemplateDocument(
+  document: InvitationDocument,
+  targetTemplateVersionId: string,
+): InvitationDocument {
+  const target = resolveTemplateVersion(targetTemplateVersionId);
+
+  if (target.supersedesTemplateVersionId !== document.templateVersionId) {
+    throw new InvalidTemplateUpgradeError();
+  }
+
+  return parseInvitationDocument({
+    ...structuredClone(document),
+    templateVersionId: target.templateVersionId,
+  });
 }

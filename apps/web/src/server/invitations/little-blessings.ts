@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   applyLittleBlessingsDetails,
-  LITTLE_BLESSINGS_TEMPLATE_VERSION_ID,
   LittleBlessingsSectionError,
   littleBlessingsDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
@@ -36,7 +35,7 @@ export async function saveLittleBlessingsDraft(supabase: SupabaseServerClient, i
     throw new InvitationDraftPersistenceError();
   }
 
-  if (draft.document.templateVersionId !== LITTLE_BLESSINGS_TEMPLATE_VERSION_ID) {
+  if (draft.manifest.listing.id !== "little-blessings") {
     throw new TemplateUnavailableError();
   }
 

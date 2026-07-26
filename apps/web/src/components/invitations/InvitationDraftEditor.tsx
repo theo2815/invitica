@@ -11,6 +11,7 @@ import type { InvitationPublicationStatus } from "../../server/invitations/publi
 import { CalendarPicker, formatLongCalendarDate, parseCalendarDate } from "../forms/CalendarPicker";
 import styles from "./InvitationDraftEditor.module.css";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
+import { type AvailableTemplateUpgrade, TemplateUpgradePanel } from "./TemplateUpgradePanel";
 import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
 
 type HeroSection = Extract<InvitationDocument["sections"][number], { type: "hero" }>;
@@ -47,6 +48,7 @@ interface InvitationDraftEditorProps {
   initialRevision: number;
   invitationId: string;
   rendererKey: TemplateManifest["rendererKey"];
+  templateUpgrade?: AvailableTemplateUpgrade | null;
 }
 
 const idlePublication: InvitationPublicationStatus = {
@@ -176,6 +178,7 @@ export function InvitationDraftEditor({
   initialRevision,
   invitationId,
   rendererKey,
+  templateUpgrade = null,
 }: InvitationDraftEditorProps) {
   const initialHero = findHero(initialDocument);
   const initialVenue = findVenue(initialDocument);
@@ -559,6 +562,13 @@ export function InvitationDraftEditor({
               Save now
             </button>
           ) : null}
+
+          <TemplateUpgradePanel
+            draftReady={draftIsSaved}
+            invitationId={invitationId}
+            revision={revision}
+            upgrade={templateUpgrade}
+          />
 
           <InvitationPublicationPanel
             assetsReady={assetsAreReady}

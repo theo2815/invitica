@@ -17,7 +17,11 @@ export type { TemplateCatalogEntry } from "./registry.js";
 export {
   createTemplateRegistry,
   DuplicateTemplateRegistrationError,
+  InvalidTemplateUpgradeError,
+  InvalidTemplateVersionChainError,
+  migrateTemplateDocument,
   resolveTemplateById,
+  resolveTemplateUpgrade,
   resolveTemplateVersion,
   templateCatalog,
   templateRegistry,

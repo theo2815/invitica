@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import { GardenPromiseRenderer } from "./GardenPromiseRenderer.js";
 import { InvitationRenderer, type InvitationRendererProps } from "./InvitationRenderer.js";
 import { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
+import { LittleBlessingsRendererV2 } from "./LittleBlessingsRendererV2.js";
 
 export class UnknownTemplateRendererError extends Error {
   constructor(rendererKey: string) {
@@ -25,6 +26,10 @@ const templateRendererRegistry = {
   "little-blessings-v1": {
     component: LittleBlessingsRenderer,
     version: 1,
+  },
+  "little-blessings-v2": {
+    component: LittleBlessingsRendererV2,
+    version: 2,
   },
   "standard-v1": {
     component: InvitationRenderer,

@@ -15,6 +15,8 @@ type AuthMode = "login" | "register";
 type EmailAction = (state: AuthActionState, formData: FormData) => Promise<AuthActionState>;
 
 interface AuthPageProps {
+  /** When true (production beta), hide account creation, Google sign-in, and password recovery. */
+  betaLocked?: boolean;
   emailAction: EmailAction;
   googleAction: (formData: FormData) => Promise<void>;
   initialError?: string | undefined;
@@ -115,6 +117,7 @@ function focusFirstError(fieldErrors: AuthFieldErrors, mode: AuthMode) {
 }
 
 export function AuthPage({
+  betaLocked,
   emailAction,
   googleAction,
   initialError,
@@ -176,14 +179,18 @@ export function AuthPage({
         text: copy.story,
       }}
     >
-      <form action={googleAction} aria-label="Continue with Google">
-        {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
-        <GoogleButton />
-      </form>
+      {betaLocked ? null : (
+        <>
+          <form action={googleAction} aria-label="Continue with Google">
+            {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
+            <GoogleButton />
+          </form>
 
-      <div aria-hidden="true" className={styles.divider}>
-        <span>or continue with email</span>
-      </div>
+          <div aria-hidden="true" className={styles.divider}>
+            <span>or continue with email</span>
+          </div>
+        </>
+      )}
 
       <form
         action={formAction}
@@ -238,7 +245,7 @@ export function AuthPage({
           id={`${mode}-password`}
           label="Password"
           labelAction={
-            mode === "login" ? (
+            mode === "login" && !betaLocked ? (
               <Link className={styles.fieldLink} href="/forgot-password">
                 Forgot password?
               </Link>
@@ -276,9 +283,11 @@ export function AuthPage({
         <PendingButton idleLabel={copy.emailSubmit} pendingLabel={copy.emailPending} />
       </form>
 
-      <p className={styles.alternate}>
-        {copy.alternate} <Link href={alternateHref}>{copy.alternateAction}</Link>
-      </p>
+      {betaLocked ? null : (
+        <p className={styles.alternate}>
+          {copy.alternate} <Link href={alternateHref}>{copy.alternateAction}</Link>
+        </p>
+      )}
     </AuthShell>
   );
 }

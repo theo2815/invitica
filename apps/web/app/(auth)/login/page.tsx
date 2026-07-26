@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AuthPage } from "../../../src/components/auth/AuthPage";
 import { signInWithEmail, signInWithGoogle } from "../../../src/server/auth/actions";
+import { publicAuthLocked } from "../../../src/server/auth/beta-gate";
 import { getSafeNextPath } from "../../../src/server/auth/redirects";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ const errorMessages: Record<string, string> = {
 
 const noticeMessages: Record<string, string> = {
   "password-updated": "Your password has been changed. Sign in with your new password.",
+  beta: "Creating an account, Google sign-in, and password recovery are paused while Invitica is in beta. Sign in with your email and password.",
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -35,6 +37,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <AuthPage
+      betaLocked={publicAuthLocked()}
       emailAction={signInWithEmail}
       googleAction={signInWithGoogle}
       initialError={errorCode ? errorMessages[errorCode] : undefined}

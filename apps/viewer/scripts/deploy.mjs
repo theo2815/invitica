@@ -12,10 +12,14 @@ import { spawnSync } from "node:child_process";
  * directions link and no map — so this refuses to deploy rather than let it happen, the same way
  * `apps/web/next.config.ts` refuses a production build without `INVITICA_VIEWER_ORIGIN`.
  *
- * Usage:
+ * Usage (PowerShell, which is this project's primary shell):
+ *   $env:MAPTILER_KEY = "<key>"; pnpm --filter @invitica/viewer deploy
+ *
+ * Usage (bash):
  *   MAPTILER_KEY=<key> pnpm --filter @invitica/viewer deploy
- *   MAPTILER_KEY=<key> pnpm --filter @invitica/viewer deploy -- --env production
- *   pnpm --filter @invitica/viewer deploy -- --allow-no-map
+ *
+ * Add `-- --env production` to target the production environment, or
+ * `-- --allow-no-map` to deploy deliberately without a venue map.
  */
 const forwarded = process.argv.slice(2);
 const allowNoMap = forwarded.includes("--allow-no-map");
@@ -28,9 +32,10 @@ if (!key && !allowNoMap) {
       "",
       "The key is browser-exposed by design and protected by the origin restriction in the",
       "MapTiler dashboard rather than by secrecy — but it must never be committed. Supply it",
-      "for the deploy only:",
+      "for the deploy only.",
       "",
-      "  MAPTILER_KEY=<key> pnpm --filter @invitica/viewer deploy",
+      "  PowerShell:  $env:MAPTILER_KEY = \"<key>\"; pnpm --filter @invitica/viewer deploy",
+      "  bash:        MAPTILER_KEY=<key> pnpm --filter @invitica/viewer deploy",
       "",
       "Those allowed origins must cover the creator app as well as the guest lane, because the",
       "creator's venue place-search calls the same key from the browser.",

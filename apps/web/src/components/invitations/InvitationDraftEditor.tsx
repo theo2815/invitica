@@ -3,21 +3,20 @@
 import type { InvitationDocument } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
 import type { TemplateManifest } from "@invitica/template-kit";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { z } from "zod";
 
 import { saveGardenPromiseAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
 import { CalendarPicker, formatLongCalendarDate, parseCalendarDate } from "../forms/CalendarPicker";
 import styles from "./InvitationDraftEditor.module.css";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
-
-const AUTOSAVE_DELAY_MS = 800;
+import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
 
 type HeroSection = Extract<InvitationDocument["sections"][number], { type: "hero" }>;
 type VenueSection = Extract<InvitationDocument["sections"][number], { type: "venue" }>;
 type RsvpSection = Extract<InvitationDocument["sections"][number], { type: "rsvp" }>;
 type MobilePanel = "edit" | "preview";
-type SaveStatus = "conflict" | "error" | "saved" | "saving" | "unsaved";
 
 interface GardenPromiseFields {
   dateLabel: string;
@@ -29,6 +28,18 @@ interface GardenPromiseFields {
   venueAddress: string;
   venueName: string;
 }
+
+/** Shape guard for a recovery snapshot, which is session storage rather than state. */
+const gardenPromiseFieldsSchema = z.strictObject({
+  dateLabel: z.string().max(2_000),
+  mapUrl: z.string().max(2_000),
+  rsvpDeadline: z.string().max(2_000),
+  rsvpMessage: z.string().max(2_000),
+  subtitle: z.string().max(2_000),
+  title: z.string().max(2_000),
+  venueAddress: z.string().max(2_000),
+  venueName: z.string().max(2_000),
+});
 
 interface InvitationDraftEditorProps {
   initialDocument: InvitationDocument;
@@ -151,7 +162,7 @@ function applyGardenPromiseFields(
   return { ...document, sections };
 }
 
-const saveStatusLabel: Record<SaveStatus, string> = {
+const saveStatusLabel: Record<DraftSaveStatus, string> = {
   conflict: "Save conflict",
   error: "Save failed",
   saved: "Saved",
@@ -179,20 +190,12 @@ export function InvitationDraftEditor({
     venueAddress: initialVenue.props.address,
     venueName: initialVenue.props.venueName,
   });
-  const [lastSavedSignature, setLastSavedSignature] = useState(() =>
-    JSON.stringify(normalizeFields(fields)),
-  );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("edit");
   const [previewOpeningState, setPreviewOpeningState] = useState<InvitationOpeningState>("closed");
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
-  const [revision, setRevision] = useState(initialRevision);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const normalizedFields = useMemo(() => normalizeFields(fields), [fields]);
   const signature = JSON.stringify(normalizedFields);
-  const latestSignature = useRef(signature);
-  latestSignature.current = signature;
 
   const document = useMemo(
     () => applyGardenPromiseFields(initialDocument, fields),
@@ -206,117 +209,53 @@ export function InvitationDraftEditor({
   const rsvpDeadlineIsValid = dateOnlyIsValid(normalizedFields.rsvpDeadline);
   const fieldsAreValid =
     titleIsValid && venueNameIsValid && venueAddressIsValid && mapUrlIsSafe && rsvpDeadlineIsValid;
-  const draftIsSaved = saveStatus === "saved" && signature === lastSavedSignature;
   const assetsAreReady = document.assets.length === 0;
 
-  const persistFields = useCallback(
-    async (
-      submittedFields: GardenPromiseFields,
-      submittedSignature: string,
-      expectedRevision: number,
-    ) => {
-      setSaveMessage(null);
-      setSaveStatus("saving");
-
-      try {
-        const result = await saveGardenPromiseAction({
-          ...submittedFields,
-          expectedRevision,
-          invitationId,
-        });
-        if (result.status === "saved") {
-          setRevision(result.revision);
-          setLastSavedSignature(submittedSignature);
-          setSaveStatus(latestSignature.current === submittedSignature ? "saved" : "unsaved");
-          return;
-        }
-
-        setSaveMessage(result.message);
-        setSaveStatus(result.status);
-      } catch {
-        setSaveMessage("Check your connection and try saving again.");
-        setSaveStatus("error");
-      }
-    },
+  const save = useCallback(
+    ({ expectedRevision, payload }: { expectedRevision: number; payload: GardenPromiseFields }) =>
+      saveGardenPromiseAction({ ...payload, expectedRevision, invitationId }),
     [invitationId],
   );
 
-  useEffect(() => {
-    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
-      if (signature === lastSavedSignature) {
-        return;
-      }
-
-      event.preventDefault();
-    };
-
-    window.addEventListener("beforeunload", warnBeforeLeaving);
-    const guardCreatorLink = (event: MouseEvent) => {
-      if (signature === lastSavedSignature || event.defaultPrevented) return;
-      const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
-      if (!(target instanceof HTMLAnchorElement) || target.target || target.download) return;
-      const destination = new URL(target.href, window.location.href);
-      if (destination.origin !== window.location.origin) return;
-      if (
-        !window.confirm("Your latest invitation changes are not saved. Leave this page anyway?")
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-
-    window.document.addEventListener("click", guardCreatorLink, true);
-    return () => {
-      window.removeEventListener("beforeunload", warnBeforeLeaving);
-      window.document.removeEventListener("click", guardCreatorLink, true);
-    };
-  }, [lastSavedSignature, signature]);
-
-  useEffect(() => {
-    if (signature === lastSavedSignature) {
-      return;
-    }
-
-    if (
-      !fieldsAreValid ||
-      saveStatus === "conflict" ||
-      saveStatus === "error" ||
-      saveStatus === "saving"
-    ) {
-      return;
-    }
-
-    const submittedFields = normalizedFields;
-    const submittedSignature = signature;
-    const expectedRevision = revision;
-    const timer = window.setTimeout(() => {
-      void persistFields(submittedFields, submittedSignature, expectedRevision);
-    }, AUTOSAVE_DELAY_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    fieldsAreValid,
-    lastSavedSignature,
-    normalizedFields,
-    revision,
-    saveStatus,
+  const autosave = useDraftAutosave<GardenPromiseFields>({
+    initialRevision,
+    invitationId,
+    payload: fieldsAreValid ? normalizedFields : null,
+    save,
     signature,
-    persistFields,
-  ]);
+  });
+  const {
+    message: saveMessage,
+    recoveredContent,
+    revision,
+    retryAttempt,
+    saveNow,
+    status: saveStatus,
+  } = autosave;
+  const draftIsSaved = autosave.isSaved;
 
   function updateField(field: keyof GardenPromiseFields, value: string) {
     setFields((current) => ({ ...current, [field]: value }));
-    setSaveMessage(null);
     setRecoveryMessage(null);
-
-    if (saveStatus !== "conflict") {
-      setSaveStatus("unsaved");
-    }
+    autosave.markEdited();
   }
 
-  function saveNow() {
-    if (!fieldsAreValid || saveStatus === "saving" || saveStatus === "conflict") return;
-    void persistFields(normalizedFields, signature, revision);
+  /**
+   * Reapplies fields recovered from an interrupted session. The snapshot is the same
+   * serialized payload the editor submits, so it is re-validated before it is trusted.
+   */
+  function restoreRecoveredContent() {
+    if (!recoveredContent) return;
+    try {
+      const recovered = gardenPromiseFieldsSchema.parse(JSON.parse(recoveredContent));
+      setFields(recovered);
+      autosave.discardRecoveredSnapshot();
+      autosave.markEdited();
+      setRecoveryMessage("Your recovered changes are back. They will save automatically.");
+    } catch {
+      autosave.discardRecoveredSnapshot();
+      setRecoveryMessage("Those recovered changes could not be read, so they were discarded.");
+    }
   }
 
   function reloadLatest() {
@@ -347,7 +286,9 @@ export function InvitationDraftEditor({
     saveStatus === "saved"
       ? `Revision ${revision}`
       : saveStatus === "saving"
-        ? "Keeping this draft up to date"
+        ? retryAttempt > 0
+          ? `Trying again — attempt ${retryAttempt + 1}`
+          : "Keeping this draft up to date"
         : saveStatus === "conflict"
           ? "Preserve or discard your local changes"
           : saveStatus === "error"
@@ -552,15 +493,41 @@ export function InvitationDraftEditor({
             </div>
           </div>
 
+          {recoveredContent ? (
+            <div className={styles.saveNotice} data-kind="conflict" role="alert">
+              <div>
+                <strong>Unsaved changes were found from an interrupted session.</strong>
+                <p>
+                  They were edited against this same revision and never reached the server. Bring
+                  them back, or discard them to keep what is on screen now.
+                </p>
+              </div>
+              <div className={styles.saveNoticeActions}>
+                <button onClick={() => restoreRecoveredContent()} type="button">
+                  Restore my changes
+                </button>
+                <button onClick={() => autosave.discardRecoveredSnapshot()} type="button">
+                  Discard them
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {saveStatus === "error" && saveMessage ? (
             <div className={styles.saveNotice} data-kind="error" role="alert">
               <div>
                 <strong>We could not save these changes.</strong>
                 <p>{saveMessage}</p>
               </div>
-              <button onClick={() => void saveNow()} type="button">
-                Try again
-              </button>
+              <div className={styles.saveNoticeActions}>
+                <button disabled={!fieldsAreValid} onClick={() => saveNow()} type="button">
+                  Try again
+                </button>
+                <button onClick={() => void copyUnsavedDetails()} type="button">
+                  Copy unsaved details
+                </button>
+              </div>
+              {recoveryMessage ? <p role="status">{recoveryMessage}</p> : null}
             </div>
           ) : null}
 
@@ -585,8 +552,8 @@ export function InvitationDraftEditor({
           {saveStatus === "unsaved" ? (
             <button
               className={styles.saveNowButton}
-              disabled={!fieldsAreValid}
-              onClick={() => void saveNow()}
+              disabled={!autosave.canSaveNow}
+              onClick={() => saveNow()}
               type="button"
             >
               Save now

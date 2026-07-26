@@ -317,6 +317,29 @@ describe("Little Blessings editor", () => {
     expect(screen.getByText(/without a reply section/)).toBeDefined();
   });
 
+  // The editor preview and the published page share one renderer, so a venue map
+  // the guest will see has to be visible while the creator is placing it. The key
+  // is what gates the map (ADR-006): without it the renderer keeps the directions
+  // link alone, which is also what a deployment with no Workers Var produces.
+  it("shows the venue map in the preview only when a tile key is configured", () => {
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "editor-preview-key");
+    renderEditor();
+
+    // Queried inside the preview rather than by role: the envelope is closed, so
+    // its gated contents are deliberately kept out of the accessibility tree.
+    expect(preview().querySelectorAll(".im-map").length).toBeGreaterThan(0);
+    expect([...preview().querySelectorAll(".im-toggle")].map((node) => node.textContent)).toContain(
+      "Show map",
+    );
+
+    cleanup();
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "");
+    renderEditor();
+
+    expect(preview().querySelectorAll(".im-map")).toHaveLength(0);
+    expect(preview().textContent).toContain("Get directions");
+  });
+
   it("carries an unusually long Philippine name through to the preview", async () => {
     vi.mocked(saveLittleBlessingsAction).mockResolvedValue({ revision: 2, status: "saved" });
     const longName = "María de los Ángeles Beatriz Santos-Villanueva de la Cruz";

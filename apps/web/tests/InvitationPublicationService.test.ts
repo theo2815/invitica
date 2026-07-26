@@ -24,10 +24,13 @@ function createPublicationClient(
 ) {
   const rpc = vi.fn().mockResolvedValue(rpcResult);
   const from = vi.fn((table: string) => {
-    const data = table === "invitation_media_assets" ? mediaRow : draft;
+    const media = table === "invitation_media_assets";
     const builder: Record<string, unknown> = {
       eq: vi.fn(() => builder),
-      maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+      // Media resolution reads every referenced asset through one `in` query and awaits
+      // the builder itself; the draft read still ends in `maybeSingle`.
+      in: vi.fn(() => Promise.resolve({ data: mediaRow === null ? [] : [mediaRow], error: null })),
+      maybeSingle: vi.fn().mockResolvedValue({ data: media ? mediaRow : draft, error: null }),
       select: vi.fn(() => builder),
     };
     return builder;

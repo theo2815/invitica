@@ -64,6 +64,16 @@ export async function saveLittleBlessingsDraft(supabase: SupabaseServerClient, i
   }
 
   if (error) {
+    // The PostgreSQL code and message are the only things that separate a missing
+    // migration from an RLS denial from a bound violation. Discarding them made
+    // every save failure look identical from the server logs.
+    console.error("[Invitation editor] update_little_blessings_details failed", {
+      code: error.code,
+      details: error.details || undefined,
+      hint: error.hint || undefined,
+      invitationId: parsed.invitationId,
+      message: error.message,
+    });
     throw new InvitationDraftPersistenceError();
   }
 

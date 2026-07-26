@@ -72,6 +72,93 @@
   font-weight: 720;
 }
 
+.invitationPickerGroup {
+  display: grid;
+  gap: 0.3rem;
+}
+
+/*
+ * The creator's own "I have sent this" mark. A full-row target rather than a bare 16 px
+ * box, so it is comfortably tappable on a phone without inflating the checkbox itself.
+ */
+.sentCheck {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sentCheck input {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.sentCheck input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sentCheck input:disabled {
+  cursor: progress;
+}
+
+/*
+ * Targets a class rather than a bare `span`. A sibling combinator ending in an element
+ * would sit above every later low-specificity `span` rule in this long stylesheet and
+ * trip descending-specificity checks across all of them.
+ */
+.sentCheck input:disabled ~ .sentLabel {
+  opacity: 0.6;
+}
+
+/* Copying is intent, not delivery, so it stays visibly secondary to the mark above. */
+.copyHint {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 620;
+}
+
+.selectionStatus {
+  min-height: 1rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/*
+ * Stands in for the response ledger while a newly chosen invitation is fetched. Shaped
+ * like the content it replaces, and deliberately unanimated to match the route-level
+ * loading state — so there is nothing for reduced motion to switch off.
+ */
+.ledgerSkeleton {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.ledgerSkeleton span[aria-hidden="true"] {
+  display: block;
+  height: 2.6rem;
+  border-radius: 0.3rem;
+  background: var(--surface-muted);
+}
+
+.ledgerSkeleton span[aria-hidden="true"]:first-child {
+  width: 45%;
+  height: 1.4rem;
+}
+
 .copyField input,
 .dialog input,
 .dialog textarea {

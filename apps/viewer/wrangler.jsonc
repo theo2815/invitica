@@ -19,9 +19,14 @@
     "enabled": true,
     "head_sampling_rate": 0.1
   },
-  // Client-exposed, domain-restricted MapTiler key for the guest venue map (ADR-006). Declared empty
-  // here so no key is committed: local `wrangler dev` reads .dev.vars and the deployed Workers read a
-  // plaintext Var set in the Cloudflare dashboard. Empty simply disables the map.
+  // Client-exposed, domain-restricted MapTiler key for the guest venue map (ADR-006). Declared
+  // empty here so no key is committed, and declared at all so `wrangler types --check` stays
+  // reproducible without the git-ignored `.dev.vars`. Local `wrangler dev` reads that file.
+  //
+  // Because this block is deployed configuration, an empty value here overwrites whatever the
+  // Worker had — a dashboard-entered key does NOT survive a deploy, and an empty one silently
+  // blanks every guest map. Deploy through `pnpm --filter @invitica/viewer deploy`, which supplies
+  // the key from the environment and refuses to deploy without it. Never bare `wrangler deploy`.
   "vars": {
     "MAPTILER_KEY": ""
   },

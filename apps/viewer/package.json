@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm run build:client && wrangler deploy --dry-run --minify --outdir dist/worker --env=\"\"",
     "build:client": "esbuild src/client.tsx --bundle --minify --splitting --format=esm --target=es2022 --outdir=dist/client --entry-names=viewer --chunk-names=chunks/[name]-[hash] --asset-names=fonts/[name]-[hash] --loader:.woff2=file",
+    "deploy": "pnpm run build:client && node scripts/deploy.mjs",
     "dev": "pnpm run build:client && wrangler dev --env=\"\"",
     "seed": "node scripts/seed-publication.mjs",
     "test": "pnpm run build:client && vitest run",

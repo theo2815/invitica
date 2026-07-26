@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import {
   copyGuestInvitationAction,
+  prepareGuestInvitationCopiesAction,
+  recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
   restoreGuestPartyAction,
   revokeGuestPartyLinkAction,
+  setGuestInvitationSentAction,
   trashGuestPartyAction,
 } from "../../server/guests/actions";
 import type { GuestInvitationSummary, GuestPartySummary } from "../../server/guests/guests";
@@ -37,6 +40,9 @@ type CopyFeedback = {
 } | null;
 
 type CopyFallback = { label: string; text: string } | null;
+
+/** Ready-to-send message per guest party, resolved before the creator clicks Copy. */
+type PreparedCopies = ReadonlyMap<string, { copyText: string; personalizedUrl: string }>;
 
 function responseState(party: GuestPartySummary): "attending" | "awaiting" | "declined" {
   return party.response?.attendance ?? "awaiting";
@@ -105,11 +111,17 @@ export function GuestDesk({
   trashedParties,
 }: GuestDeskProps) {
   const router = useRouter();
+  // The invitation switcher changes a search parameter on a segment that is already
+  // mounted, which does not re-trigger `loading.tsx`. Without this transition the click
+  // produced no feedback at all for the whole server round trip.
+  const [isSelecting, startSelecting] = useTransition();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [copyFallback, setCopyFallback] = useState<CopyFallback>(null);
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>(null);
   const [copyingPartyId, setCopyingPartyId] = useState<string | null>(null);
+  const [preparedCopies, setPreparedCopies] = useState<PreparedCopies>(() => new Map());
+  const [sendingPartyId, setSendingPartyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<GuestPartySummary | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -176,36 +188,93 @@ export function GuestDesk({
     };
   }, [openPartyMenuId]);
 
-  async function writeCopy(text: string, target: string, fallbackLabel: string): Promise<boolean> {
+  const copySucceeded = useCallback((target: string) => {
+    setCopyFeedback({
+      message: "Invitation message copied. It is ready to paste into any messaging app.",
+      status: "success",
+      target,
+    });
+  }, []);
+
+  const copyFailed = useCallback((text: string, target: string, fallbackLabel: string) => {
+    setCopyFallback({ label: fallbackLabel, text });
+    setCopyFeedback({
+      message: "Clipboard access was unavailable. The invitation message is selected below.",
+      status: "error",
+      target,
+    });
+    window.requestAnimationFrame(() => {
+      fallbackRef.current?.focus();
+      fallbackRef.current?.select();
+    });
+  }, []);
+
+  /**
+   * Starts the clipboard write in the same task as the click. Nothing may be awaited
+   * before `writeText`: WebKit spends the user gesture on the first await and then
+   * rejects the write, which is why copying used to land in the manual box on iOS.
+   */
+  const writeCopyNow = useCallback(
+    (text: string, target: string, fallbackLabel: string) => {
+      setCopyFeedback(null);
+      setCopyFallback(null);
+      navigator.clipboard.writeText(text).then(
+        () => copySucceeded(target),
+        () => copyFailed(text, target, fallbackLabel),
+      );
+    },
+    [copyFailed, copySucceeded],
+  );
+
+  /** Used only when a copy was not prepared in advance; the gesture is already spent. */
+  async function writeCopyAfterAwait(text: string, target: string, fallbackLabel: string) {
     setCopyFeedback(null);
     setCopyFallback(null);
     try {
       await navigator.clipboard.writeText(text);
-      setCopyFeedback({
-        message: "Invitation message copied. It is ready to paste into any messaging app.",
-        status: "success",
-        target,
-      });
-      return true;
+      copySucceeded(target);
     } catch {
-      setCopyFallback({ label: fallbackLabel, text });
-      setCopyFeedback({
-        message: "Clipboard access was unavailable. The invitation message is selected below.",
-        status: "error",
-        target,
-      });
-      window.requestAnimationFrame(() => {
-        fallbackRef.current?.focus();
-        fallbackRef.current?.select();
-      });
-      return false;
+      copyFailed(text, target, fallbackLabel);
     }
   }
 
-  async function copyGeneralInvitation() {
+  const invitationId = selectedInvitation?.invitationId;
+  const activePartyIds = parties
+    .filter((party) => party.linkStatus === "active")
+    .map((party) => party.id)
+    .join(",");
+
+  // Prepared in the background after the ledger renders, so the page is never held up
+  // by it. A click that arrives first still works through the per-click path below.
+  useEffect(() => {
+    if (!invitationId || !activePartyIds) return;
+    let cancelled = false;
+
+    void (async () => {
+      const result = await prepareGuestInvitationCopiesAction({
+        guestPartyIds: activePartyIds.split(","),
+        invitationId,
+      });
+      if (cancelled || result.status === "error") return;
+      setPreparedCopies(
+        new Map(
+          result.copies.map((copy) => [
+            copy.guestPartyId,
+            { copyText: copy.copyText, personalizedUrl: copy.personalizedUrl },
+          ]),
+        ),
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePartyIds, invitationId]);
+
+  function copyGeneralInvitation() {
     if (!selectedInvitation) return;
     setActionMessage(null);
-    await writeCopy(
+    writeCopyNow(
       buildGeneralInvitationMessage(selectedInvitation.title, selectedInvitation.genericUrl),
       "general",
       "General invitation message",
@@ -219,6 +288,14 @@ export function GuestDesk({
       return;
     }
     setActionMessage(null);
+
+    const prepared = preparedCopies.get(party.id);
+    if (prepared) {
+      writeCopyNow(prepared.copyText, party.id, `Invitation message for ${party.internalLabel}`);
+      trackCopy(party.id);
+      return;
+    }
+
     setCopyingPartyId(party.id);
     const result = await copyGuestInvitationAction({
       guestPartyId: party.id,
@@ -229,7 +306,40 @@ export function GuestDesk({
       setActionMessage(result.message);
       return;
     }
-    await writeCopy(result.copyText, party.id, `Invitation message for ${party.internalLabel}`);
+    await writeCopyAfterAwait(
+      result.copyText,
+      party.id,
+      `Invitation message for ${party.internalLabel}`,
+    );
+    trackCopy(party.id);
+  }
+
+  /**
+   * Bookkeeping, deliberately outside the copy itself: the clipboard already holds the
+   * message by the time this runs, so it must never delay the copy and a failure must
+   * never be reported as one. Losing a count beats a false alarm.
+   */
+  function trackCopy(guestPartyId: string) {
+    void recordGuestInvitationCopyAction({ guestPartyId }).then((result) => {
+      if (result.status === "recorded") router.refresh();
+    });
+  }
+
+  async function toggleSent(party: GuestPartySummary, sent: boolean) {
+    setSendingPartyId(party.id);
+    setActionMessage(null);
+    const result = await setGuestInvitationSentAction({ guestPartyId: party.id, sent });
+    setSendingPartyId(null);
+    if (result.status === "error") {
+      setActionMessage(result.message);
+      return;
+    }
+    setActionMessage(
+      sent
+        ? `Marked as sent to ${party.internalLabel}.`
+        : `${party.internalLabel} is no longer marked as sent.`,
+    );
+    router.refresh();
   }
 
   function requestConfirmation(
@@ -267,7 +377,17 @@ export function GuestDesk({
       }
       const replacedParty = confirmation.party;
       setConfirmation(null);
-      await writeCopy(
+      // The replacement invalidates whatever was prepared for this party, and the
+      // action already returned the message for the link it just created.
+      setPreparedCopies((current) => {
+        const next = new Map(current);
+        next.set(replacedParty.id, {
+          copyText: result.copyText,
+          personalizedUrl: result.personalizedUrl,
+        });
+        return next;
+      });
+      await writeCopyAfterAwait(
         result.copyText,
         replacedParty.id,
         `Invitation message for ${replacedParty.internalLabel}`,
@@ -299,6 +419,12 @@ export function GuestDesk({
 
     const completedKind = confirmation.kind;
     setConfirmation(null);
+    // Both paths revoke the link, so any prepared message for it is now dead.
+    setPreparedCopies((current) => {
+      const next = new Map(current);
+      next.delete(confirmedParty.id);
+      return next;
+    });
     setActionMessage(
       completedKind === "revoke"
         ? "The private link was revoked. The general invitation remains available."
@@ -364,32 +490,63 @@ export function GuestDesk({
           </p>
         </div>
         {invitations.length > 0 ? (
-          <Select
-            className={styles.invitationPicker}
-            id="guest-invitation"
-            label="Published invitation"
-            onChange={(invitationId) =>
-              router.push(
-                invitationId
-                  ? `/dashboard/guests?invitationId=${encodeURIComponent(invitationId)}`
-                  : "/dashboard/guests",
-              )
-            }
-            options={[
-              { label: "Select an invitation", value: "" },
-              ...invitations.map((invitation) => ({
-                label: invitation.title,
-                value: invitation.invitationId,
-              })),
-            ]}
-            value={selectedInvitation?.invitationId ?? ""}
-          />
+          <div className={styles.invitationPickerGroup}>
+            <Select
+              className={styles.invitationPicker}
+              disabled={isSelecting}
+              id="guest-invitation"
+              label="Published invitation"
+              onChange={(nextInvitationId) => {
+                if (isSelecting || nextInvitationId === (selectedInvitation?.invitationId ?? "")) {
+                  return;
+                }
+                // Clearing these first stops a stale ledger's prepared messages and
+                // copy feedback from appearing to belong to the invitation arriving next.
+                setPreparedCopies(new Map());
+                setCopyFeedback(null);
+                setCopyFallback(null);
+                setActionMessage(null);
+                startSelecting(() =>
+                  router.push(
+                    nextInvitationId
+                      ? `/dashboard/guests?invitationId=${encodeURIComponent(nextInvitationId)}`
+                      : "/dashboard/guests",
+                  ),
+                );
+              }}
+              options={[
+                { label: "Select an invitation", value: "" },
+                ...invitations.map((invitation) => ({
+                  label: invitation.title,
+                  value: invitation.invitationId,
+                })),
+              ]}
+              value={selectedInvitation?.invitationId ?? ""}
+            />
+            <p aria-live="polite" className={styles.selectionStatus}>
+              {isSelecting ? "Loading this invitation…" : null}
+            </p>
+          </div>
         ) : (
           <Link href="/dashboard/invitations">View invitations</Link>
         )}
       </section>
 
-      {selectedInvitation ? (
+      {isSelecting ? (
+        <section
+          aria-label="Loading the selected invitation"
+          className={styles.ledgerSkeleton}
+          role="status"
+        >
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span className={styles.visuallyHidden}>Loading the selected invitation…</span>
+        </section>
+      ) : null}
+
+      {selectedInvitation && !isSelecting ? (
         <>
           <section aria-labelledby="general-link-heading" className={styles.generalLink}>
             <div>
@@ -400,7 +557,7 @@ export function GuestDesk({
             <div className={styles.copyStack}>
               <button
                 className={styles.copyInvitationButton}
-                onClick={() => void copyGeneralInvitation()}
+                onClick={() => copyGeneralInvitation()}
                 type="button"
               >
                 {copyFeedback?.target === "general" && copyFeedback.status === "success" ? (
@@ -669,6 +826,37 @@ export function GuestDesk({
                                 {copyFeedback?.target === party.id ? (
                                   <span aria-live="polite" className={styles.visuallyHidden}>
                                     {copyFeedback.message}
+                                  </span>
+                                ) : null}
+
+                                <label className={styles.sentCheck}>
+                                  <input
+                                    checked={party.markedSentAt !== null}
+                                    disabled={sendingPartyId === party.id}
+                                    onChange={(event) =>
+                                      void toggleSent(party, event.currentTarget.checked)
+                                    }
+                                    type="checkbox"
+                                  />
+                                  <span className={styles.sentLabel}>
+                                    {party.markedSentAt
+                                      ? `Sent ${formatResponseTime(party.markedSentAt)}`
+                                      : "I have sent this"}
+                                  </span>
+                                </label>
+
+                                {/*
+                                  Copying is evidence of intent, never of delivery — a creator
+                                  may copy and then never paste. Shown quietly so the checkbox
+                                  above stays the answer to "did this guest get their invitation?".
+                                */}
+                                {party.copyCount > 0 ? (
+                                  <span className={styles.copyHint}>
+                                    Copied {party.copyCount}
+                                    {party.copyCount === 1 ? " time" : " times"}
+                                    {party.lastCopiedAt
+                                      ? `, last ${formatResponseTime(party.lastCopiedAt)}`
+                                      : null}
                                   </span>
                                 ) : null}
                               </div>

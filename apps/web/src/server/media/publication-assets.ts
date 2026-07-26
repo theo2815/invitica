@@ -28,10 +28,40 @@ const storedMediaSchema = z.strictObject({
 });
 
 /**
- * Builds the immutable publication asset manifest for a draft's document
- * assets. Each ready rendition is copied to a content-addressed publication key
- * (idempotently, skipping keys that already exist), so the snapshot can never be
- * mutated by a later draft edit and republishing identical media does no work.
+ * Bounded so a seventeen-photograph invitation issues a few short bursts to R2 rather
+ * than sixty-eight requests at once.
+ */
+const RENDITION_COPY_CONCURRENCY = 8;
+
+async function inBatches<T>(tasks: readonly (() => Promise<T>)[], size: number): Promise<T[]> {
+  const results: T[] = [];
+  for (let index = 0; index < tasks.length; index += size) {
+    results.push(...(await Promise.all(tasks.slice(index, index + size).map((task) => task()))));
+  }
+  return results;
+}
+
+/**
+ * Builds the immutable publication asset manifest for a draft's document assets. Each
+ * ready rendition is copied to a content-addressed publication key, so the snapshot can
+ * never be mutated by a later draft edit.
+ *
+ * This runs inside the publish request, before the snapshot row exists, because `0017`
+ * validates the manifest at insert. It used to do so strictly sequentially: one query
+ * per asset, then a HEAD and a COPY per rendition, each awaited alone. A Little
+ * Blessings invitation may carry seventeen images of up to four renditions, so a single
+ * publish could spend more than 150 consecutive round trips to Singapore — tens of
+ * seconds before the job was even enqueued.
+ *
+ * Two changes, no behaviour lost:
+ *
+ * - **One query for every asset** instead of one per asset. Ownership is unchanged: the
+ *   filter still pins `invitation_id`, so an id belonging to another invitation is
+ *   simply absent, and a missing row is still refused.
+ * - **No HEAD before COPY.** Both cost one request, so the probe only ever saved work
+ *   when the key already existed and doubled it otherwise. The destination key is
+ *   derived from the rendition's own digest, so re-copying writes byte-identical
+ *   content and cannot disturb a snapshot already pointing at it.
  */
 export async function resolveInvitationPublicationAssets(
   supabase: SupabaseServerClient,
@@ -41,7 +71,7 @@ export async function resolveInvitationPublicationAssets(
     readonly documentAssets: InvitationDocument["assets"];
   },
 ): Promise<PublicationAssetManifestEntry[]> {
-  const manifest: PublicationAssetManifestEntry[] = [];
+  if (input.documentAssets.length === 0) return [];
 
   for (const asset of input.documentAssets) {
     if (asset.kind !== "image") {
@@ -49,47 +79,61 @@ export async function resolveInvitationPublicationAssets(
       // be resolved to viewer-safe storage yet.
       throw new PublicationMediaUnavailableError();
     }
-
-    const { data, error } = await supabase
-      .from("invitation_media_assets")
-      .select("id, width, height, renditions")
-      .eq("id", asset.id)
-      .eq("invitation_id", input.invitationId)
-      .eq("status", "ready")
-      .maybeSingle();
-
-    if (error || !data) {
-      throw new PublicationMediaUnavailableError();
-    }
-
-    const media = storedMediaSchema.parse(data);
-    const renditions = [];
-    for (const rendition of media.renditions) {
-      const destinationKey = publicationMediaObjectKey(rendition.sha256, rendition.width);
-      if (!(await store.head(destinationKey))) {
-        await store.copy(mediaRenditionObjectKey(media.id, rendition.width), destinationKey, {
-          cacheControl: IMMUTABLE_MEDIA_CACHE_CONTROL,
-          contentType: DELIVERED_IMAGE_CONTENT_TYPE,
-        });
-      }
-      renditions.push({
-        byteLength: rendition.byteLength,
-        height: rendition.height,
-        objectKey: destinationKey,
-        sha256: rendition.sha256,
-        width: rendition.width,
-      });
-    }
-
-    manifest.push({
-      contentType: DELIVERED_IMAGE_CONTENT_TYPE,
-      height: media.height,
-      id: media.id,
-      kind: "image",
-      renditions,
-      width: media.width,
-    });
   }
 
-  return manifest;
+  const { data, error } = await supabase
+    .from("invitation_media_assets")
+    .select("id, width, height, renditions")
+    .eq("invitation_id", input.invitationId)
+    .eq("status", "ready")
+    .in(
+      "id",
+      input.documentAssets.map((asset) => asset.id),
+    );
+
+  if (error) throw new PublicationMediaUnavailableError();
+  const readyMedia = new Map(
+    z
+      .array(storedMediaSchema)
+      .parse(data ?? [])
+      .map((media) => [media.id, media] as const),
+  );
+
+  // Resolved in document order so the manifest is deterministic regardless of the
+  // order the database returned rows or the copies completed in.
+  const ordered = input.documentAssets.map((asset) => {
+    const media = readyMedia.get(asset.id);
+    if (!media) throw new PublicationMediaUnavailableError();
+    return media;
+  });
+
+  const copies = ordered.flatMap((media) =>
+    media.renditions.map(
+      (rendition) => () =>
+        store.copy(
+          mediaRenditionObjectKey(media.id, rendition.width),
+          publicationMediaObjectKey(rendition.sha256, rendition.width),
+          {
+            cacheControl: IMMUTABLE_MEDIA_CACHE_CONTROL,
+            contentType: DELIVERED_IMAGE_CONTENT_TYPE,
+          },
+        ),
+    ),
+  );
+  await inBatches(copies, RENDITION_COPY_CONCURRENCY);
+
+  return ordered.map((media) => ({
+    contentType: DELIVERED_IMAGE_CONTENT_TYPE,
+    height: media.height,
+    id: media.id,
+    kind: "image",
+    renditions: media.renditions.map((rendition) => ({
+      byteLength: rendition.byteLength,
+      height: rendition.height,
+      objectKey: publicationMediaObjectKey(rendition.sha256, rendition.width),
+      sha256: rendition.sha256,
+      width: rendition.width,
+    })),
+    width: media.width,
+  }));
 }

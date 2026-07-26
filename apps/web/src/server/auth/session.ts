@@ -43,6 +43,19 @@ export async function requireConfirmedUser() {
   return { supabase, user };
 }
 
+/**
+ * Authenticates the creator **and** guarantees a personal workspace exists.
+ *
+ * The RPC is idempotent, so after a creator's first action it spends a round trip to
+ * Singapore re-learning a fact the request already implies. Use this only where the
+ * workspace must be created (a first draft) or where its id is genuinely needed —
+ * a page that queries workspace-scoped rows, for instance.
+ *
+ * For a mutation or read of an invitation that already exists, prefer
+ * `requireConfirmedUser`: every RPC behind those paths is security definer and derives
+ * ownership from `auth.uid()` on its own, and the table reads are covered by
+ * workspace-scoped RLS, so this call was a gate standing in front of a gate.
+ */
 export async function ensurePersonalWorkspace() {
   const { supabase, user } = await requireConfirmedUser();
   const { data: workspaceId, error } = await supabase.rpc("ensure_personal_workspace");

@@ -1,0 +1,208 @@
+/*
+ * Creator venue picker. Deliberately plain product chrome rather than any template's art
+ * direction, matching the surrounding inspector fields. Leaflet's structural rules come
+ * from the renderer package's shared stylesheet; only the picker's own frame lives here.
+ */
+.picker {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--surface) 60%, var(--background));
+}
+
+.searchField {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.searchField label {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.searchField label span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 620;
+}
+
+.searchField input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.searchField input:focus-visible,
+.manualPair input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.searchStatus {
+  min-height: 0.95rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 640;
+}
+
+.results {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.results button {
+  display: grid;
+  gap: 0.1rem;
+  width: 100%;
+  /* Two lines of text already clear 44 px; stated so it cannot regress. */
+  min-height: 2.75rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.results button strong {
+  font-size: 0.78rem;
+  font-weight: 780;
+}
+
+.results button small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.results button:hover,
+.results button:focus-visible {
+  border-color: var(--accent);
+}
+
+.results button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.locationSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.locationSummary p {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+}
+
+/* Scoped through the paragraph they actually sit in, so their specificity matches the
+   other label rules above rather than descending below them. */
+.locationSummary p strong {
+  font-size: 0.74rem;
+  font-weight: 780;
+}
+
+.locationSummary p span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.locationSummary button,
+.mapToggle {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.locationSummary button:focus-visible,
+.mapToggle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.mapToggle {
+  justify-self: start;
+}
+
+.mapPanel {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.canvas {
+  height: 15rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface-muted);
+}
+
+.canvas:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mapHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.unavailable {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 640;
+}
+
+.manualPair {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+}
+
+.manualPair label {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.manualPair input {
+  min-height: 2.75rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+}

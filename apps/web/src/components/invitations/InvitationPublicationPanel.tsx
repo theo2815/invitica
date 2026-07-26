@@ -11,6 +11,14 @@ import {
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
 import styles from "./InvitationPublicationPanel.module.css";
 
+/**
+ * Delivery is usually confirmed within a second or two of the job starting, so the
+ * first check is nearly immediate and the interval only relaxes afterwards. Waiting a
+ * flat two seconds before *asking* meant even an already-finished publication showed
+ * "Publishing…" for the full interval, and every later transition was rounded up to
+ * the next tick.
+ */
+const FIRST_STATUS_POLL_MS = 350;
 const STATUS_POLL_MS = 2_000;
 const MAX_STATUS_POLLS = 30;
 
@@ -78,10 +86,13 @@ export function InvitationPublicationPanel({
 
     const schedulePoll = () => {
       if (cancelled || timer !== undefined) return;
-      timer = window.setTimeout(() => {
-        timer = undefined;
-        void pollPublication();
-      }, STATUS_POLL_MS);
+      timer = window.setTimeout(
+        () => {
+          timer = undefined;
+          void pollPublication();
+        },
+        completedPolls === 0 ? FIRST_STATUS_POLL_MS : STATUS_POLL_MS,
+      );
     };
 
     const pollPublication = async () => {

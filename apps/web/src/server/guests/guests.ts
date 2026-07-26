@@ -13,9 +13,13 @@ const draftTitleSchema = z.strictObject({ document: z.unknown(), invitation_id: 
 const guestPartySchema = z.strictObject({
   archived_at: z.string().datetime({ offset: true }).nullable(),
   capacity: z.number().int().min(1).max(50),
+  copy_count: z.number().int().nonnegative(),
   created_at: z.string().datetime({ offset: true }),
+  first_copied_at: z.string().datetime({ offset: true }).nullable(),
   id: uuidSchema,
   internal_label: z.string().trim().min(1).max(120),
+  last_copied_at: z.string().datetime({ offset: true }).nullable(),
+  marked_sent_at: z.string().datetime({ offset: true }).nullable(),
   recipient_name: z.string().trim().min(1).max(120),
   revision: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 });
@@ -58,11 +62,17 @@ export interface GuestInvitationSummary {
 export interface GuestPartySummary {
   readonly archivedAt: string | null;
   readonly capacity: number;
+  /** How many times the creator has copied this party's invitation message. */
+  readonly copyCount: number;
   readonly createdAt: string;
+  readonly firstCopiedAt: string | null;
   readonly guestMembers: readonly { readonly id: string; readonly name: string }[];
   readonly id: string;
   readonly internalLabel: string;
+  readonly lastCopiedAt: string | null;
   readonly linkStatus: "active" | "revoked";
+  /** The creator's own statement that they sent this invitation. Never inferred. */
+  readonly markedSentAt: string | null;
   readonly recipientName: string;
   readonly revision: number;
   readonly response: {
@@ -187,6 +197,49 @@ export async function listDeliveredGuestInvitations(
     .sort((left, right) => left.title.localeCompare(right.title));
 }
 
+/**
+ * Loads one delivered invitation instead of every delivered invitation in the
+ * workspace. Guest actions each need exactly one, and the list variant parses every
+ * workspace document through the strict contract just to read its hero title — work
+ * that grows with the creator's library and sat directly in the Copy invitation path.
+ */
+export async function loadDeliveredGuestInvitation(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  invitationId: string,
+): Promise<GuestInvitationSummary | null> {
+  const parsedWorkspaceId = uuidSchema.parse(workspaceId);
+  const parsedInvitationId = uuidSchema.parse(invitationId);
+  const [alias, draft] = await Promise.all([
+    supabase
+      .from("publication_aliases")
+      .select("invitation_id, public_identifier, delivered_publication_id")
+      .eq("workspace_id", parsedWorkspaceId)
+      .eq("invitation_id", parsedInvitationId)
+      .eq("delivery_status", "delivered")
+      .not("delivered_publication_id", "is", null)
+      .maybeSingle(),
+    supabase
+      .from("invitation_drafts")
+      .select("invitation_id, document")
+      .eq("workspace_id", parsedWorkspaceId)
+      .eq("invitation_id", parsedInvitationId)
+      .maybeSingle(),
+  ]);
+
+  if (alias.error || draft.error) throw new GuestPersistenceError();
+  if (!alias.data || !draft.data) return null;
+
+  const delivered = deliveredAliasSchema.parse(alias.data);
+  const title = invitationTitle(draftTitleSchema.parse(draft.data).document);
+  return {
+    genericUrl: buildGenericInvitationUrl(title, delivered.public_identifier),
+    invitationId: delivered.invitation_id,
+    publicIdentifier: delivered.public_identifier,
+    title,
+  };
+}
+
 async function listGuestPartiesByArchiveState(
   supabase: SupabaseClient,
   workspaceId: string,
@@ -197,7 +250,9 @@ async function listGuestPartiesByArchiveState(
   const parsedInvitationId = uuidSchema.parse(invitationId);
   const parties = supabase
     .from("guest_parties")
-    .select("id, internal_label, recipient_name, capacity, created_at, archived_at, revision")
+    .select(
+      "id, internal_label, recipient_name, capacity, created_at, archived_at, revision, copy_count, first_copied_at, last_copied_at, marked_sent_at",
+    )
     .eq("workspace_id", parsedWorkspaceId)
     .eq("invitation_id", parsedInvitationId)
     .order("created_at", { ascending: true });
@@ -246,17 +301,21 @@ async function listGuestPartiesByArchiveState(
     return {
       archivedAt: party.archived_at,
       capacity: party.capacity,
+      copyCount: party.copy_count,
       createdAt: party.created_at,
+      firstCopiedAt: party.first_copied_at,
       guestMembers: namedGuests
         .filter((guest) => guest.guest_party_id === party.id)
         .map((guest) => ({ id: guest.id, name: guest.name })),
       id: party.id,
       internalLabel: party.internal_label,
+      lastCopiedAt: party.last_copied_at,
       linkStatus: linkStates.some(
         (link) => link.guest_party_id === party.id && link.status === "active",
       )
         ? "active"
         : "revoked",
+      markedSentAt: party.marked_sent_at,
       recipientName: party.recipient_name,
       revision: party.revision,
       response: response
@@ -417,6 +476,34 @@ export async function revokeGuestPartyLink(
 ): Promise<void> {
   const { error } = await supabase.rpc("revoke_guest_party_link", {
     p_guest_party_id: uuidSchema.parse(guestPartyId),
+  });
+  if (error) throw new GuestPersistenceError();
+}
+
+/**
+ * Records that the creator copied a party's invitation message. Never bumps the party
+ * revision — a copy is not an edit, and bumping it would make an open editor report a
+ * conflict the creator did not cause.
+ */
+export async function recordGuestInvitationCopy(
+  supabase: SupabaseClient,
+  guestPartyId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("record_guest_invitation_copy", {
+    p_guest_party_id: uuidSchema.parse(guestPartyId),
+  });
+  if (error) throw new GuestPersistenceError();
+}
+
+/** Sets or clears the creator's "I have sent this" mark. Reversible and idempotent. */
+export async function setGuestInvitationSent(
+  supabase: SupabaseClient,
+  guestPartyId: string,
+  sent: boolean,
+): Promise<void> {
+  const { error } = await supabase.rpc("set_guest_invitation_sent", {
+    p_guest_party_id: uuidSchema.parse(guestPartyId),
+    p_sent: sent,
   });
   if (error) throw new GuestPersistenceError();
 }

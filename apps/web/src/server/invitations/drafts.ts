@@ -296,6 +296,15 @@ export async function saveGardenPromiseDraft(supabase: SupabaseServerClient, inp
   }
 
   if (error) {
+    // See the matching record in `little-blessings.ts`: without the PostgreSQL code
+    // a failed save is indistinguishable from any other cause.
+    console.error("[Invitation editor] update_garden_promise_details failed", {
+      code: error.code,
+      details: error.details || undefined,
+      hint: error.hint || undefined,
+      invitationId: parsed.invitationId,
+      message: error.message,
+    });
     throw new InvitationDraftPersistenceError();
   }
 

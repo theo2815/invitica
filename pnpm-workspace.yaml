@@ -23,6 +23,10 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-arm64@2.10.5'
   - turbo@2.10.5
 allowBuilds:
+  # The Trigger.dev CLI reaches Depot for its remote container build, but the depot
+  # binary arrives through the platform-specific optional dependency rather than this
+  # install script, so it stays off and the allowlist keeps its narrow shape.
+  '@depot/cli': false
   esbuild: true
   sharp: true
   workerd: true

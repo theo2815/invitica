@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../app/api/public/rsvp/route";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { GuestRsvpPersistenceError, submitGuestRsvp } from "../src/server/guests/rsvps";
+import { consumePublicRequest } from "../src/server/guests/throttle";
 import { hashGuestLinkToken } from "../src/server/guests/tokens";
 
 vi.mock("../src/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("../src/server/guests/throttle", () => ({ consumePublicRequest: vi.fn() }));
 vi.mock("../src/server/guests/rsvps", async (importOriginal) => {
   const original = await importOriginal<typeof import("../src/server/guests/rsvps")>();
   return { ...original, submitGuestRsvp: vi.fn() };
@@ -36,6 +38,7 @@ function request(value: unknown, contentType = "application/json") {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(createAdminClient).mockReturnValue({} as never);
+  vi.mocked(consumePublicRequest).mockResolvedValue(true);
   vi.mocked(hashGuestLinkToken).mockReturnValue(tokenHash);
 });
 
@@ -87,5 +90,14 @@ describe("public RSVP route", () => {
     const response = await POST(request(body));
     expect(response.status).toBe(status);
     expect(await response.text()).not.toContain("database");
+  });
+
+  it("refuses a caller over budget without reaching persistence", async () => {
+    vi.mocked(consumePublicRequest).mockResolvedValue(false);
+
+    const response = await POST(request(body));
+
+    expect(response.status).toBe(429);
+    expect(submitGuestRsvp).not.toHaveBeenCalled();
   });
 });

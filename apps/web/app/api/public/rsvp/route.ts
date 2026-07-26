@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { GuestRsvpPersistenceError, submitGuestRsvp } from "../../../../src/server/guests/rsvps";
+import { consumePublicRequest } from "../../../../src/server/guests/throttle";
 import { hashGuestLinkToken } from "../../../../src/server/guests/tokens";
 
 const responseHeaders = {
@@ -38,8 +39,14 @@ export async function POST(request: Request) {
   if (!parsed.success) return failure("invalid", 400);
 
   try {
+    // Throttled after validation so a malformed flood costs no database call.
+    const supabase = createAdminClient();
+    if (!(await consumePublicRequest(supabase, "rsvp", request))) {
+      return failure("unavailable", 429);
+    }
+
     const response = await submitGuestRsvp(
-      createAdminClient(),
+      supabase,
       parsed.data,
       hashGuestLinkToken(parsed.data.token),
     );

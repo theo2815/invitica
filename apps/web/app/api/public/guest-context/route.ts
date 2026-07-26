@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { resolveGuestRsvpContext } from "../../../../src/server/guests/rsvps";
+import { consumePublicRequest } from "../../../../src/server/guests/throttle";
 import { hashGuestLinkToken } from "../../../../src/server/guests/tokens";
 
 const responseHeaders = {
@@ -35,8 +36,13 @@ export async function POST(request: Request) {
   if (!parsed.success) return unavailable();
 
   try {
+    const supabase = createAdminClient();
+    if (!(await consumePublicRequest(supabase, "guest-context", request))) {
+      return unavailable(429);
+    }
+
     const context = await resolveGuestRsvpContext(
-      createAdminClient(),
+      supabase,
       parsed.data.publicIdentifier,
       hashGuestLinkToken(parsed.data.token),
     );

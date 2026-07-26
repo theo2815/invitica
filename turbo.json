@@ -1,9 +1,22 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalPassThroughEnv": ["INVITICA_VIEWER_TEST_ORIGIN"],
+  "//": "Turborepo runs in strict environment mode: a variable set on the deployment platform but not declared here is removed before a task runs. `NEXT_PUBLIC_*` arrives through Next.js framework inference and needs no entry. Server-only secrets are read at request time and never change build output, so they pass through unhashed; anything baked into the build belongs in a task's `env` instead.",
+  "globalPassThroughEnv": [
+    "GUEST_LINK_ENCRYPTION_KEY",
+    "GUEST_LINK_ENCRYPTION_KEY_VERSION",
+    "GUEST_LINK_HASH_KEY",
+    "INVITICA_VIEWER_TEST_ORIGIN",
+    "R2_ACCESS_KEY_ID",
+    "R2_BUCKET_NAME",
+    "R2_ENDPOINT",
+    "R2_SECRET_ACCESS_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TRIGGER_SECRET_KEY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build", "typecheck"],
+      "env": ["INVITICA_VIEWER_ORIGIN", "VERCEL_ENV"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
@@ -16,6 +29,7 @@
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],
+      "env": ["INVITICA_VIEWER_ORIGIN", "VERCEL_ENV"],
       "outputs": []
     }
   }

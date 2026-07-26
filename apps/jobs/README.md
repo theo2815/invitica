@@ -43,3 +43,32 @@ How to Run the jobs dev:
 ```bash
   pnpm --filter @invitica/jobs build
 ```
+
+## Deploying
+
+Deploy from this directory, not the repository root. The CLI version must match the
+`@trigger.dev/sdk` version in `package.json`.
+
+```bash
+cd apps/jobs
+pnpm dlx trigger.dev@4.5.4 deploy
+```
+
+This targets the **production** environment. `apps/web` reaches the deployed task through
+`TRIGGER_SECRET_KEY`, so that key must belong to the same project and the same environment this
+command deployed to — a `tr_dev_*` key only resolves tasks while `trigger.dev dev` is running.
+
+`trigger.config.ts` reads the project from `TRIGGER_PROJECT_REF` and otherwise falls back to
+`proj_invitica_local`, which is not a real project. If the CLI does not pick the value up from
+`.env.local`, pass it explicitly rather than letting the fallback deploy somewhere unintended:
+
+```bash
+pnpm dlx trigger.dev@4.5.4 deploy --project-ref proj_your_reference
+```
+
+**Trigger.dev's GitHub integration does not work with this repository by default.** It looks for
+`trigger.config.ts` in the repository root, while this one lives in `apps/jobs`, and the deploy
+fails with "Config file not found". Point the config path at `apps/jobs` in the Trigger.dev project
+build settings before relying on push-to-deploy. Note also that this package depends on
+`@invitica/invitation-schema` through a pnpm workspace link, so any remote build must install from
+the workspace root rather than from this directory alone.

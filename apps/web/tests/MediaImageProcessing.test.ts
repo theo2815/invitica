@@ -50,6 +50,28 @@ describe("processInvitationImage", () => {
     expect(processed.renditions[0]?.rendition.width).toBe(280);
   });
 
+  it("records the delivered orientation for phone photos with EXIF rotation", async () => {
+    const data = new Uint8Array(
+      await sharp({
+        create: {
+          background: { b: 60, g: 120, r: 210 },
+          channels: 3,
+          height: 300,
+          width: 400,
+        },
+      })
+        .jpeg()
+        .withMetadata({ orientation: 6 })
+        .toBuffer(),
+    );
+    const processed = await processInvitationImage({ assetId, data });
+
+    expect(processed.asset.width).toBe(300);
+    expect(processed.asset.height).toBe(400);
+    expect(processed.renditions).toHaveLength(1);
+    expect(processed.renditions[0]?.rendition).toMatchObject({ height: 400, width: 300 });
+  });
+
   it("rejects an empty upload", async () => {
     await expect(
       processInvitationImage({ assetId, data: new Uint8Array() }),

@@ -354,12 +354,17 @@ describe("InvitationRenderer", () => {
     );
 
     expect(resolvedHtml).toContain("<img");
-    expect(resolvedHtml).toContain('width="1600"');
-    expect(resolvedHtml).toContain('height="1200"');
+    expect(resolvedHtml).toContain('width="640"');
+    expect(resolvedHtml).toContain('height="480"');
     expect(resolvedHtml).toContain(`/m/v1/${heroSha}/w320.webp 320w`);
     expect(resolvedHtml).toContain(`/m/v1/${heroSha}/w640.webp 640w`);
     expect(resolvedHtml).toContain('loading="eager"');
     expect(resolvedHtml).toContain('loading="lazy"');
+    expect(resolvedHtml).toContain('data-photo-orientation="landscape"');
+    expect(resolvedHtml).toContain('class="ip-photo-trigger lb-hero-photo-trigger"');
+    expect(resolvedHtml).toContain("counter(lb-page, upper-roman)");
+    expect(resolvedHtml).not.toContain('symbols: "one"');
+    expect(resolvedHtml).not.toContain("aspect-ratio: 4 / 5");
     // The figcaption names the figure, so the image never repeats that text to a screen reader.
     expect(resolvedHtml).not.toContain('alt="Eliana resting in a light blanket"');
     expect(resolvedHtml).toContain("View photo: Eliana resting in a light blanket");

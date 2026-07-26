@@ -1,7 +1,7 @@
 "use client";
 
 import type { InvitationSection } from "@invitica/invitation-schema";
-import type { CSSProperties, KeyboardEvent, ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { InteractiveMap, interactiveMapStyles } from "./InteractiveMap.js";
 import type {
@@ -11,6 +11,13 @@ import type {
   ResolvedRendererImage,
 } from "./InvitationRenderer.js";
 import { buildIcsCalendar } from "./ics.js";
+import {
+  largestImageRendition,
+  PhotoPreviewDialog,
+  type PhotoPreviewItem,
+  PhotoPreviewTrigger,
+  photoPreviewStyles,
+} from "./PhotoPreview.js";
 import { PoweredByInvitica, poweredByInviticaStyles } from "./PoweredByInvitica.js";
 import { RibbonEnvelopeOpening, ribbonEnvelopeStyles } from "./RibbonEnvelopeOpening.js";
 import { useCountdown } from "./useCountdown.js";
@@ -67,7 +74,6 @@ const CALENDAR_EVENT_DURATION_MS = 60 * 60 * 1000;
 
 const HERO_IMAGE_SIZES = "(max-width: 40rem) 78vw, 22rem";
 const CARD_IMAGE_SIZES = "(max-width: 40rem) 88vw, 16rem";
-const LIGHTBOX_IMAGE_SIZES = "94vw";
 
 type GallerySection = Extract<InvitationSection, { type: "gallery" }>;
 
@@ -167,14 +173,22 @@ function resolvedImageElement(
       alt={alt}
       className={className}
       decoding="async"
-      height={image.height}
+      height={largest.height}
       loading={loading}
       sizes={sizes}
       src={largest.url}
       srcSet={ordered.map((rendition) => `${rendition.url} ${rendition.width}w`).join(", ")}
-      width={image.width}
+      width={largest.width}
     />
   );
+}
+
+function photoOrientation(image: ResolvedRendererImage): "landscape" | "portrait" | "square" {
+  const largest = largestImageRendition(image);
+  const ratio = largest ? largest.width / largest.height : image.width / image.height;
+  if (ratio > 1.12) return "landscape";
+  if (ratio < 0.88) return "portrait";
+  return "square";
 }
 
 const COUNTDOWN_UNITS = [
@@ -255,84 +269,21 @@ function LittleBlessingsGallery({
     image,
     resolved: resolveImage?.(image.assetId) ?? null,
   }));
-  const openableIndexes = entries.flatMap((entry, index) => (entry.resolved ? [index] : []));
+  const previewItems: readonly PhotoPreviewItem[] = entries.flatMap((entry, index) =>
+    entry.resolved
+      ? [
+          {
+            ...(entry.image.caption ? { description: entry.image.caption } : {}),
+            id: entry.image.assetId,
+            image: entry.resolved,
+            label:
+              entry.image.title ?? entry.image.caption ?? `Photo ${index + 1} of ${entries.length}`,
+            ...(entry.image.title ? { title: entry.image.title } : {}),
+          },
+        ]
+      : [],
+  );
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const triggerRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const active = activeIndex === null ? null : (entries[activeIndex] ?? null);
-
-  useEffect(() => {
-    if (activeIndex !== null) {
-      closeButtonRef.current?.focus();
-    }
-  }, [activeIndex]);
-
-  function closeLightbox(index: number) {
-    setActiveIndex(null);
-    triggerRefs.current[index]?.focus();
-  }
-
-  function stepLightbox(direction: 1 | -1) {
-    if (activeIndex === null || openableIndexes.length < 2) {
-      return;
-    }
-
-    const position = openableIndexes.indexOf(activeIndex);
-    const nextPosition = (position + direction + openableIndexes.length) % openableIndexes.length;
-    const nextIndex = openableIndexes[nextPosition];
-    if (typeof nextIndex === "number") {
-      setActiveIndex(nextIndex);
-    }
-  }
-
-  function handleLightboxKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (activeIndex === null) {
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeLightbox(activeIndex);
-      return;
-    }
-
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      stepLightbox(1);
-      return;
-    }
-
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      stepLightbox(-1);
-      return;
-    }
-
-    if (event.key === "Tab") {
-      const dialog = dialogRef.current;
-      if (!dialog) {
-        return;
-      }
-
-      const controls = Array.from(
-        dialog.querySelectorAll<HTMLButtonElement>("button:not([disabled])"),
-      );
-      const first = controls.at(0);
-      const last = controls.at(-1);
-      if (!first || !last) {
-        return;
-      }
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-  }
 
   return (
     <section
@@ -349,21 +300,24 @@ function LittleBlessingsGallery({
           const element = entry.resolved
             ? resolvedImageElement(entry.resolved, "", "lb-media-image", "lazy", CARD_IMAGE_SIZES)
             : null;
+          const previewIndex = previewItems.findIndex((item) => item.id === entry.image.assetId);
+          const previewHref = entry.resolved ? largestImageRendition(entry.resolved)?.url : null;
 
           return (
-            <figure data-asset-id={entry.image.assetId} key={entry.image.assetId}>
-              {element ? (
-                <button
-                  aria-label={`View photo${galleryPhotoSuffix(entry.image, index, entries.length)}`}
+            <figure
+              data-asset-id={entry.image.assetId}
+              data-photo-orientation={entry.resolved ? photoOrientation(entry.resolved) : undefined}
+              key={entry.image.assetId}
+            >
+              {element && previewHref && previewIndex >= 0 ? (
+                <PhotoPreviewTrigger
                   className="lb-gallery-trigger"
-                  onClick={() => setActiveIndex(index)}
-                  ref={(node) => {
-                    triggerRefs.current[index] = node;
-                  }}
-                  type="button"
+                  href={previewHref}
+                  label={`View photo${galleryPhotoSuffix(entry.image, index, entries.length)}`}
+                  onOpen={() => setActiveIndex(previewIndex)}
                 >
                   {element}
-                </button>
+                </PhotoPreviewTrigger>
               ) : (
                 <div aria-hidden="true" className="lb-media-placeholder">
                   Image pending creator upload
@@ -380,52 +334,14 @@ function LittleBlessingsGallery({
           );
         })}
       </div>
-      {active?.resolved && activeIndex !== null ? (
-        <div
-          aria-label={`Photo${galleryPhotoSuffix(active.image, activeIndex, entries.length)}`}
-          aria-modal="true"
-          className="lb-lightbox"
-          onKeyDown={handleLightboxKeyDown}
-          ref={dialogRef}
-          role="dialog"
-        >
-          <div className="lb-lightbox-frame">
-            {resolvedImageElement(
-              active.resolved,
-              "",
-              "lb-lightbox-image",
-              "eager",
-              LIGHTBOX_IMAGE_SIZES,
-            )}
-            {active.image.title || active.image.caption ? (
-              <p>
-                {active.image.title ? <strong>{active.image.title}</strong> : null}
-                {active.image.caption ? <span>{active.image.caption}</span> : null}
-              </p>
-            ) : null}
-            <div className="lb-lightbox-controls">
-              {openableIndexes.length > 1 ? (
-                <button aria-label="Previous photo" onClick={() => stepLightbox(-1)} type="button">
-                  Previous
-                </button>
-              ) : null}
-              <button
-                aria-label="Close photo view"
-                onClick={() => closeLightbox(activeIndex)}
-                ref={closeButtonRef}
-                type="button"
-              >
-                Close
-              </button>
-              {openableIndexes.length > 1 ? (
-                <button aria-label="Next photo" onClick={() => stepLightbox(1)} type="button">
-                  Next
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PhotoPreviewDialog
+        activeIndex={activeIndex}
+        className="lb-photo-preview"
+        items={previewItems}
+        onActiveIndexChange={setActiveIndex}
+        onClose={() => setActiveIndex(null)}
+        reducedMotion={reducedMotion}
+      />
     </section>
   );
 }
@@ -527,6 +443,176 @@ function LittleBlessingsEventDetails({
   );
 }
 
+type HeroSection = Extract<InvitationSection, { type: "hero" }>;
+
+function LittleBlessingsHero({
+  reducedMotion,
+  resolveImage,
+  section,
+}: {
+  reducedMotion: boolean;
+  resolveImage: InvitationImageResolver | undefined;
+  section: HeroSection;
+}) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const heroAssetId = section.props.imageAssetId;
+  const heroImage = heroAssetId ? (resolveImage?.(heroAssetId) ?? null) : null;
+  const heroImageElement = heroImage
+    ? resolvedImageElement(heroImage, "", "lb-media-image lb-hero-image", "eager", HERO_IMAGE_SIZES)
+    : null;
+  const largest = heroImage ? largestImageRendition(heroImage) : null;
+  const previewItems: readonly PhotoPreviewItem[] =
+    heroAssetId && heroImage
+      ? [
+          {
+            description: "Celebrant portrait",
+            id: heroAssetId,
+            image: heroImage,
+            label: `Celebrant photo of ${section.props.title}`,
+            title: section.props.title,
+          },
+        ]
+      : [];
+  const [heroLeadName, ...heroRestName] = section.props.title.trim().split(/\s+/);
+  const heroRest = heroRestName.join(" ");
+
+  return (
+    <section
+      className="lb-section lb-hero"
+      data-animation={section.animationPreset}
+      data-section-type={section.type}
+    >
+      {heroAssetId ? (
+        <div
+          className="lb-hero-frame"
+          data-asset-id={heroAssetId}
+          data-photo-orientation={heroImage ? photoOrientation(heroImage) : undefined}
+        >
+          {heroImageElement && largest ? (
+            <PhotoPreviewTrigger
+              className="lb-hero-photo-trigger"
+              href={largest.url}
+              label={`View celebrant photo of ${section.props.title}`}
+              onOpen={() => setActiveIndex(0)}
+            >
+              {heroImageElement}
+            </PhotoPreviewTrigger>
+          ) : (
+            <div aria-hidden="true" className="lb-media-placeholder">
+              Baby portrait pending creator upload
+            </div>
+          )}
+        </div>
+      ) : null}
+      <div className="lb-hero-head">
+        {section.props.eyebrow ? <p className="lb-eyebrow">{section.props.eyebrow}</p> : null}
+        <h1>
+          <em className="lb-hero-name">{heroLeadName}</em>
+          {heroRest ? <span className="lb-hero-surname">{heroRest}</span> : null}
+        </h1>
+        {section.props.subtitle ? <p className="lb-hero-copy">{section.props.subtitle}</p> : null}
+        {section.props.dateLabel ? <time>{section.props.dateLabel}</time> : null}
+      </div>
+      <PhotoPreviewDialog
+        activeIndex={activeIndex}
+        className="lb-photo-preview"
+        items={previewItems}
+        onActiveIndexChange={setActiveIndex}
+        onClose={() => setActiveIndex(null)}
+        reducedMotion={reducedMotion}
+      />
+    </section>
+  );
+}
+
+type GiftsSection = Extract<InvitationSection, { type: "gifts" }>;
+
+function LittleBlessingsGifts({
+  reducedMotion,
+  resolveImage,
+  section,
+}: {
+  reducedMotion: boolean;
+  resolveImage: InvitationImageResolver | undefined;
+  section: GiftsSection;
+}) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const entries = section.props.items.map((item) => ({
+    item,
+    resolved: item.imageAssetId ? (resolveImage?.(item.imageAssetId) ?? null) : null,
+  }));
+  const previewItems: readonly PhotoPreviewItem[] = entries.flatMap(({ item, resolved }) =>
+    item.imageAssetId && resolved
+      ? [
+          {
+            ...(item.note ? { description: item.note } : {}),
+            id: item.imageAssetId,
+            image: resolved,
+            label: `Gift idea: ${item.name}`,
+            title: item.name,
+          },
+        ]
+      : [],
+  );
+
+  return (
+    <section
+      className="lb-section lb-gifts"
+      data-animation={section.animationPreset}
+      data-section-type={section.type}
+    >
+      {section.props.heading ? <h2>{section.props.heading}</h2> : null}
+      {section.props.message ? <p>{section.props.message}</p> : null}
+      <div className="lb-gift-grid">
+        {entries.map(({ item, resolved }) => {
+          const element = resolved
+            ? resolvedImageElement(resolved, "", "lb-media-image", "lazy", CARD_IMAGE_SIZES)
+            : null;
+          const previewIndex = item.imageAssetId
+            ? previewItems.findIndex((previewItem) => previewItem.id === item.imageAssetId)
+            : -1;
+          const previewHref = resolved ? largestImageRendition(resolved)?.url : null;
+
+          return (
+            <article
+              data-asset-id={item.imageAssetId}
+              data-photo-orientation={resolved ? photoOrientation(resolved) : undefined}
+              key={item.name}
+            >
+              {item.imageAssetId ? (
+                element && previewHref && previewIndex >= 0 ? (
+                  <PhotoPreviewTrigger
+                    className="lb-gift-photo-trigger"
+                    href={previewHref}
+                    label={`View gift idea photo: ${item.name}`}
+                    onOpen={() => setActiveIndex(previewIndex)}
+                  >
+                    {element}
+                  </PhotoPreviewTrigger>
+                ) : (
+                  <div aria-hidden="true" className="lb-media-placeholder">
+                    Gift image pending creator upload
+                  </div>
+                )
+              ) : null}
+              <h3>{item.name}</h3>
+              {item.note ? <p>{item.note}</p> : null}
+            </article>
+          );
+        })}
+      </div>
+      <PhotoPreviewDialog
+        activeIndex={activeIndex}
+        className="lb-photo-preview"
+        items={previewItems}
+        onActiveIndexChange={setActiveIndex}
+        onClose={() => setActiveIndex(null)}
+        reducedMotion={reducedMotion}
+      />
+    </section>
+  );
+}
+
 function renderBlessingSection(
   section: InvitationSection,
   locale: string,
@@ -538,51 +624,15 @@ function renderBlessingSection(
   mapTileKey: string | undefined,
 ): ReactElement {
   switch (section.type) {
-    case "hero": {
-      const heroAssetId = section.props.imageAssetId;
-      const heroImage = heroAssetId ? (resolveImage?.(heroAssetId) ?? null) : null;
-      const heroImageElement = heroImage
-        ? resolvedImageElement(
-            heroImage,
-            "",
-            "lb-media-image lb-hero-image",
-            "eager",
-            HERO_IMAGE_SIZES,
-          )
-        : null;
-      const [heroLeadName, ...heroRestName] = section.props.title.trim().split(/\s+/);
-      const heroRest = heroRestName.join(" ");
-
+    case "hero":
       return (
-        <section
-          className="lb-section lb-hero"
-          data-animation={section.animationPreset}
-          data-section-type={section.type}
+        <LittleBlessingsHero
           key={section.id}
-        >
-          {heroAssetId ? (
-            <div className="lb-hero-frame">
-              {heroImageElement ?? (
-                <div className="lb-media-placeholder" data-asset-id={heroAssetId}>
-                  Baby portrait pending creator upload
-                </div>
-              )}
-            </div>
-          ) : null}
-          <div className="lb-hero-head">
-            {section.props.eyebrow ? <p className="lb-eyebrow">{section.props.eyebrow}</p> : null}
-            <h1>
-              <em className="lb-hero-name">{heroLeadName}</em>
-              {heroRest ? <span className="lb-hero-surname">{heroRest}</span> : null}
-            </h1>
-            {section.props.subtitle ? (
-              <p className="lb-hero-copy">{section.props.subtitle}</p>
-            ) : null}
-            {section.props.dateLabel ? <time>{section.props.dateLabel}</time> : null}
-          </div>
-        </section>
+          reducedMotion={reducedMotion}
+          resolveImage={resolveImage}
+          section={section}
+        />
       );
-    }
 
     case "message":
       return (
@@ -750,39 +800,12 @@ function renderBlessingSection(
 
     case "gifts":
       return (
-        <section
-          className="lb-section lb-gifts"
-          data-animation={section.animationPreset}
-          data-section-type={section.type}
+        <LittleBlessingsGifts
           key={section.id}
-        >
-          {section.props.heading ? <h2>{section.props.heading}</h2> : null}
-          {section.props.message ? <p>{section.props.message}</p> : null}
-          <div className="lb-gift-grid">
-            {section.props.items.map((item) => {
-              const resolved = item.imageAssetId
-                ? (resolveImage?.(item.imageAssetId) ?? null)
-                : null;
-              const element = resolved
-                ? resolvedImageElement(resolved, "", "lb-media-image", "lazy", CARD_IMAGE_SIZES)
-                : null;
-
-              return (
-                <article data-asset-id={item.imageAssetId} key={item.name}>
-                  {item.imageAssetId
-                    ? (element ?? (
-                        <div aria-hidden="true" className="lb-media-placeholder">
-                          Gift image pending creator upload
-                        </div>
-                      ))
-                    : null}
-                  <h3>{item.name}</h3>
-                  {item.note ? <p>{item.note}</p> : null}
-                </article>
-              );
-            })}
-          </div>
-        </section>
+          reducedMotion={reducedMotion}
+          resolveImage={resolveImage}
+          section={section}
+        />
       );
 
     case "venue":
@@ -843,7 +866,7 @@ export function LittleBlessingsRenderer({
       lang={document.locale}
       style={style}
     >
-      <style>{`${ribbonEnvelopeStyles}\n${interactiveMapStyles}\n${poweredByInviticaStyles}\n${littleBlessingsStyles}`}</style>
+      <style>{`${ribbonEnvelopeStyles}\n${interactiveMapStyles}\n${photoPreviewStyles}\n${poweredByInviticaStyles}\n${littleBlessingsStyles}`}</style>
       <RibbonEnvelopeOpening
         coverMark={
           hero ? (
@@ -901,13 +924,6 @@ const littleBlessingsStyles = `
  * families use ornament, and left-aligned editorial setting throughout. Composition carries
  * the theme, so the page reads as a sequence of pages instead of eleven identical blocks.
  */
-
-/* Spelled-out chapter marks; browsers without @counter-style fall back to plain numerals. */
-@counter-style lb-chapter {
-  system: fixed;
-  symbols: "one" "two" "three" "four" "five" "six" "seven" "eight" "nine" "ten" "eleven" "twelve";
-  fallback: decimal;
-}
 
 .lb-root {
   --lb-trim: #c6a9b6;
@@ -1542,7 +1558,7 @@ const littleBlessingsStyles = `
   margin-bottom: clamp(1.1rem, 3.4cqi, 1.7rem);
   padding-bottom: 0.42rem;
   border-bottom: 1px solid var(--lb-hairline);
-  content: counter(lb-page, lb-chapter) / "";
+  content: counter(lb-page, upper-roman) / "";
   color: var(--lb-label);
   font-family: "Fraunces Variable", Georgia, serif;
   font-size: 0.95rem;
@@ -1648,6 +1664,7 @@ const littleBlessingsStyles = `
  */
 .lb-hero-frame {
   position: relative;
+  display: grid;
   width: min(100%, 21rem);
   padding: clamp(0.5rem, 1.8cqi, 0.85rem);
   border: 1px solid var(--lb-hairline);
@@ -1663,6 +1680,8 @@ const littleBlessingsStyles = `
     var(--lb-pearl);
   box-shadow: 0 0.7rem 1.6rem color-mix(in srgb, var(--lb-ink) 8%, transparent);
 }
+.lb-hero-frame[data-photo-orientation="square"] { width: min(100%, 24rem); }
+.lb-hero-frame[data-photo-orientation="landscape"] { width: min(100%, 32rem); }
 .lb-hero-frame::after {
   position: absolute;
   inset: -0.42rem;
@@ -1670,9 +1689,26 @@ const littleBlessingsStyles = `
   content: "";
   pointer-events: none;
 }
-.lb-hero-image {
-  aspect-ratio: 4 / 5;
-  object-fit: cover;
+.lb-hero-photo-trigger {
+  display: grid;
+  width: 100%;
+  min-height: 2.75rem;
+  overflow: hidden;
+  cursor: zoom-in;
+  place-items: center;
+  text-decoration: none;
+}
+.lb-hero-photo-trigger:focus-visible {
+  outline: 3px solid var(--lb-ink);
+  outline-offset: 0.22rem;
+}
+.lb-hero-frame .lb-hero-image {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(70svh, 36rem);
+  margin-inline: auto;
+  object-fit: contain;
 }
 .lb-hero-head {
   display: grid;
@@ -2167,8 +2203,8 @@ const littleBlessingsStyles = `
  * the padding and the corner size are set together.
  */
 .lb-gallery-trigger,
+.lb-gift-photo-trigger,
 .lb-gallery-grid .lb-media-placeholder,
-.lb-gift-grid .lb-media-image,
 .lb-gift-grid .lb-media-placeholder {
   width: 100%;
   margin: 0;
@@ -2194,13 +2230,17 @@ const littleBlessingsStyles = `
   outline-offset: -0.55rem;
 }
 .lb-gallery-trigger,
-.lb-gift-grid .lb-media-image {
+.lb-gift-photo-trigger {
   display: block;
+  color: inherit;
+  text-decoration: none;
 }
-.lb-gallery-trigger {
+.lb-gallery-trigger,
+.lb-gift-photo-trigger {
   cursor: zoom-in;
 }
-.lb-gallery-trigger:focus-visible {
+.lb-gallery-trigger:focus-visible,
+.lb-gift-photo-trigger:focus-visible {
   outline: 3px solid var(--lb-ink);
   outline-offset: 0.25rem;
 }
@@ -2245,59 +2285,52 @@ const littleBlessingsStyles = `
 .lb-gallery[data-reveal="revealed"] .lb-gallery-grid figure:nth-child(4) { transition-delay: 240ms; }
 .lb-gallery[data-reveal="revealed"] .lb-gallery-grid figure:nth-child(n + 5) { transition-delay: 320ms; }
 
-.lb-lightbox {
-  position: fixed;
-  z-index: 40;
-  inset: 0;
-  display: grid;
-  padding: clamp(0.8rem, 4cqi, 2rem);
-  background: color-mix(in srgb, var(--lb-ink) 80%, transparent);
-  place-items: center;
+.lb-photo-preview {
+  --ip-backdrop: color-mix(in srgb, var(--lb-ink) 86%, transparent);
+  --ip-surface: var(--lb-pearl);
+  --ip-ink: var(--lb-ink);
+  --ip-muted: var(--lb-muted);
+  --ip-border: var(--lb-hairline);
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
 }
-.lb-lightbox-frame {
-  display: grid;
-  width: min(100%, 42rem);
-  max-height: 100%;
-  overflow: auto;
-  padding: clamp(0.8rem, 3cqi, 1.4rem);
+.lb-photo-preview .ip-photo-sheet {
+  outline: 1px dashed color-mix(in srgb, var(--lb-trim) 50%, transparent);
+  outline-offset: -0.45rem;
+  background:
+    linear-gradient(135deg, var(--lb-corner) 0 0.42rem, transparent 0.42rem) left top / 0.9rem
+      0.9rem no-repeat,
+    linear-gradient(225deg, var(--lb-corner) 0 0.42rem, transparent 0.42rem) right top / 0.9rem
+      0.9rem no-repeat,
+    linear-gradient(45deg, var(--lb-corner) 0 0.42rem, transparent 0.42rem) left bottom / 0.9rem
+      0.9rem no-repeat,
+    linear-gradient(315deg, var(--lb-corner) 0 0.42rem, transparent 0.42rem) right bottom / 0.9rem
+      0.9rem no-repeat,
+    var(--lb-pearl);
+}
+.lb-photo-preview .ip-photo-header,
+.lb-photo-preview .ip-photo-controls,
+.lb-photo-preview .ip-photo-caption {
+  border-color: var(--lb-stitch);
+  border-style: dashed;
+}
+.lb-photo-preview .ip-photo-header p {
+  color: var(--lb-label);
+  font-family: "Fraunces Variable", Georgia, serif;
+  letter-spacing: 0.06em;
+}
+.lb-photo-preview .ip-photo-viewport {
+  margin-inline: clamp(0.6rem, 2cqi, 1rem);
   border: 1px solid var(--lb-hairline);
-  background: var(--lb-pearl);
-  text-align: left;
+  background: color-mix(in srgb, var(--lb-blush) 42%, var(--lb-pearl));
 }
-.lb-lightbox-image {
-  width: 100%;
-  height: auto;
-}
-.lb-lightbox-frame p {
-  display: grid;
-  gap: 0.25rem;
-  margin: 0.9rem 0 0;
-}
-.lb-lightbox-frame p strong {
+.lb-photo-preview .ip-photo-caption strong {
   font-family: "Fraunces Variable", Georgia, serif;
   font-weight: 460;
 }
-.lb-lightbox-frame p span { color: var(--lb-muted); }
-.lb-lightbox-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-top: 1rem;
-}
-.lb-lightbox-controls button {
-  min-width: 5.5rem;
-  min-height: 2.75rem;
-  padding: 0.4rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--lb-ink) 45%, transparent);
-  border-radius: 0.15rem;
+.lb-photo-preview .ip-photo-header button,
+.lb-photo-preview .ip-photo-controls button {
   background: var(--lb-pearl);
-  color: var(--lb-ink);
-  font: inherit;
-  cursor: pointer;
-}
-.lb-lightbox-controls button:focus-visible {
-  outline: 3px solid var(--lb-ink);
-  outline-offset: 0.2rem;
+  border-color: color-mix(in srgb, var(--lb-ink) 42%, transparent);
 }
 
 /* ------------------------------------------------------------------- gentle note */

@@ -86,16 +86,19 @@ export async function processInvitationImage(input: {
     throw new InvalidImageError("This image format is not supported.");
   }
 
-  const width = metadata.width ?? 0;
-  const height = metadata.height ?? 0;
+  const sourceWidth = metadata.width ?? 0;
+  const sourceHeight = metadata.height ?? 0;
   if (
-    width < MIN_IMAGE_DIMENSION ||
-    height < MIN_IMAGE_DIMENSION ||
-    width > MAX_IMAGE_DIMENSION ||
-    height > MAX_IMAGE_DIMENSION
+    sourceWidth < MIN_IMAGE_DIMENSION ||
+    sourceHeight < MIN_IMAGE_DIMENSION ||
+    sourceWidth > MAX_IMAGE_DIMENSION ||
+    sourceHeight > MAX_IMAGE_DIMENSION
   ) {
     throw new InvalidImageError("This image's dimensions are outside the supported range.");
   }
+  const swapsAxes = [5, 6, 7, 8].includes(metadata.orientation ?? 1);
+  const width = swapsAxes ? sourceHeight : sourceWidth;
+  const height = swapsAxes ? sourceWidth : sourceHeight;
 
   const renditions: ProcessedRenditionObject[] = [];
   for (const targetWidth of plannedRenditionWidths(width)) {

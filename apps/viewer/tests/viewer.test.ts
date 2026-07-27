@@ -120,6 +120,8 @@ describe("public guest viewer", () => {
     expect(html).toContain('data-render-mode="published"');
     expect(html).toContain('id="publication-artifact"');
     expect(html).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');
+    // iOS ignores a `data:` URI here, so the Home Screen icon needs a real asset on this origin.
+    expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">');
     expect(response.headers.get("content-language")).toBe("en-PH");
     expect(response.headers.get("x-robots-tag")).toContain("noindex");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");

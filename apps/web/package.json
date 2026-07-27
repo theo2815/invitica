@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "brand:icons": "node scripts/generate-brand-icons.mjs",
     "build": "next build",
     "dev": "next dev",
     "test": "vitest run --pool=threads --maxWorkers=1",

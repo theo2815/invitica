@@ -1,3 +1,12 @@
+export {
+  INVITICA_BRAND_FIELD,
+  INVITICA_BRAND_GLYPH,
+  INVITICA_GLYPH_INK,
+  INVITICA_GLYPH_PATHS,
+  INVITICA_GLYPH_VIEW_BOX,
+  type InviticaIconOptions,
+  inviticaIconSvg,
+} from "./brand.js";
 export { GardenPromiseRenderer } from "./GardenPromiseRenderer.js";
 export {
   buildMapTileUrl,

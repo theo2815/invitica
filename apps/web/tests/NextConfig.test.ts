@@ -27,6 +27,13 @@ describe("guest-lane routing", () => {
     ]);
   });
 
+  // Assets the viewer ships that must NOT be rewritten, because this app serves its own copy at
+  // the same path. `apple-touch-icon.png` is deliberately duplicated: a guest invitation is
+  // reachable both at `invitica.app/i/*`, where Next answers, and at the Worker's own origin,
+  // where its asset directory does. Rewriting it would make the creator app's Home Screen icon
+  // depend on the Viewer being reachable.
+  const servedByBothOrigins = ["apple-touch-icon.png"];
+
   // An asset the viewer emits but this list does not cover fails silently: Next answers
   // its own 404, the guest page loads, and only the card never opens. That is how
   // `chunks/` — the dynamically imported map — was missed.
@@ -40,10 +47,18 @@ describe("guest-lane routing", () => {
     const rewrites = Array.isArray(declared) ? declared : (declared.afterFiles ?? []);
     const uncovered = readdirSync(clientRoot).filter(
       (entry) =>
+        !servedByBothOrigins.includes(entry) &&
         !rewrites.some(({ source }) => source === `/${entry}` || source === `/${entry}/:path*`),
     );
 
     expect(uncovered).toEqual([]);
+  });
+
+  // The exception above is only safe while this app really does serve the file itself.
+  it("serves its own copy of every asset excluded from the rewrite list", () => {
+    for (const asset of servedByBothOrigins) {
+      expect(existsSync(resolve(__dirname, "../public", asset))).toBe(true);
+    }
   });
 
   it("sends the guest lane to the deployed worker when an origin is configured", async () => {

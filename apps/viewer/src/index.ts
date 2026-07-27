@@ -7,6 +7,10 @@ import {
 } from "./load-publication";
 import { type MediaObjectRequest, parseMediaRequestPath } from "./published-media";
 import { IncompatiblePublicationRendererError } from "./published-renderer";
+import {
+  parseSocialPreviewRequestPath,
+  type SocialPreviewObjectRequest,
+} from "./published-social-preview";
 
 const IMMUTABLE_MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
@@ -50,6 +54,64 @@ async function serveMedia(
   const headers = mediaHeaders(IMMUTABLE_MEDIA_CACHE_CONTROL);
   headers.set("etag", object.httpEtag);
   return new Response(method === "HEAD" ? null : object.body, { headers, status: 200 });
+}
+
+function socialPreviewHeaders(cacheControl: string): Headers {
+  return new Headers({
+    "cache-control": cacheControl,
+    "content-type": "image/jpeg",
+    "cross-origin-resource-policy": "same-origin",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
+  });
+}
+
+async function serveSocialPreview(
+  bucket: R2Bucket,
+  preview: SocialPreviewObjectRequest,
+  method: string,
+): Promise<Response> {
+  if (method !== "GET" && method !== "HEAD") {
+    const response = new Response(null, {
+      headers: socialPreviewHeaders("private, no-store"),
+      status: 405,
+    });
+    response.headers.set("allow", "GET, HEAD");
+    return response;
+  }
+
+  let object: R2ObjectBody | null;
+  try {
+    object = await bucket.get(preview.objectKey);
+  } catch {
+    console.error(JSON.stringify({ event: "viewer_social_preview_storage_failed" }));
+    return new Response(null, {
+      headers: socialPreviewHeaders("private, no-store"),
+      status: 503,
+    });
+  }
+
+  if (!object) {
+    return new Response(null, {
+      headers: socialPreviewHeaders("private, no-store"),
+      status: 404,
+    });
+  }
+
+  const headers = socialPreviewHeaders(IMMUTABLE_MEDIA_CACHE_CONTROL);
+  headers.set("etag", object.httpEtag);
+  return new Response(method === "HEAD" ? null : object.body, { headers, status: 200 });
+}
+
+function publicInvitationUrl(requestUrl: URL, configuredOrigin: string): string {
+  try {
+    const origin = new URL(configuredOrigin);
+    return `${origin.origin}${requestUrl.pathname}`;
+  } catch {
+    console.error(JSON.stringify({ event: "viewer_public_invitation_origin_invalid" }));
+    return `${requestUrl.origin}${requestUrl.pathname}`;
+  }
 }
 
 const CONTENT_SECURITY_POLICY = [
@@ -107,6 +169,11 @@ export default {
       return serveMedia(env.PUBLICATION_BUCKET, mediaRequest, request.method);
     }
 
+    const socialPreviewRequest = parseSocialPreviewRequestPath(url.pathname);
+    if (socialPreviewRequest) {
+      return serveSocialPreview(env.PUBLICATION_BUCKET, socialPreviewRequest, request.method);
+    }
+
     const publicIdentifier = publicIdentifierFromInvitationPath(url.pathname);
 
     if (!publicIdentifier) {
@@ -127,7 +194,7 @@ export default {
       const html = renderPublicationHtml(
         artifact,
         env.MAPTILER_KEY,
-        `${url.origin}${url.pathname}`,
+        publicInvitationUrl(url, env.PUBLIC_INVITATION_ORIGIN),
       );
 
       return htmlResponse(

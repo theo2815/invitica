@@ -19,6 +19,7 @@ describe("guest-lane routing", () => {
     await expect(nextConfig.rewrites?.()).resolves.toEqual([
       { destination: "http://127.0.0.1:8787/i/:path*", source: "/i/:path*" },
       { destination: "http://127.0.0.1:8787/m/:path*", source: "/m/:path*" },
+      { destination: "http://127.0.0.1:8787/s/:path*", source: "/s/:path*" },
       { destination: "http://127.0.0.1:8787/chunks/:path*", source: "/chunks/:path*" },
       { destination: "http://127.0.0.1:8787/fonts/:path*", source: "/fonts/:path*" },
       { destination: "http://127.0.0.1:8787/viewer.css", source: "/viewer.css" },
@@ -58,6 +59,10 @@ describe("guest-lane routing", () => {
       destination: "https://viewer.example.workers.dev/i/:path*",
       source: "/i/:path*",
     });
+    expect(rewrites).toContainEqual({
+      destination: "https://viewer.example.workers.dev/s/:path*",
+      source: "/s/:path*",
+    });
   });
 
   // A missing origin in production is silent at runtime: guest pages render and only
@@ -95,6 +100,6 @@ describe("creator security headers", () => {
   it("excludes the viewer lane and the public guest endpoints", async () => {
     const headers = await nextConfig.headers?.();
 
-    expect(headers?.[0]?.source).toBe("/((?!i/|m/|api/public/).*)");
+    expect(headers?.[0]?.source).toBe("/((?!i/|m/|s/|api/public/).*)");
   });
 });

@@ -4,8 +4,10 @@ import {
   parsePublicationAlias,
   parsePublicationArtifact,
   parsePublicationSnapshot,
+  publicationArtifactKey,
   publicationPublicIdentifierSchema,
   publicationSnapshotV1Schema,
+  publicationSocialPreviewObjectKey,
   UnsupportedPublicationSnapshotVersionError,
 } from "../src/index.js";
 import { invitationFixture } from "../src/testing.js";
@@ -146,6 +148,74 @@ describe("publication snapshot schema", () => {
       artifactSha256: "b".repeat(64),
     });
     expect(artifact.snapshot).toEqual(validSnapshot);
+  });
+
+  it("parses a version-two artifact with a fixed social preview contract", () => {
+    const publicationId = "30000000-0000-4000-8000-000000000006";
+    const sha256 = "c".repeat(64);
+    const artifact = parsePublicationArtifact({
+      artifactVersion: 2,
+      publicationId,
+      snapshot: validSnapshot,
+      socialPreview: {
+        byteLength: 124_000,
+        contentType: "image/jpeg",
+        height: 630,
+        objectKey: publicationSocialPreviewObjectKey(sha256),
+        sha256,
+        width: 1200,
+      },
+    });
+
+    expect(artifact.artifactVersion).toBe(2);
+    expect(publicationArtifactKey(publicationId, 2)).toBe(
+      `publication-artifacts/v2/${publicationId}.json`,
+    );
+  });
+
+  it("rejects social previews with unsafe keys or unsupported dimensions", () => {
+    const publicationId = "30000000-0000-4000-8000-000000000007";
+    const preview = {
+      byteLength: 124_000,
+      contentType: "image/jpeg",
+      height: 630,
+      objectKey: "publication-social/../private.jpg",
+      sha256: "d".repeat(64),
+      width: 1200,
+    };
+
+    expect(() =>
+      parsePublicationArtifact({
+        artifactVersion: 2,
+        publicationId,
+        snapshot: validSnapshot,
+        socialPreview: preview,
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePublicationArtifact({
+        artifactVersion: 2,
+        publicationId,
+        snapshot: validSnapshot,
+        socialPreview: {
+          ...preview,
+          objectKey: publicationSocialPreviewObjectKey("e".repeat(64)),
+          width: 1200,
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePublicationArtifact({
+        artifactVersion: 2,
+        publicationId,
+        snapshot: validSnapshot,
+        socialPreview: {
+          ...preview,
+          objectKey: publicationSocialPreviewObjectKey("d".repeat(64)),
+          width: 600,
+        },
+      }),
+    ).toThrow();
   });
 
   it("requires exactly 128 bits of lowercase random public identifier material", () => {

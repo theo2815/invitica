@@ -5,6 +5,7 @@ import {
   parsePublicationAlias,
   parsePublicationArtifact,
   publicationMediaObjectKey,
+  publicationSocialPreviewObjectKey,
 } from "@invitica/invitation-schema";
 import { resolveTemplateRendererRegistration } from "@invitica/renderer";
 import { resolveTemplateById } from "@invitica/template-kit";
@@ -82,8 +83,9 @@ async function putAlias(
   publicIdentifier: string,
   publicationId: string,
   artifactBody: string | null,
+  artifactVersion: 1 | 2 = 1,
 ): Promise<void> {
-  const artifactKey = publicationArtifactKey(publicationId);
+  const artifactKey = publicationArtifactKey(publicationId, artifactVersion);
   const artifactSha256 = await sha256Hex(artifactBody ?? "{}");
 
   if (artifactBody !== null) {
@@ -146,6 +148,68 @@ describe("public guest viewer", () => {
     // The personalized token lives in the fragment, which never reaches the Worker, so it
     // cannot leak into a tag a preview crawler reads and caches.
     expect(html).not.toContain("#g=");
+  });
+
+  it("emits a complete large-image preview for version-two publication artifacts", () => {
+    const previewSha = "7".repeat(64);
+    const html = renderPublicationHtml(
+      {
+        artifactVersion: 2,
+        publicationId: "a0000000-0000-4000-8000-000000000099",
+        snapshot: snapshot("Mara & Joaquin"),
+        socialPreview: {
+          byteLength: 125_000,
+          contentType: "image/jpeg",
+          height: 630,
+          objectKey: publicationSocialPreviewObjectKey(previewSha),
+          sha256: previewSha,
+          width: 1200,
+        },
+      },
+      "",
+      "https://invitica.app/i/mara-and-joaquin",
+    );
+    const previewUrl = `https://invitica.app/s/v1/${previewSha}.jpg`;
+
+    expect(html).toContain(`<meta property="og:image" content="${previewUrl}">`);
+    expect(html).toContain('<meta property="og:image:type" content="image/jpeg">');
+    expect(html).toContain('<meta property="og:image:width" content="1200">');
+    expect(html).toContain('<meta property="og:image:height" content="630">');
+    expect(html).toContain(
+      '<meta property="og:image:alt" content="Invitation for Mara &amp; Joaquin">',
+    );
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(html).toContain(`<meta name="twitter:image" content="${previewUrl}">`);
+  });
+
+  it("loads a version-two artifact through its immutable alias", async () => {
+    const token = "11000000000000000000000000000011";
+    const publicationId = "a0000000-0000-4000-8000-000000000098";
+    const previewSha = "8".repeat(64);
+    await putAlias(
+      token,
+      publicationId,
+      JSON.stringify({
+        artifactVersion: 2,
+        publicationId,
+        snapshot: snapshot("Mara & Joaquin"),
+        socialPreview: {
+          byteLength: 125_000,
+          contentType: "image/jpeg",
+          height: 630,
+          objectKey: publicationSocialPreviewObjectKey(previewSha),
+          sha256: previewSha,
+          width: 1200,
+        },
+      }),
+      2,
+    );
+
+    const response = await fetchViewer(`/i/mara-and-joaquin-${token}`);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain(`https://invitica.app/s/v1/${previewSha}.jpg`);
   });
 
   it("supports HEAD while rejecting unsupported methods without reading private details", async () => {
@@ -394,6 +458,39 @@ describe("publication media route", () => {
     const badWidth = await fetchViewer(`/m/v1/${mediaSha}/w500.webp`);
     expect(badWidth.status).toBe(404);
     expect(await badWidth.text()).toContain("This invitation is unavailable.");
+  });
+});
+
+describe("publication social preview route", () => {
+  const previewSha = "6".repeat(64);
+  const previewKey = publicationSocialPreviewObjectKey(previewSha);
+
+  it("streams immutable JPEG bytes for messaging-platform crawlers", async () => {
+    await env.PUBLICATION_BUCKET.put(previewKey, new Uint8Array([255, 216, 255, 217]), {
+      httpMetadata: { contentType: "image/jpeg" },
+    });
+
+    const response = await fetchViewer(`/s/v1/${previewSha}.jpg`);
+    const head = await fetchViewer(`/s/v1/${previewSha}.jpg`, { method: "HEAD" });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(
+      new Uint8Array([255, 216, 255, 217]),
+    );
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
+  });
+
+  it("fails closed for missing images and unsupported methods", async () => {
+    const missing = await fetchViewer(`/s/v1/${"5".repeat(64)}.jpg`);
+    const post = await fetchViewer(`/s/v1/${previewSha}.jpg`, { method: "POST" });
+
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("cache-control")).toBe("private, no-store");
+    expect(post.status).toBe(405);
+    expect(post.headers.get("allow")).toBe("GET, HEAD");
   });
 });
 

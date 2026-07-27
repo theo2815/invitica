@@ -3,10 +3,11 @@ import { z } from "zod";
 import { CURRENT_INVITATION_SCHEMA_VERSION, invitationDocumentV1Schema } from "./document.js";
 
 export const CURRENT_PUBLICATION_SNAPSHOT_VERSION = 1 as const;
-export const CURRENT_PUBLICATION_ARTIFACT_VERSION = 1 as const;
+export const CURRENT_PUBLICATION_ARTIFACT_VERSION = 2 as const;
 export const CURRENT_PUBLICATION_ALIAS_VERSION = 1 as const;
 export const MAX_PUBLICATION_ALIAS_BYTES = 4_096;
 export const MAX_PUBLICATION_ARTIFACT_BYTES = 1_000_000;
+export const MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES = 1_500_000;
 
 export const publicationPublicIdentifierSchema = z
   .string()
@@ -123,10 +124,36 @@ export type PublicationSnapshotV1 = z.infer<typeof publicationSnapshotV1Schema>;
 export type PublicationSnapshot = PublicationSnapshotV1;
 
 export const publicationArtifactV1Schema = z.strictObject({
-  artifactVersion: z.literal(CURRENT_PUBLICATION_ARTIFACT_VERSION),
+  artifactVersion: z.literal(1),
   publicationId: uuidSchema,
   snapshot: publicationSnapshotV1Schema,
 });
+
+export const publicationSocialPreviewSchema = z
+  .strictObject({
+    byteLength: positiveSafeIntSchema.max(MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES),
+    contentType: z.literal("image/jpeg"),
+    height: z.literal(630),
+    objectKey: objectKeySchema,
+    sha256: sha256Schema,
+    width: z.literal(1200),
+  })
+  .refine(
+    (preview) => preview.objectKey === `publication-social/v1/${preview.sha256}.jpg`,
+    "Social preview object key must match its content digest",
+  );
+
+export const publicationArtifactV2Schema = z.strictObject({
+  artifactVersion: z.literal(CURRENT_PUBLICATION_ARTIFACT_VERSION),
+  publicationId: uuidSchema,
+  snapshot: publicationSnapshotV1Schema,
+  socialPreview: publicationSocialPreviewSchema,
+});
+
+const publicationArtifactSchema = z.discriminatedUnion("artifactVersion", [
+  publicationArtifactV1Schema,
+  publicationArtifactV2Schema,
+]);
 
 export const publicationAliasV1Schema = z.strictObject({
   aliasVersion: z.literal(CURRENT_PUBLICATION_ALIAS_VERSION),
@@ -136,7 +163,9 @@ export const publicationAliasV1Schema = z.strictObject({
 });
 
 export type PublicationArtifactV1 = z.infer<typeof publicationArtifactV1Schema>;
-export type PublicationArtifact = PublicationArtifactV1;
+export type PublicationArtifactV2 = z.infer<typeof publicationArtifactV2Schema>;
+export type PublicationArtifact = PublicationArtifactV1 | PublicationArtifactV2;
+export type PublicationSocialPreview = z.infer<typeof publicationSocialPreviewSchema>;
 export type PublicationAliasV1 = z.infer<typeof publicationAliasV1Schema>;
 export type PublicationAlias = PublicationAliasV1;
 
@@ -227,15 +256,19 @@ export function parsePublicationSnapshot(input: unknown): PublicationSnapshot {
 }
 
 export function parsePublicationArtifact(input: unknown): PublicationArtifact {
-  return publicationArtifactV1Schema.parse(input);
+  return publicationArtifactSchema.parse(input);
 }
 
 export function parsePublicationAlias(input: unknown): PublicationAlias {
   return publicationAliasV1Schema.parse(input);
 }
 
-export function publicationArtifactKey(publicationId: string): string {
-  return `publication-artifacts/v1/${uuidSchema.parse(publicationId)}.json`;
+export function publicationArtifactKey(publicationId: string, artifactVersion: 1 | 2 = 1): string {
+  return `publication-artifacts/v${artifactVersion}/${uuidSchema.parse(publicationId)}.json`;
+}
+
+export function publicationSocialPreviewObjectKey(sha256: string): string {
+  return objectKeySchema.parse(`publication-social/v1/${sha256Schema.parse(sha256)}.jpg`);
 }
 
 export function publicationAliasKey(publicIdentifier: string): string {
@@ -258,14 +291,34 @@ function parseStoredJson(body: string): unknown {
 
 export async function writeVerifiedPublicationArtifact(
   store: PublicationObjectStore,
-  input: { readonly publicationId: string; readonly snapshot: unknown },
+  input:
+    | {
+        readonly artifactVersion: 1;
+        readonly publicationId: string;
+        readonly snapshot: unknown;
+      }
+    | {
+        readonly artifactVersion?: 2;
+        readonly publicationId: string;
+        readonly snapshot: unknown;
+        readonly socialPreview: unknown;
+      },
 ): Promise<PublicationArtifactWriteResult> {
-  const artifact = parsePublicationArtifact({
-    artifactVersion: CURRENT_PUBLICATION_ARTIFACT_VERSION,
-    publicationId: input.publicationId,
-    snapshot: input.snapshot,
-  });
-  const key = publicationArtifactKey(artifact.publicationId);
+  const artifact = parsePublicationArtifact(
+    "socialPreview" in input
+      ? {
+          artifactVersion: CURRENT_PUBLICATION_ARTIFACT_VERSION,
+          publicationId: input.publicationId,
+          snapshot: input.snapshot,
+          socialPreview: input.socialPreview,
+        }
+      : {
+          artifactVersion: 1,
+          publicationId: input.publicationId,
+          snapshot: input.snapshot,
+        },
+  );
+  const key = publicationArtifactKey(artifact.publicationId, artifact.artifactVersion);
   const body = JSON.stringify(artifact);
   const size = publicationByteLength(body);
 
@@ -278,7 +331,7 @@ export async function writeVerifiedPublicationArtifact(
     cacheControl: "public, max-age=31536000, immutable",
     contentType: "application/json; charset=utf-8",
     metadata: {
-      artifactVersion: String(CURRENT_PUBLICATION_ARTIFACT_VERSION),
+      artifactVersion: String(artifact.artifactVersion),
       sha256,
     },
     onlyIfAbsent: true,

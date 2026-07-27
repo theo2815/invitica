@@ -69,7 +69,10 @@ export async function writePublicationArtifacts(
   input: WritePublicationArtifactsInput,
 ): Promise<{ alias: PublicationAlias; artifact: PublicationArtifact }> {
   const objectStore = "head" in store ? createWorkerPublicationObjectStore(store) : store;
-  const artifact = await writeVerifiedPublicationArtifact(objectStore, input);
+  const artifact = await writeVerifiedPublicationArtifact(objectStore, {
+    ...input,
+    artifactVersion: 1,
+  });
   const alias = await writeVerifiedPublicationAlias(objectStore, {
     artifactKey: artifact.key,
     artifactSha256: artifact.sha256,

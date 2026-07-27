@@ -9,6 +9,11 @@ import {
   writeVerifiedPublicationAlias,
   writeVerifiedPublicationArtifact,
 } from "@invitica/invitation-schema";
+import {
+  createPublicationSocialPreview,
+  PublicationSocialPreviewError,
+  type PublicationSocialPreviewStore,
+} from "./social-preview.js";
 
 export interface PublicationJobRecord {
   readonly id: string;
@@ -44,7 +49,9 @@ export interface PublicationJobOptions {
   readonly maxAttempts: number;
 }
 
-export interface PublicationDeliveryObjectStore extends PublicationObjectStore {
+export interface PublicationDeliveryObjectStore
+  extends PublicationObjectStore,
+    PublicationSocialPreviewStore {
   deleteIfVersion(key: string, version: string): Promise<boolean>;
 }
 
@@ -56,6 +63,7 @@ function publicationFailureCode(error: unknown): string {
   if (error instanceof PublicationArtifactConflictError) return "artifact_conflict";
   if (error instanceof PublicationAliasConflictError) return "alias_conflict";
   if (error instanceof PublicationAliasVerificationError) return "alias_verification_failed";
+  if (error instanceof PublicationSocialPreviewError) return "social_preview_failed";
   return "publication_job_failed";
 }
 
@@ -115,9 +123,11 @@ export async function orchestratePublication(
     logger.info("Publication build started", { ...logAttributes, stage: "build" });
     await repository.startBuild(publicationId);
 
+    const socialPreview = await createPublicationSocialPreview(publication.snapshot, store);
     const artifact = await writeVerifiedPublicationArtifact(store, {
       publicationId,
       snapshot: publication.snapshot,
+      socialPreview,
     });
     await repository.completeBuild(publicationId, artifact.key, artifact.sha256);
     buildCompleted = true;

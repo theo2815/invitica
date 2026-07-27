@@ -5,6 +5,9 @@ export default defineConfig({
   dirs: ["./src/trigger"],
   runtime: "node-22",
   maxDuration: 300,
+  build: {
+    external: ["sharp"],
+  },
   retries: {
     enabledInDev: true,
     default: {

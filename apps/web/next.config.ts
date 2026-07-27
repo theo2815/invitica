@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // The guest lane is served by the Viewer Worker: `/i/*` published pages, `/m/*`
-// immutable media, and the Viewer's own client assets. Guest JavaScript then calls
+// immutable media, `/s/*` social previews, and the Viewer's own client assets. Guest JavaScript then calls
 // `/api/public/*`, which lives here, **same-origin**. Without one origin in front of
 // both, a published invitation still renders but offers no reply section, so these
 // rewrites are a functional requirement rather than a convenience.
@@ -11,7 +11,7 @@ const viewerOrigin =
   "http://127.0.0.1:8787";
 
 // Two surfaces already set their own stricter headers and are excluded below so
-// this set cannot override them: the Viewer Worker behind `/i/*` and `/m/*`, which
+// this set cannot override them: the Viewer Worker behind `/i/*`, `/m/*`, and `/s/*`, which
 // owns its CSP and immutable media cache, and the `/api/public/*` guest endpoints,
 // which answer `no-referrer` rather than the creator app's
 // `strict-origin-when-cross-origin` so an invitation path never rides outbound.
@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "16mb" },
   },
   async headers() {
-    return [{ headers: securityHeaders, source: "/((?!i/|m/|api/public/).*)" }];
+    return [{ headers: securityHeaders, source: "/((?!i/|m/|s/|api/public/).*)" }];
   },
   async rewrites() {
     // A missing origin on a real production deployment is silent: guest pages load
@@ -47,11 +47,11 @@ const nextConfig: NextConfig = {
     // CI production builds are unaffected, so the repository gate still runs.
     if (process.env.VERCEL_ENV === "production" && !process.env.INVITICA_VIEWER_ORIGIN) {
       throw new Error(
-        "INVITICA_VIEWER_ORIGIN must be set for a production deployment. Without it `/i/*` and `/m/*` never reach the Viewer Worker, and published invitations render with no reply section.",
+        "INVITICA_VIEWER_ORIGIN must be set for a production deployment. Without it the guest lane never reaches the Viewer Worker, and published invitations render with no reply section.",
       );
     }
 
-    // Everything below `/i/*` and `/m/*` is the Viewer's client bundle, and this list
+    // Everything below `/i/*`, `/m/*`, and `/s/*` belongs to the Viewer, and this list
     // must cover every top-level entry of `apps/viewer/dist/client` — currently
     // `chunks/`, `fonts/`, `viewer.css`, and `viewer.js`. A missing entry does not
     // fail the build: Next answers its own 404 and the guest card silently never
@@ -59,6 +59,7 @@ const nextConfig: NextConfig = {
     return [
       { destination: `${viewerOrigin}/i/:path*`, source: "/i/:path*" },
       { destination: `${viewerOrigin}/m/:path*`, source: "/m/:path*" },
+      { destination: `${viewerOrigin}/s/:path*`, source: "/s/:path*" },
       { destination: `${viewerOrigin}/chunks/:path*`, source: "/chunks/:path*" },
       { destination: `${viewerOrigin}/fonts/:path*`, source: "/fonts/:path*" },
       { destination: `${viewerOrigin}/viewer.css`, source: "/viewer.css" },

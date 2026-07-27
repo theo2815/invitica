@@ -34,6 +34,7 @@ const snapshot = parsePublicationSnapshot({
 
 class MemoryStore implements PublicationObjectStore {
   readonly objects = new Map<string, StoredPublicationObject>();
+  readonly binaryObjects = new Map<string, Uint8Array>();
   failAliasWrites = false;
   #version = 0;
 
@@ -57,6 +58,14 @@ class MemoryStore implements PublicationObjectStore {
       version,
     });
     return { version, written: true };
+  }
+
+  async getBinary(key: string) {
+    return this.binaryObjects.get(key) ?? null;
+  }
+
+  async putBinaryIfAbsent(key: string, body: Uint8Array) {
+    if (!this.binaryObjects.has(key)) this.binaryObjects.set(key, body);
   }
 
   async deleteIfVersion(key: string, version: string) {
@@ -135,12 +144,12 @@ describe("publication orchestration", () => {
     await expect(
       orchestratePublication(repository, store, createLogger(), publicationId, attempt),
     ).resolves.toEqual({ publicationId, status: "delivered" });
-    const firstArtifactVersion = store.objects.get(publicationArtifactKey(publicationId))?.version;
+    const artifactKey = publicationArtifactKey(publicationId, 2);
+    const firstArtifactVersion = store.objects.get(artifactKey)?.version;
     await orchestratePublication(repository, store, createLogger(), publicationId, attempt);
 
-    expect(store.objects.get(publicationArtifactKey(publicationId))?.version).toBe(
-      firstArtifactVersion,
-    );
+    expect(store.objects.get(artifactKey)?.version).toBe(firstArtifactVersion);
+    expect(store.binaryObjects.size).toBe(1);
     const alias = store.objects.get(publicationAliasKey(publicIdentifier));
     expect(parsePublicationAlias(JSON.parse(alias?.body ?? ""))).toMatchObject({ publicationId });
   });
@@ -148,7 +157,7 @@ describe("publication orchestration", () => {
   it("stops an immutable conflict before delivery and records it terminal", async () => {
     const repository = new MemoryRepository();
     const store = new MemoryStore();
-    store.objects.set(publicationArtifactKey(publicationId), {
+    store.objects.set(publicationArtifactKey(publicationId, 2), {
       body: "{}",
       size: 2,
       version: "existing",

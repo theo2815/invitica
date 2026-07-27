@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { join } from "node:path";
 
 import {
   MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES,
@@ -13,6 +14,8 @@ import sharp from "sharp";
 const SOCIAL_WIDTH = 1200;
 const SOCIAL_HEIGHT = 630;
 const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const FRAUNCES_FONT_FILE = join(process.cwd(), "assets", "fonts", "Fraunces.ttf");
+const INSTRUMENT_SANS_FONT_FILE = join(process.cwd(), "assets", "fonts", "InstrumentSans.ttf");
 
 export interface PublicationSocialPreviewStore {
   getBinary(key: string, maxBytes: number): Promise<Uint8Array | null>;
@@ -66,24 +69,42 @@ function wrapText(value: string, maxCharacters: number, maxLines: number): strin
   return visible;
 }
 
-function textBlock(
-  lines: readonly string[],
+async function textLayer(
+  value: string,
   input: {
+    readonly baseline: number;
     readonly fill: string;
     readonly fontFamily: string;
+    readonly fontFile: string;
     readonly fontSize: number;
     readonly fontWeight: number;
-    readonly lineHeight: number;
+    readonly letterSpacing?: number;
+    readonly opacity?: number;
     readonly x: number;
-    readonly y: number;
   },
-): string {
-  return `<text x="${input.x}" y="${input.y}" fill="${input.fill}" font-family="${input.fontFamily}" font-size="${input.fontSize}" font-weight="${input.fontWeight}">${lines
-    .map(
-      (line, index) =>
-        `<tspan x="${input.x}" dy="${index === 0 ? 0 : input.lineHeight}">${escapeXml(line)}</tspan>`,
-    )
-    .join("")}</text>`;
+): Promise<{ input: Buffer; left: number; top: number }> {
+  const letterSpacing = input.letterSpacing
+    ? ` letter_spacing="${input.letterSpacing * 1_024}"`
+    : "";
+  const opacity = input.opacity === undefined ? "" : ` alpha="${Math.round(input.opacity * 100)}%"`;
+  const rendered = await sharp({
+    text: {
+      dpi: 72,
+      font: `${input.fontFamily} ${input.fontSize}`,
+      fontfile: input.fontFile,
+      rgba: true,
+      text: `<span foreground="${escapeXml(input.fill)}" font_weight="${input.fontWeight}"${letterSpacing}${opacity}>${escapeXml(value)}</span>`,
+    },
+  })
+    .png()
+    .toBuffer();
+  const metadata = await sharp(rendered).metadata();
+
+  return {
+    input: rendered,
+    left: input.x,
+    top: Math.max(0, input.baseline - (metadata.height ?? input.fontSize)),
+  };
 }
 
 function heroSection(snapshot: PublicationSnapshot) {
@@ -121,24 +142,9 @@ function templateKind(rendererKey: string): "garden" | "storybook" | "standard" 
 }
 
 function cardOverlay(snapshot: PublicationSnapshot, hasPhoto: boolean): Buffer {
-  const hero = heroSection(snapshot);
-  const title = hero?.props.title ?? "You are invited";
-  const subtitle = hero?.props.subtitle ?? "A celebration shared with the people we love";
-  const date = hero?.props.dateLabel ?? "";
-  const { surface, text, accent } = snapshot.document.theme.colors;
+  const { surface, accent } = snapshot.document.theme.colors;
   const kind = templateKind(snapshot.rendererKey);
   const photoOnLeft = kind === "storybook";
-  const textX = hasPhoto ? (photoOnLeft ? 650 : 92) : 126;
-  const titleLines = wrapText(title, hasPhoto ? 21 : 30, 2);
-  const subtitleLines = wrapText(subtitle, hasPhoto ? 39 : 54, 2);
-  const titleY = hasPhoto ? 238 : 246;
-  const subtitleY = titleY + titleLines.length * 78 + 22;
-  const eventLabel =
-    kind === "storybook"
-      ? "CHRISTENING INVITATION"
-      : kind === "garden"
-        ? "WEDDING INVITATION"
-        : "YOU ARE INVITED";
 
   const decoration =
     kind === "storybook"
@@ -172,28 +178,84 @@ function cardOverlay(snapshot: PublicationSnapshot, hasPhoto: boolean): Buffer {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${SOCIAL_WIDTH}" height="${SOCIAL_HEIGHT}">
     ${decoration}
     ${photoFrame}
-    <text x="${textX}" y="${hasPhoto ? 150 : 154}" fill="${accent}" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">${eventLabel}</text>
-    ${textBlock(titleLines, {
-      fill: text,
-      fontFamily: "Georgia, serif",
-      fontSize: hasPhoto ? 66 : 76,
-      fontWeight: 600,
-      lineHeight: hasPhoto ? 76 : 86,
-      x: textX,
-      y: titleY,
-    })}
-    ${textBlock(subtitleLines, {
-      fill: text,
-      fontFamily: "Arial, sans-serif",
-      fontSize: 25,
-      fontWeight: 400,
-      lineHeight: 36,
-      x: textX,
-      y: subtitleY,
-    })}
-    <text x="${textX}" y="${hasPhoto ? 518 : 520}" fill="${accent}" font-family="Arial, sans-serif" font-size="23" font-weight="700">${escapeXml(date)}</text>
-    <text x="${textX}" y="560" fill="${text}" fill-opacity=".72" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="4">INVITICA</text>
   </svg>`);
+}
+
+async function cardTextLayers(snapshot: PublicationSnapshot, hasPhoto: boolean) {
+  const hero = heroSection(snapshot);
+  const title = hero?.props.title ?? "You are invited";
+  const subtitle = hero?.props.subtitle ?? "A celebration shared with the people we love";
+  const date = hero?.props.dateLabel ?? "";
+  const { text, accent } = snapshot.document.theme.colors;
+  const kind = templateKind(snapshot.rendererKey);
+  const photoOnLeft = kind === "storybook";
+  const textX = hasPhoto ? (photoOnLeft ? 650 : 92) : 126;
+  const titleLines = wrapText(title, hasPhoto ? 21 : 30, 2);
+  const subtitleLines = wrapText(subtitle, hasPhoto ? 39 : 54, 2);
+  const titleY = hasPhoto ? 238 : 246;
+  const titleLineHeight = hasPhoto ? 76 : 86;
+  const subtitleY = titleY + titleLines.length * 78 + 22;
+  const eventLabel =
+    kind === "storybook"
+      ? "CHRISTENING INVITATION"
+      : kind === "garden"
+        ? "WEDDING INVITATION"
+        : "YOU ARE INVITED";
+
+  return Promise.all([
+    textLayer(eventLabel, {
+      baseline: hasPhoto ? 150 : 154,
+      fill: accent,
+      fontFamily: "Instrument Sans",
+      fontFile: INSTRUMENT_SANS_FONT_FILE,
+      fontSize: 22,
+      fontWeight: 700,
+      letterSpacing: 5,
+      x: textX,
+    }),
+    ...titleLines.map((line, index) =>
+      textLayer(line, {
+        baseline: titleY + index * titleLineHeight,
+        fill: text,
+        fontFamily: "Fraunces",
+        fontFile: FRAUNCES_FONT_FILE,
+        fontSize: hasPhoto ? 66 : 76,
+        fontWeight: 600,
+        x: textX,
+      }),
+    ),
+    ...subtitleLines.map((line, index) =>
+      textLayer(line, {
+        baseline: subtitleY + index * 36,
+        fill: text,
+        fontFamily: "Instrument Sans",
+        fontFile: INSTRUMENT_SANS_FONT_FILE,
+        fontSize: 25,
+        fontWeight: 400,
+        x: textX,
+      }),
+    ),
+    textLayer(date, {
+      baseline: hasPhoto ? 518 : 520,
+      fill: accent,
+      fontFamily: "Instrument Sans",
+      fontFile: INSTRUMENT_SANS_FONT_FILE,
+      fontSize: 23,
+      fontWeight: 700,
+      x: textX,
+    }),
+    textLayer("INVITICA", {
+      baseline: 560,
+      fill: text,
+      fontFamily: "Instrument Sans",
+      fontFile: INSTRUMENT_SANS_FONT_FILE,
+      fontSize: 18,
+      fontWeight: 700,
+      letterSpacing: 4,
+      opacity: 0.72,
+      x: textX,
+    }),
+  ]);
 }
 
 export async function createPublicationSocialPreview(
@@ -215,6 +277,7 @@ export async function createPublicationSocialPreview(
           .toBuffer()
       : null;
     const overlay = cardOverlay(snapshot, Boolean(photo));
+    const textLayers = await cardTextLayers(snapshot, Boolean(photo));
     const output = await sharp({
       create: {
         background: snapshot.document.theme.colors.background,
@@ -234,6 +297,7 @@ export async function createPublicationSocialPreview(
             ]
           : []),
         { input: overlay, left: 0, top: 0 },
+        ...textLayers,
       ])
       .jpeg({ chromaSubsampling: "4:4:4", mozjpeg: true, quality: 88 })
       .toBuffer();

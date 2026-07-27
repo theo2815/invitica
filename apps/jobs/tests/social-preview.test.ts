@@ -22,6 +22,24 @@ function snapshot(rendererKey: string) {
   });
 }
 
+function snapshotWithTitle(title: string) {
+  const base = snapshot("little-blessings-v1");
+  return parsePublicationSnapshot({
+    ...base,
+    document: {
+      ...base.document,
+      sections: base.document.sections.map((section) =>
+        section.type === "hero"
+          ? {
+              ...section,
+              props: { ...section.props, title },
+            }
+          : section,
+      ),
+    },
+  });
+}
+
 class MemoryStore implements PublicationSocialPreviewStore {
   readonly objects = new Map<string, Uint8Array>();
 
@@ -60,6 +78,15 @@ describe("publication social preview", () => {
     );
 
     expect(storybook.sha256).not.toBe(garden.sha256);
+  });
+
+  it("renders distinct letterforms from the bundled preview fonts", async () => {
+    const narrowStore = new MemoryStore();
+    const wideStore = new MemoryStore();
+    const narrow = await createPublicationSocialPreview(snapshotWithTitle("IIIIIIII"), narrowStore);
+    const wide = await createPublicationSocialPreview(snapshotWithTitle("WWWWWWWW"), wideStore);
+
+    expect(narrow.sha256).not.toBe(wide.sha256);
   });
 
   it("places a bounded hero image into the storybook card", async () => {

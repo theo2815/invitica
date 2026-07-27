@@ -229,6 +229,53 @@ describe("GuestDesk", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it("confirms a saved message beside the button rather than closing in silence", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    fireEvent.change(screen.getByLabelText("Personal message, for one guest party"), {
+      target: { value: "Kumusta {recipient}! {link}" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Saved\. Your message is what guests will receive/)).toBeDefined(),
+    );
+    // The editor closes, so the confirmation has to survive on the desk.
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("says so plainly when the creator clears their wording", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() => expect(screen.getByText(/Your own wording was removed/)).toBeDefined());
+  });
+
+  it("keeps the editor open with the creator's text when a save fails", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({
+      message: "Keep {link} so guests can open the invitation.",
+      status: "error",
+    });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    const field = screen.getByLabelText("Personal message, for one guest party");
+    fireEvent.change(field, { target: { value: "Kumusta po!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeDefined());
+    expect(screen.getByRole("alert").textContent).toContain("Keep {link}");
+    // Losing what they typed would be worse than the failure itself.
+    expect((field as HTMLTextAreaElement).value).toBe("Kumusta po!");
+    expect(screen.getByRole("dialog")).toBeDefined();
+    expect(screen.queryByText(/Saved\./)).toBeNull();
+  });
+
   it("warns that the general link cannot accept the RSVP a custom message asks for", () => {
     renderDesk();
     fireEvent.click(screen.getByRole("button", { name: "Write your own" }));

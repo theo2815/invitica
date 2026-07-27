@@ -145,6 +145,7 @@ export function GuestDesk({
   const [sendingPartyId, setSendingPartyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [messageEditorOpen, setMessageEditorOpen] = useState(false);
+  const [shareMessageSaved, setShareMessageSaved] = useState<string | null>(null);
   const [editingParty, setEditingParty] = useState<GuestPartySummary | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [restoringPartyId, setRestoringPartyId] = useState<string | null>(null);
@@ -154,6 +155,7 @@ export function GuestDesk({
     "all" | "attending" | "awaiting" | "declined"
   >("all");
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const messageEditorButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const fallbackRef = useRef<HTMLTextAreaElement>(null);
   const ledgerHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -760,7 +762,12 @@ export function GuestDesk({
                 <button
                   className={styles.secondaryCopyButton}
                   disabled={copyingPartyId !== null || isRefreshing}
-                  onClick={() => setMessageEditorOpen(true)}
+                  onClick={() => {
+                    // A previous confirmation must not linger beside a fresh edit.
+                    setShareMessageSaved(null);
+                    setMessageEditorOpen(true);
+                  }}
+                  ref={messageEditorButtonRef}
                   type="button"
                 >
                   {selectedInvitation.personalShareMessage || selectedInvitation.generalShareMessage
@@ -777,6 +784,16 @@ export function GuestDesk({
                   role="status"
                 >
                   {copyFeedback.message}
+                </p>
+              ) : null}
+              {/*
+                The editor closes on a successful save, so its confirmation has to land here,
+                beside the button the creator just used. The page-foot status line is too far
+                away and too quiet to read as an answer.
+              */}
+              {shareMessageSaved ? (
+                <p aria-live="polite" className={styles.copySuccess} role="status">
+                  <Check /> {shareMessageSaved}
                 </p>
               ) : null}
             </div>
@@ -1264,13 +1281,22 @@ export function GuestDesk({
       {messageEditorOpen && selectedInvitation ? (
         <GuestShareMessageEditor
           invitation={selectedInvitation}
-          onClose={() => setMessageEditorOpen(false)}
-          onSaved={() => {
+          onClose={() => {
+            setMessageEditorOpen(false);
+            window.requestAnimationFrame(() => messageEditorButtonRef.current?.focus());
+          }}
+          onSaved={(cleared) => {
             setMessageEditorOpen(false);
             // Prepared copies were built from the previous wording and are now stale.
             setPreparedCopies(new Map());
-            setActionMessage("Your invitation message was saved.");
+            setActionMessage(null);
+            setShareMessageSaved(
+              cleared
+                ? "Your own wording was removed. Guests will get Invitica's message again."
+                : "Saved. Your message is what guests will receive from now on.",
+            );
             refreshDesk();
+            window.requestAnimationFrame(() => messageEditorButtonRef.current?.focus());
           }}
         />
       ) : null}

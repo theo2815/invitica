@@ -273,6 +273,13 @@
   color: var(--danger);
 }
 
+/* Only the save confirmation carries a tick; the copy feedback beside it is text alone. */
+.copySuccess svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  vertical-align: -0.15em;
+}
+
 .copyField button,
 .primaryAction,
 .empty button,

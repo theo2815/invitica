@@ -14,7 +14,8 @@ import styles from "./GuestDesk.module.css";
 interface GuestShareMessageEditorProps {
   invitation: GuestInvitationSummary;
   onClose: () => void;
-  onSaved: () => void;
+  /** `cleared` is true when both fields were emptied, restoring Invitica's own wording. */
+  onSaved: (cleared: boolean) => void;
 }
 
 /** Stand-in used only for the preview, so a creator sees a real message before saving. */
@@ -99,16 +100,19 @@ export function GuestShareMessageEditor({
         personal,
       });
       if (result.status === "error") {
+        // The editor stays open on failure so the creator never loses what they wrote.
         setMessage(result.message);
         return;
       }
       saved = true;
     } catch {
-      setMessage("Invitica could not save this message. Check your connection and try again.");
+      setMessage(
+        "Invitica could not save this message. Your wording is still here — check your connection and try again.",
+      );
     } finally {
       setIsPending(false);
     }
-    if (saved) onSaved();
+    if (saved) onSaved(!personal.trim() && !general.trim());
   }
 
   return (
@@ -205,9 +209,12 @@ export function GuestShareMessageEditor({
             <pre>{preview.general}</pre>
           </div>
 
-          <p aria-live="polite" className={styles.dialogStatus} role="status">
-            {message}
-          </p>
+          {/* Only ever a failure: a success closes the editor and is confirmed on the desk. */}
+          {message ? (
+            <p className={styles.dialogStatus} role="alert">
+              {message}
+            </p>
+          ) : null}
           <div className={styles.dialogActions}>
             <button
               disabled={isPending || (!personal && !general)}

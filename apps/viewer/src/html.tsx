@@ -1,4 +1,5 @@
 import type { PublicationArtifact, PublicationSnapshot } from "@invitica/invitation-schema";
+import { inviticaIconSvg } from "@invitica/renderer";
 import { renderToString } from "react-dom/server.edge";
 
 import { MAP_TILE_KEY_META } from "./map-tile-key";
@@ -53,8 +54,12 @@ body { min-width: min(20rem, 100%); margin: 0; background: #edf0e8; }
 .viewer-unavailable a:focus-visible { outline: 3px solid currentColor; outline-offset: 4px; }
 `;
 
-const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><title>Invitica</title><rect width="64" height="64" rx="12" fill="#f7f3eb"/><g fill="#7a3442" transform="translate(11 4) scale(1.75)"><path d="M3 2h10v8h5c-3.33 1.03-5 3.1-5 6.2v7.63c0 2.25 1.33 3.48 4 3.69V30H3v-2.48c2.67-.21 4-1.44 4-3.69V8.17c0-2.25-1.33-3.48-4-3.69V2Z"/><path d="m15 2 6 6h-6V2Z"/></g></svg>`;
-const faviconHref = `data:image/svg+xml,${encodeURIComponent(faviconSvg)}`;
+// Inlined rather than fetched: a guest page is performance-budgeted for mid-range Philippine
+// mobile, and a favicon is not worth a request. Generated from the shared brandmark so it cannot
+// drift from the creator app's icon.
+const faviconHref = `data:image/svg+xml,${encodeURIComponent(
+  inviticaIconSvg({ cornerRatio: 0.1875, glyphRatio: 0.78, size: 64 }),
+)}`;
 
 function escapeHtml(value: string): string {
   return value
@@ -185,6 +190,7 @@ function head(title: string, mapTileKey: string, social = ""): string {
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">${mapTileMeta}
 <title>${escapeHtml(title)}</title>${social ? `\n${social}` : ""}
 <link rel="icon" type="image/svg+xml" href="${faviconHref}">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/viewer.css">
 <style>${criticalStyles}</style>`;
 }

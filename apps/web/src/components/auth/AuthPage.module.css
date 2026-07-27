@@ -12,7 +12,12 @@
   --danger: #9d2d2d;
   --display-font: "Fraunces Variable", Georgia, serif;
   min-height: 100dvh;
-  padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem) 2.5rem;
+  /* Reachable inside the installed app whenever a session lapses, so it clears the status bar
+     and home indicator the same way the creator shell does. */
+  padding: calc(1.5rem + env(safe-area-inset-top))
+    max(clamp(1.25rem, 4vw, 3.5rem), env(safe-area-inset-right))
+    calc(2.5rem + env(safe-area-inset-bottom))
+    max(clamp(1.25rem, 4vw, 3.5rem), env(safe-area-inset-left));
   background: var(--background);
   color: var(--text);
 }

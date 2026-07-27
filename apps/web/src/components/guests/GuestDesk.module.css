@@ -1317,11 +1317,7 @@
   font-size: 0.62rem;
 }
 
-/*
- * Pairs the primary send action with its Copy alternative. Wraps rather than overflows so a long
- * label on a 320 px screen drops the second button to its own line instead of shrinking either
- * below the 44 px touch target.
- */
+/* Keeps the copy and message-edit actions usable at narrow mobile widths. */
 .invitationActions {
   display: flex;
   flex-wrap: wrap;
@@ -1334,11 +1330,7 @@
   justify-content: flex-end;
 }
 
-/*
- * The quiet half of the pair. It stays in the accent family as the filled primary beside it and is
- * outlined rather than filled, which is the same secondary treatment the row actions already use —
- * so Share reads as the default and Copy as the alternative, not as a different kind of control.
- */
+/* Quiet secondary treatment for the message editor beside the primary copy action. */
 .secondaryCopyButton {
   display: inline-flex;
   min-width: 0;

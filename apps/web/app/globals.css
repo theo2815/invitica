@@ -17,6 +17,15 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Every Invitica surface paints this cream, but each did so on its own root element, leaving
+   `html` and `body` transparent — which renders white. In a browser tab Safari's chrome hides
+   that; installed on a phone it is the strip behind the status bar and the rubber-band overscroll
+   area, so the app appeared to sit in a white frame it never intended. */
+html,
+body {
+  background: #f7f3eb;
+}
+
 body {
   margin: 0;
   min-width: 320px;

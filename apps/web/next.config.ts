@@ -56,6 +56,10 @@ const nextConfig: NextConfig = {
     // `chunks/`, `fonts/`, `viewer.css`, and `viewer.js`. A missing entry does not
     // fail the build: Next answers its own 404 and the guest card silently never
     // opens. `chunks/` holds the dynamically imported map (ADR-006).
+    //
+    // One deliberate exception, asserted in `tests/NextConfig.test.ts`:
+    // `apple-touch-icon.png` ships in both deployables and is served here, not proxied,
+    // so this app's Home Screen icon does not depend on the Viewer being reachable.
     return [
       { destination: `${viewerOrigin}/i/:path*`, source: "/i/:path*" },
       { destination: `${viewerOrigin}/m/:path*`, source: "/m/:path*" },

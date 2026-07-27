@@ -80,6 +80,9 @@ const recoverableGuestLinkSchema = z.strictObject({
   token_ciphertext: z.string().regex(/^[A-Za-z0-9_-]{79}$/),
   token_nonce: z.string().regex(/^[A-Za-z0-9_-]{16}$/),
 });
+const recoverableGuestLinkBatchSchema = recoverableGuestLinkSchema.extend({
+  guest_party_id: uuidSchema,
+});
 
 export interface GuestInvitationSummary {
   readonly celebrantPronoun: CelebrantPronoun;
@@ -145,6 +148,10 @@ export interface RecoverableGuestLink {
   readonly linkId: string;
   readonly nonce: string;
   readonly recipientName: string;
+}
+
+export interface RecoverableGuestLinkBatchEntry extends RecoverableGuestLink {
+  readonly guestPartyId: string;
 }
 
 function invitationOrigin(): string {
@@ -501,7 +508,6 @@ export async function listGuestParties(
 
 export async function listGuestPartyPage(
   supabase: SupabaseClient,
-  workspaceId: string,
   invitationId: string,
   input: {
     offset: number;
@@ -509,7 +515,6 @@ export async function listGuestPartyPage(
     responseFilter: GuestPartyResponseFilter;
   },
 ): Promise<GuestPartyPage> {
-  uuidSchema.parse(workspaceId);
   const parsedInvitationId = uuidSchema.parse(invitationId);
   const offset = z.number().int().nonnegative().max(1000000).parse(input.offset);
   const query = z.string().trim().max(120).parse(input.query);
@@ -651,6 +656,32 @@ export async function getRecoverableGuestLink(
     : null;
 }
 
+export async function getRecoverableGuestLinks(
+  supabase: SupabaseClient,
+  invitationId: string,
+  guestPartyIds: readonly string[],
+): Promise<RecoverableGuestLinkBatchEntry[]> {
+  const parsedInvitationId = uuidSchema.parse(invitationId);
+  const parsedGuestPartyIds = z.array(uuidSchema).min(1).max(50).parse(guestPartyIds);
+  const { data, error } = await supabase.rpc("get_guest_party_link_secrets", {
+    p_guest_party_ids: parsedGuestPartyIds,
+    p_invitation_id: parsedInvitationId,
+  });
+  if (error) throw new GuestPersistenceError();
+
+  return z
+    .array(recoverableGuestLinkBatchSchema)
+    .parse(data ?? [])
+    .map((row) => ({
+      ciphertext: row.token_ciphertext,
+      guestPartyId: row.guest_party_id,
+      keyVersion: row.encryption_key_version,
+      linkId: row.link_id,
+      nonce: row.token_nonce,
+      recipientName: row.recipient_name,
+    }));
+}
+
 export async function trashGuestParty(
   supabase: SupabaseClient,
   guestPartyId: string,
@@ -727,12 +758,13 @@ export async function setGuestInvitationSent(
   supabase: SupabaseClient,
   guestPartyId: string,
   sent: boolean,
-): Promise<void> {
-  const { error } = await supabase.rpc("set_guest_invitation_sent", {
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("set_guest_invitation_sent", {
     p_guest_party_id: uuidSchema.parse(guestPartyId),
     p_sent: sent,
   });
   if (error) throw new GuestPersistenceError();
+  return z.string().datetime({ offset: true }).nullable().parse(data);
 }
 
 /**

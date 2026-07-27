@@ -10,6 +10,7 @@ export const LITTLE_BLESSINGS_V2_TEMPLATE_VERSION_ID = "40000000-0000-4000-8000-
  */
 export const littleBlessingsTemplateV2 = {
   ...littleBlessingsTemplate,
+  celebrantPronoun: "she",
   templateVersionId: LITTLE_BLESSINGS_V2_TEMPLATE_VERSION_ID,
   supersedesTemplateVersionId: littleBlessingsTemplate.templateVersionId,
   version: 2,

@@ -133,6 +133,21 @@ describe("public guest viewer", () => {
     );
   });
 
+  it("emits link-preview tags from public event content and never from the guest fragment", async () => {
+    const token = "10000000000000000000000000000005";
+    await publish(token, "a0000000-0000-4000-8000-000000000005");
+    const html = await (await fetchViewer(`/i/mara-and-joaquin-${token}`)).text();
+
+    expect(html).toContain('<meta property="og:title" content="Mara &amp; Joaquin">');
+    expect(html).toContain('<meta property="og:site_name" content="Invitica">');
+    expect(html).toContain(
+      `<meta property="og:url" content="https://invitica.app/i/mara-and-joaquin-${token}">`,
+    );
+    // The personalized token lives in the fragment, which never reaches the Worker, so it
+    // cannot leak into a tag a preview crawler reads and caches.
+    expect(html).not.toContain("#g=");
+  });
+
   it("supports HEAD while rejecting unsupported methods without reading private details", async () => {
     const token = "20000000000000000000000000000002";
     await publish(token, "a0000000-0000-4000-8000-000000000002");

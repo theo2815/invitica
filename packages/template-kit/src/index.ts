@@ -1,6 +1,7 @@
 export type {
   TemplateListing,
   TemplateManifest,
+  TemplateOccasion,
   TemplateRendererKey,
 } from "./manifest.js";
 export {

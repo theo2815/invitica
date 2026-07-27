@@ -22,7 +22,7 @@ function snapshot(rendererKey: string) {
   });
 }
 
-function snapshotWithTitle(title: string) {
+function snapshotWithHeroProps(props: { readonly dateLabel?: string; readonly title?: string }) {
   const base = snapshot("little-blessings-v1");
   return parsePublicationSnapshot({
     ...base,
@@ -32,7 +32,7 @@ function snapshotWithTitle(title: string) {
         section.type === "hero"
           ? {
               ...section,
-              props: { ...section.props, title },
+              props: { ...section.props, ...props },
             }
           : section,
       ),
@@ -83,10 +83,27 @@ describe("publication social preview", () => {
   it("renders distinct letterforms from the bundled preview fonts", async () => {
     const narrowStore = new MemoryStore();
     const wideStore = new MemoryStore();
-    const narrow = await createPublicationSocialPreview(snapshotWithTitle("IIIIIIII"), narrowStore);
-    const wide = await createPublicationSocialPreview(snapshotWithTitle("WWWWWWWW"), wideStore);
+    const narrow = await createPublicationSocialPreview(
+      snapshotWithHeroProps({ title: "IIIIIIII" }),
+      narrowStore,
+    );
+    const wide = await createPublicationSocialPreview(
+      snapshotWithHeroProps({ title: "WWWWWWWW" }),
+      wideStore,
+    );
 
     expect(narrow.sha256).not.toBe(wide.sha256);
+  });
+
+  it("omits an empty optional date label without failing the publication", async () => {
+    const store = new MemoryStore();
+
+    const preview = await createPublicationSocialPreview(
+      snapshotWithHeroProps({ dateLabel: "" }),
+      store,
+    );
+
+    expect(store.objects.get(preview.objectKey)).toBeDefined();
   });
 
   it("places a bounded hero image into the storybook card", async () => {

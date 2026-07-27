@@ -34,7 +34,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const partyData =
     selectedInvitation && workspaceId
       ? await Promise.all([
-          listGuestPartyPage(supabase, workspaceId, selectedInvitation.invitationId, {
+          listGuestPartyPage(supabase, selectedInvitation.invitationId, {
             offset: 0,
             query: "",
             responseFilter: "all",

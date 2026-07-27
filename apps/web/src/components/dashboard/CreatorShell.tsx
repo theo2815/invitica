@@ -25,8 +25,11 @@ export function getCreatorName(metadata: Record<string, unknown>) {
 export function CreatorShell({ children, email, metadata }: CreatorShellProps) {
   const creatorName = getCreatorName(metadata);
 
+  // `data-surface` lets `globals.css` raise the document background to this shell's header colour.
+  // iOS fills the status-bar strip from the document, not from the header element, so without it
+  // the strip stays cream and seams against the lighter header.
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-surface="creator">
       <a className="skip-link" href="#creator-content">
         Skip to creator content
       </a>

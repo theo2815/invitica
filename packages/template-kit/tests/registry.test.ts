@@ -52,6 +52,29 @@ describe("template registry", () => {
     });
   });
 
+  // The shared invitation message calls the celebrant "her", "his", or "their" from this field.
+  // A template that omitted it would misgender a child, so the schema makes it required and this
+  // pins the declared value of every registered template.
+  it("declares how the shared message refers to each template's celebrant", () => {
+    expect(
+      templateRegistry.map((manifest) => [manifest.listing.id, manifest.celebrantPronoun]),
+    ).toEqual([
+      // A wedding celebrates two people, so the neutral form is correct rather than a fallback.
+      ["garden-promise", "they"],
+      ["golden-hour", "she"],
+      ["sunday-joy", "she"],
+      ["little-blessings", "she"],
+      ["little-blessings", "she"],
+    ]);
+
+    expect(() =>
+      templateManifestSchema.parse({
+        ...resolveTemplateById("garden-promise"),
+        celebrantPronoun: "it",
+      }),
+    ).toThrow();
+  });
+
   it("resolves stable template and version identifiers and rejects unknown values", () => {
     const gardenPromise = resolveTemplateById("garden-promise");
 

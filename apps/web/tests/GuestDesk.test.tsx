@@ -1,14 +1,16 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GuestDesk } from "../src/components/guests/GuestDesk";
 import {
   copyGuestInvitationAction,
   createGuestPartiesAction,
+  loadGuestPartyPageAction,
   prepareGuestInvitationCopiesAction,
   recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
   restoreGuestPartyAction,
+  saveInvitationShareMessagesAction,
   setGuestInvitationSentAction,
   trashGuestPartyAction,
   updateGuestPartyAction,
@@ -23,19 +25,25 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("../src/server/guests/actions", () => ({
   copyGuestInvitationAction: vi.fn(),
   createGuestPartiesAction: vi.fn(),
+  loadGuestPartyPageAction: vi.fn(),
   prepareGuestInvitationCopiesAction: vi.fn(),
   recordGuestInvitationCopyAction: vi.fn(),
   replaceGuestPartyLinkAction: vi.fn(),
   restoreGuestPartyAction: vi.fn(),
   revokeGuestPartyLinkAction: vi.fn(),
+  saveInvitationShareMessagesAction: vi.fn(),
   setGuestInvitationSentAction: vi.fn(),
   trashGuestPartyAction: vi.fn(),
   updateGuestPartyAction: vi.fn(),
 }));
 
 const invitation = {
+  celebrantPronoun: "they" as const,
+  generalShareMessage: null,
+  personalShareMessage: null,
   genericUrl: `http://localhost:3000/i/mara-and-joaquin-${"a".repeat(32)}`,
   invitationId: "72000000-0000-4000-8000-000000000001",
+  occasion: "Wedding" as const,
   publicIdentifier: "a".repeat(32),
   title: "Mara & Joaquin",
 };
@@ -75,10 +83,16 @@ function party(overrides: Partial<GuestPartySummary> = {}): GuestPartySummary {
 function renderDesk(
   parties: readonly GuestPartySummary[] = [],
   trashedParties: readonly GuestPartySummary[] = [],
+  pagination: { hasMore: boolean; nextOffset: number } = {
+    hasMore: false,
+    nextOffset: parties.length,
+  },
 ) {
   return render(
     <GuestDesk
+      hasMoreParties={pagination.hasMore}
       invitations={[invitation]}
+      nextPartyOffset={pagination.nextOffset}
       parties={parties}
       resultSummary={{
         ...resultSummary,
@@ -97,6 +111,10 @@ beforeEach(() => {
   // path override this with a populated result.
   vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
     copies: [],
+    status: "ready",
+  });
+  vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+    page: { hasMore: false, nextOffset: 0, parties: [] },
     status: "ready",
   });
   vi.mocked(recordGuestInvitationCopyAction).mockResolvedValue({ status: "ignored" });
@@ -149,9 +167,186 @@ describe("GuestDesk", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     const copied = writeText.mock.calls[0]?.[0] as string;
-    expect(copied).toContain("You're invited to Mara & Joaquin.");
+    expect(copied).toContain("Mara & Joaquin's wedding invitation with you");
     expect(copied).toContain(invitation.genericUrl);
     expect(copied).not.toContain("RSVP");
+  });
+
+  it("hands the message to the platform share sheet where one exists", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    renderDesk();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Share general invitation" }));
+
+    await waitFor(() => expect(share).toHaveBeenCalledOnce());
+    expect(share.mock.calls[0]?.[0].text).toContain("Mara & Joaquin's wedding invitation with you");
+    // The share sheet already delivered the message; writing it to the clipboard too would
+    // silently overwrite whatever the creator had copied.
+    expect(writeText).not.toHaveBeenCalled();
+
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
+  });
+
+  it("keeps a copy action available beside share, for pasting somewhere the sheet does not offer", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    renderDesk([party()]);
+
+    // Both the general message and each party row offer share and copy side by side.
+    expect(await screen.findByRole("button", { name: "Share general invitation" })).toBeTruthy();
+    const copyGeneral = screen.getByRole("button", {
+      name: "Copy general invitation instead of sharing",
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "Copy invitation for Santos household instead of sharing",
+      }),
+    ).toBeTruthy();
+
+    fireEvent.click(copyGeneral);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    expect(writeText.mock.calls[0]?.[0]).toContain("Mara & Joaquin");
+    expect(share).not.toHaveBeenCalled();
+
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
+  });
+
+  it("lets a creator write their own message and previews it before saving", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    const personal = screen.getByLabelText("Personal message, for one guest party");
+    fireEvent.change(personal, {
+      target: { value: "Kumusta {recipient}! Join {celebrant}'s {occasion}: {link}" },
+    });
+
+    // The preview resolves the placeholders against real invitation data, not the raw template.
+    expect(screen.getByText(/Kumusta Ninang Anika! Join Mara & Joaquin's wedding:/)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() => expect(saveInvitationShareMessagesAction).toHaveBeenCalledOnce());
+    expect(saveInvitationShareMessagesAction).toHaveBeenCalledWith({
+      general: "",
+      invitationId: invitation.invitationId,
+      personal: "Kumusta {recipient}! Join {celebrant}'s {occasion}: {link}",
+    });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("confirms a saved message beside the button rather than closing in silence", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    fireEvent.change(screen.getByLabelText("Personal message, for one guest party"), {
+      target: { value: "Kumusta {recipient}! {link}" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Saved\. Your message is what guests will receive/)).toBeDefined(),
+    );
+    // The editor closes, so the confirmation has to survive on the desk.
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("says so plainly when the creator clears their wording", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() => expect(screen.getByText(/Your own wording was removed/)).toBeDefined());
+  });
+
+  it("keeps the editor open with the creator's text when a save fails", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({
+      message: "Keep {link} so guests can open the invitation.",
+      status: "error",
+    });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    const field = screen.getByLabelText("Personal message, for one guest party");
+    fireEvent.change(field, { target: { value: "Kumusta po!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeDefined());
+    expect(screen.getByRole("alert").textContent).toContain("Keep {link}");
+    // Losing what they typed would be worse than the failure itself.
+    expect((field as HTMLTextAreaElement).value).toBe("Kumusta po!");
+    expect(screen.getByRole("dialog")).toBeDefined();
+    expect(screen.queryByText(/Saved\./)).toBeNull();
+  });
+
+  it("clears a success confirmation on its own but leaves a failure on screen", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+      renderDesk();
+
+      fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+      fireEvent.change(screen.getByLabelText("Personal message, for one guest party"), {
+        target: { value: "Kumusta {recipient}! {link}" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+      await waitFor(() => expect(screen.getByText(/Saved\./)).toBeDefined());
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByText(/Saved\./)).toBeNull();
+
+      // A clipboard failure leaves something the creator still has to do, so it must not expire.
+      writeText.mockRejectedValueOnce(new Error("denied"));
+      fireEvent.click(screen.getByRole("button", { name: "Copy general invitation" }));
+      await waitFor(() =>
+        expect(screen.getByText(/Clipboard access was unavailable/)).toBeDefined(),
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(30000);
+      });
+      expect(screen.getByText(/Clipboard access was unavailable/)).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("warns that the general link cannot accept the RSVP a custom message asks for", () => {
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+
+    const general = screen.getByLabelText("General message, for sharing with everyone");
+    expect(screen.queryByText(/cannot accept an RSVP/)).toBeNull();
+
+    fireEvent.change(general, { target: { value: "Please RSVP here: {link}" } });
+    expect(screen.getByText(/cannot accept an RSVP/)).toBeDefined();
+  });
+
+  it("treats a dismissed share sheet as a decision rather than a failure", async () => {
+    const share = vi.fn().mockRejectedValue(new DOMException("dismissed", "AbortError"));
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    renderDesk();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Share general invitation" }));
+
+    await waitFor(() => expect(share).toHaveBeenCalledOnce());
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Clipboard access was unavailable/)).toBeNull();
+
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
   });
 
   it("copies the recoverable party invitation from its own row", async () => {
@@ -315,7 +510,9 @@ describe("GuestDesk", () => {
 
     view.rerender(
       <GuestDesk
+        hasMoreParties={false}
         invitations={[invitation]}
+        nextPartyOffset={0}
         parties={[]}
         resultSummary={resultSummary}
         selectedInvitation={invitation}
@@ -572,27 +769,150 @@ describe("GuestDesk", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false);
   });
 
-  it("keeps search and response filtering on the real party ledger", () => {
-    renderDesk([
-      party({
-        response: {
-          attendance: "attending",
-          attendeeCount: 2,
-          message: "We are delighted to celebrate.",
-          updatedAt: "2026-07-23T04:00:00+00:00",
-        },
-      }),
-      party({
-        guestMembers: [],
-        id: "73000000-0000-4000-8000-000000000002",
-        internalLabel: "Reyes couple",
-        recipientName: "Ana and Miguel",
-      }),
-    ]);
+  it("keeps response filtering on the complete server-side ledger", async () => {
+    const attendingParty = party({
+      response: {
+        attendance: "attending",
+        attendeeCount: 2,
+        message: "We are delighted to celebrate.",
+        updatedAt: "2026-07-23T04:00:00+00:00",
+      },
+    });
+    const awaitingParty = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000002",
+      internalLabel: "Reyes couple",
+      recipientName: "Ana and Miguel",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+      page: { hasMore: false, nextOffset: 1, parties: [attendingParty] },
+      status: "ready",
+    });
+    renderDesk([attendingParty, awaitingParty]);
 
     fireEvent.click(screen.getByRole("combobox", { name: /Response/ }));
     fireEvent.click(screen.getByRole("option", { name: "Attending" }));
+    await waitFor(() =>
+      expect(loadGuestPartyPageAction).toHaveBeenCalledWith({
+        invitationId: invitation.invitationId,
+        offset: 0,
+        query: "",
+        responseFilter: "attending",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("Reyes couple")).toBeNull());
     expect(screen.getByText("Santos household")).toBeDefined();
-    expect(screen.queryByText("Reyes couple")).toBeNull();
+  });
+
+  it("renders the whole-result order returned by the server", () => {
+    renderDesk([
+      party({
+        guestMembers: [],
+        id: "73000000-0000-4000-8000-000000000002",
+        internalLabel: "Zulueta couple",
+        recipientName: "Ana and Miguel",
+      }),
+      party({
+        internalLabel: "Abella family",
+        markedSentAt: "2026-07-26T10:00:00+08:00",
+      }),
+    ]);
+
+    const rows = within(screen.getByRole("table", { name: "Guest party response ledger" }))
+      .getAllByRole("row")
+      .slice(1);
+    expect(within(rows[0] as HTMLElement).getByText("Zulueta couple")).toBeDefined();
+    expect(within(rows[1] as HTMLElement).getByText("Abella family")).toBeDefined();
+  });
+
+  it("filters parties by sent status across the complete server-side ledger", async () => {
+    const unsentParty = party();
+    const sentParty = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000002",
+      internalLabel: "Reyes couple",
+      markedSentAt: "2026-07-26T10:00:00+08:00",
+      recipientName: "Ana and Miguel",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockImplementation(async (input) => ({
+      page: {
+        hasMore: false,
+        nextOffset: 1,
+        parties:
+          (input as { responseFilter: string }).responseFilter === "already-sent"
+            ? [sentParty]
+            : [unsentParty],
+      },
+      status: "ready",
+    }));
+    renderDesk([unsentParty, sentParty]);
+
+    const responseFilter = screen.getByRole("combobox", { name: /Response/ });
+    fireEvent.click(responseFilter);
+    fireEvent.click(screen.getByRole("option", { name: "Not Yet Sent" }));
+    await waitFor(() => expect(screen.queryByText("Reyes couple")).toBeNull());
+    expect(screen.getByText("Santos household")).toBeDefined();
+
+    fireEvent.click(responseFilter);
+    fireEvent.click(screen.getByRole("option", { name: "Already Sent" }));
+    await waitFor(() => expect(screen.queryByText("Santos household")).toBeNull());
+    expect(screen.getByText("Reyes couple")).toBeDefined();
+  });
+
+  it("loads the next server page without refreshing and hides the action at the end", async () => {
+    const nextParty = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000002",
+      internalLabel: "Reyes couple",
+      recipientName: "Ana and Miguel",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+      page: { hasMore: false, nextOffset: 21, parties: [nextParty] },
+      status: "ready",
+    });
+    renderDesk([party()], [], { hasMore: true, nextOffset: 20 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Load More" }));
+
+    await waitFor(() =>
+      expect(loadGuestPartyPageAction).toHaveBeenCalledWith({
+        invitationId: invitation.invitationId,
+        offset: 20,
+        query: "",
+        responseFilter: "all",
+      }),
+    );
+    expect(await screen.findByText("Reyes couple")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Load More" })).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("resets pagination when a search query changes", async () => {
+    const match = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000003",
+      internalLabel: "Navarro family",
+      recipientName: "Celia Navarro",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+      page: { hasMore: false, nextOffset: 1, parties: [match] },
+      status: "ready",
+    });
+    renderDesk([party()], [], { hasMore: true, nextOffset: 20 });
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search parties or guests" }), {
+      target: { value: "Navarro" },
+    });
+
+    await waitFor(() =>
+      expect(loadGuestPartyPageAction).toHaveBeenCalledWith({
+        invitationId: invitation.invitationId,
+        offset: 0,
+        query: "Navarro",
+        responseFilter: "all",
+      }),
+    );
+    expect(await screen.findByText("Navarro family")).toBeDefined();
+    expect(screen.queryByText("Santos household")).toBeNull();
   });
 });

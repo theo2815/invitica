@@ -276,3 +276,50 @@ database that lacks the table and then fails on the first real call with
 `relation "public.rsvp_responses" does not exist`. Hosted Supabase is in exactly that state: `0014`
 was applied on 2026-07-24 and `0009` has never been applied. The catalog suite cannot detect this
 because it never invokes the RPC. Apply `0009` before `0014` on any new environment.
+
+## Creator-authored invitation share messages
+
+Migration `0024_invitation_share_messages.sql` adds `personal_share_message` and
+`general_share_message` to `public.invitations`, plus the authenticated owner-only
+`update_invitation_share_messages()` RPC behind them.
+
+These are creator-side wording, not invitation content. They are never rendered to a guest and never
+enter a publication snapshot, which is why they live on `invitations` rather than inside the
+invitation document — putting them in the document would ship creator notes to the edge with every
+published invitation. Null means "use the generated default", so a creator who never customises
+keeps inheriting improvements to that default.
+
+`0002` grants table-wide `select` on `public.invitations`, which covers columns added later, so
+these need no column grant. That is unlike `guest_parties`, where `0012` replaced the table-wide
+grant with an explicit allowlist and every new column needs its own `grant select`. `0002` grants no
+`update` on `invitations` at all, so the write path is the RPC rather than a direct table write.
+
+The RPC re-checks ownership, the 2000-character bound, the required `{link}` placeholder, and the
+per-message placeholder allowlist (`{recipient}` is rejected in the general message, which addresses
+everyone at once and has no single recipient). An unrecognised placeholder is rejected rather than
+pasted to a guest as literal `{name}` text. The `0024` pgTAP suite has 19 assertions covering both
+the catalog shape and the validation branches, including cross-workspace denial.
+
+## Bounded Guest Desk pagination
+
+Migration `0025_guest_party_pagination.sql` adds the authenticated owner-only
+`list_guest_parties_page()` RPC used by the Guest Desk's 20-item **Load More** flow.
+
+The function applies search across party labels, envelope recipients, and named guests; filters by
+RSVP or sent status; then orders the complete active set with unsent parties first before applying
+offset and limit. It returns only the party, member, private-link status, delivery counters, and RSVP
+fields the existing ledger renders. The RPC validates ownership through `auth.uid()`, fixes its
+`search_path`, rejects unbounded limits, and is executable only by `authenticated`.
+
+The application requests 21 rows, renders 20, and treats the lookahead row only as evidence that
+another page exists. Search or filter changes restart at offset zero, so pagination never limits the
+criteria to rows already loaded in the browser.
+
+Migrations `0001` through `0025` applied cleanly together in a disposable local Supabase project
+on 2026-07-27. All 25 pgTAP suites passed with 527 assertions; `0025` contributed 20 runtime
+assertions covering privileges, ownership denial, whole-result ordering/search/filtering, page
+boundaries, returned row state, and invalid requests. Migration `0025` is not hosted-applied.
+
+**Documentation gap:** this README documents `0001`–`0014` and then `0024`–`0025`.
+Migrations `0015`–`0023` have no sections here; see
+`Operations/Migration and Environment Ledger` in the Second Brain for their canonical status.

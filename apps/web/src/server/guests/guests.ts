@@ -1,6 +1,13 @@
-import { guestLinkTokenSchema, parseInvitationDocument } from "@invitica/invitation-schema";
+import {
+  guestLinkTokenSchema,
+  type InvitationSection,
+  parseInvitationDocument,
+} from "@invitica/invitation-schema";
+import { resolveTemplateVersion, type TemplateOccasion } from "@invitica/template-kit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+import type { CelebrantPronoun } from "./sharing";
 
 const uuidSchema = z.string().uuid();
 const publicIdentifierSchema = z.string().regex(/^[0-9a-f]{32}$/);
@@ -10,6 +17,15 @@ const deliveredAliasSchema = z.strictObject({
   public_identifier: publicIdentifierSchema,
 });
 const draftTitleSchema = z.strictObject({ document: z.unknown(), invitation_id: uuidSchema });
+/**
+ * Loose on purpose. The columns arrive from `0024`, and a database without that migration
+ * returns a row that simply lacks them; the Guest Desk must keep working and fall back to the
+ * generated default rather than failing the page over a customisation the creator never made.
+ */
+const shareMessageRowSchema = z.looseObject({
+  general_share_message: z.string().trim().min(1).max(2000).nullish(),
+  personal_share_message: z.string().trim().min(1).max(2000).nullish(),
+});
 const guestPartySchema = z.strictObject({
   archived_at: z.string().datetime({ offset: true }).nullable(),
   capacity: z.number().int().min(1).max(50),
@@ -43,6 +59,19 @@ const guestRsvpRowSchema = z.strictObject({
   message: z.string().trim().min(1).max(500).nullable(),
   updated_at: z.string().datetime({ offset: true }),
 });
+const guestPartyPageRowSchema = guestPartySchema.extend({
+  guest_members: z.array(
+    z.strictObject({
+      id: uuidSchema,
+      name: z.string().trim().min(1).max(120),
+    }),
+  ),
+  link_status: z.enum(["active", "revoked"]),
+  response_attendance: z.enum(["attending", "declined"]).nullable(),
+  response_attendee_count: z.number().int().min(0).max(50).nullable(),
+  response_message: z.string().trim().min(1).max(500).nullable(),
+  response_updated_at: z.string().datetime({ offset: true }).nullable(),
+});
 const resolvedGuestSchema = z.strictObject({ recipient_name: z.string().trim().min(1).max(120) });
 const recoverableGuestLinkSchema = z.strictObject({
   encryption_key_version: z.number().int().positive(),
@@ -53,8 +82,12 @@ const recoverableGuestLinkSchema = z.strictObject({
 });
 
 export interface GuestInvitationSummary {
+  readonly celebrantPronoun: CelebrantPronoun;
+  readonly generalShareMessage: string | null;
   readonly genericUrl: string;
   readonly invitationId: string;
+  readonly occasion: TemplateOccasion | null;
+  readonly personalShareMessage: string | null;
   readonly publicIdentifier: string;
   readonly title: string;
 }
@@ -82,6 +115,22 @@ export interface GuestPartySummary {
     readonly updatedAt: string;
   } | null;
 }
+
+export type GuestPartyResponseFilter =
+  | "all"
+  | "already-sent"
+  | "attending"
+  | "awaiting"
+  | "declined"
+  | "not-yet-sent";
+
+export interface GuestPartyPage {
+  readonly hasMore: boolean;
+  readonly nextOffset: number;
+  readonly parties: readonly GuestPartySummary[];
+}
+
+export const GUEST_PARTY_PAGE_SIZE = 20;
 
 export class GuestPersistenceError extends Error {
   constructor() {
@@ -118,7 +167,24 @@ function invitationOrigin(): string {
   ) {
     throw new Error("NEXT_PUBLIC_INVITATION_ORIGIN must be an HTTP or HTTPS origin.");
   }
+
+  // This URL is pasted into a chat message, where a plaintext link is shown as insecure and
+  // may be rewritten or stripped by the client. A misconfigured origin must not reach a guest,
+  // so it is corrected here rather than trusted; only a local development host stays plaintext.
+  if (origin.protocol === "http:" && !isLocalHost(origin.hostname)) {
+    console.warn(
+      JSON.stringify({
+        event: "invitation_origin_upgraded_to_https",
+        hostname: origin.hostname,
+      }),
+    );
+    origin.protocol = "https:";
+  }
   return origin.origin;
+}
+
+function isLocalHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
 function invitationLabel(title: string): string {
@@ -144,10 +210,52 @@ export function buildPersonalizedInvitationUrl(genericUrl: string, token: string
   return url.toString();
 }
 
-function invitationTitle(document: unknown): string {
+/**
+ * The occasion and the celebrant's pronoun both come from the template manifest, because the
+ * invitation document holds neither. An older draft can outlive its registered template
+ * version, and that must not break the Guest Desk: it degrades to no occasion and the neutral
+ * pronoun rather than throwing.
+ */
+function templateShareFacts(templateVersionId: string): {
+  celebrantPronoun: CelebrantPronoun;
+  occasion: TemplateOccasion | null;
+} {
+  try {
+    const manifest = resolveTemplateVersion(templateVersionId);
+    return { celebrantPronoun: manifest.celebrantPronoun, occasion: manifest.listing.occasion };
+  } catch {
+    return { celebrantPronoun: "they", occasion: null };
+  }
+}
+
+/**
+ * The creator's own wording, when they have written any. Absent columns read as null so the
+ * Guest Desk keeps working against a database where `0024` has not been applied yet, falling
+ * back to the generated default rather than failing the whole page.
+ */
+function storedShareMessages(
+  row: unknown,
+): Pick<GuestInvitationSummary, "generalShareMessage" | "personalShareMessage"> {
+  const parsed = shareMessageRowSchema.safeParse(row);
+  return {
+    generalShareMessage: parsed.success ? (parsed.data.general_share_message ?? null) : null,
+    personalShareMessage: parsed.success ? (parsed.data.personal_share_message ?? null) : null,
+  };
+}
+
+/** Reads what the shared invitation message states about the event. */
+function invitationShareContext(
+  document: unknown,
+): Pick<GuestInvitationSummary, "celebrantPronoun" | "occasion" | "title"> {
   const parsed = parseInvitationDocument(document);
-  const hero = parsed.sections.find((section) => section.type === "hero");
-  return hero?.props.title ?? "Invitation";
+  const hero = parsed.sections.find(
+    (section): section is Extract<InvitationSection, { type: "hero" }> => section.type === "hero",
+  );
+
+  return {
+    ...templateShareFacts(parsed.templateVersionId),
+    title: hero?.props.title ?? "Invitation",
+  };
 }
 
 export async function listDeliveredGuestInvitations(
@@ -166,32 +274,41 @@ export async function listDeliveredGuestInvitations(
   const delivered = z.array(deliveredAliasSchema).parse(aliases.data ?? []);
   if (delivered.length === 0) return [];
 
-  const drafts = await supabase
-    .from("invitation_drafts")
-    .select("invitation_id, document")
-    .eq("workspace_id", parsedWorkspaceId)
-    .in(
-      "invitation_id",
-      delivered.map((alias) => alias.invitation_id),
-    );
+  const deliveredIds = delivered.map((alias) => alias.invitation_id);
+  const [drafts, invitations] = await Promise.all([
+    supabase
+      .from("invitation_drafts")
+      .select("invitation_id, document")
+      .eq("workspace_id", parsedWorkspaceId)
+      .in("invitation_id", deliveredIds),
+    supabase
+      .from("invitations")
+      .select("id, personal_share_message, general_share_message")
+      .eq("workspace_id", parsedWorkspaceId)
+      .in("id", deliveredIds),
+  ]);
 
-  if (drafts.error) throw new GuestPersistenceError();
-  const titles = new Map(
+  if (drafts.error || invitations.error) throw new GuestPersistenceError();
+  const contexts = new Map(
     z
       .array(draftTitleSchema)
       .parse(drafts.data ?? [])
-      .map((draft) => [draft.invitation_id, invitationTitle(draft.document)]),
+      .map((draft) => [draft.invitation_id, invitationShareContext(draft.document)]),
+  );
+  const messages = new Map(
+    (invitations.data ?? []).map((row) => [(row as { id: string }).id, storedShareMessages(row)]),
   );
 
   return delivered
     .map((alias) => {
-      const title = titles.get(alias.invitation_id);
-      if (!title) throw new GuestPersistenceError();
+      const context = contexts.get(alias.invitation_id);
+      if (!context) throw new GuestPersistenceError();
       return {
-        genericUrl: buildGenericInvitationUrl(title, alias.public_identifier),
+        ...context,
+        ...(messages.get(alias.invitation_id) ?? storedShareMessages(null)),
+        genericUrl: buildGenericInvitationUrl(context.title, alias.public_identifier),
         invitationId: alias.invitation_id,
         publicIdentifier: alias.public_identifier,
-        title,
       };
     })
     .sort((left, right) => left.title.localeCompare(right.title));
@@ -210,7 +327,7 @@ export async function loadDeliveredGuestInvitation(
 ): Promise<GuestInvitationSummary | null> {
   const parsedWorkspaceId = uuidSchema.parse(workspaceId);
   const parsedInvitationId = uuidSchema.parse(invitationId);
-  const [alias, draft] = await Promise.all([
+  const [alias, draft, invitation] = await Promise.all([
     supabase
       .from("publication_aliases")
       .select("invitation_id, public_identifier, delivered_publication_id")
@@ -225,18 +342,25 @@ export async function loadDeliveredGuestInvitation(
       .eq("workspace_id", parsedWorkspaceId)
       .eq("invitation_id", parsedInvitationId)
       .maybeSingle(),
+    supabase
+      .from("invitations")
+      .select("personal_share_message, general_share_message")
+      .eq("workspace_id", parsedWorkspaceId)
+      .eq("id", parsedInvitationId)
+      .maybeSingle(),
   ]);
 
-  if (alias.error || draft.error) throw new GuestPersistenceError();
+  if (alias.error || draft.error || invitation.error) throw new GuestPersistenceError();
   if (!alias.data || !draft.data) return null;
 
   const delivered = deliveredAliasSchema.parse(alias.data);
-  const title = invitationTitle(draftTitleSchema.parse(draft.data).document);
+  const context = invitationShareContext(draftTitleSchema.parse(draft.data).document);
   return {
-    genericUrl: buildGenericInvitationUrl(title, delivered.public_identifier),
+    ...context,
+    ...storedShareMessages(invitation.data),
+    genericUrl: buildGenericInvitationUrl(context.title, delivered.public_identifier),
     invitationId: delivered.invitation_id,
     publicIdentifier: delivered.public_identifier,
-    title,
   };
 }
 
@@ -373,6 +497,72 @@ export async function listGuestParties(
   invitationId: string,
 ): Promise<GuestPartySummary[]> {
   return listGuestPartiesByArchiveState(supabase, workspaceId, invitationId, false);
+}
+
+export async function listGuestPartyPage(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  invitationId: string,
+  input: {
+    offset: number;
+    query: string;
+    responseFilter: GuestPartyResponseFilter;
+  },
+): Promise<GuestPartyPage> {
+  uuidSchema.parse(workspaceId);
+  const parsedInvitationId = uuidSchema.parse(invitationId);
+  const offset = z.number().int().nonnegative().max(1000000).parse(input.offset);
+  const query = z.string().trim().max(120).parse(input.query);
+  const responseFilter = z
+    .enum(["all", "already-sent", "attending", "awaiting", "declined", "not-yet-sent"])
+    .parse(input.responseFilter);
+  const { data, error } = await supabase.rpc("list_guest_parties_page", {
+    p_invitation_id: parsedInvitationId,
+    p_limit: GUEST_PARTY_PAGE_SIZE + 1,
+    p_offset: offset,
+    p_response_filter: responseFilter,
+    p_search: query,
+  });
+
+  if (error) {
+    logGuestReadFailure("list_guest_parties_page", error, {
+      invitationId: parsedInvitationId,
+    });
+    throw new GuestPersistenceError();
+  }
+
+  const rows = z.array(guestPartyPageRowSchema).parse(data ?? []);
+  const visibleRows = rows.slice(0, GUEST_PARTY_PAGE_SIZE);
+  return {
+    hasMore: rows.length > GUEST_PARTY_PAGE_SIZE,
+    nextOffset: offset + visibleRows.length,
+    parties: visibleRows.map((party) => ({
+      archivedAt: party.archived_at,
+      capacity: party.capacity,
+      copyCount: party.copy_count,
+      createdAt: party.created_at,
+      firstCopiedAt: party.first_copied_at,
+      guestMembers: party.guest_members,
+      id: party.id,
+      internalLabel: party.internal_label,
+      lastCopiedAt: party.last_copied_at,
+      linkStatus: party.link_status,
+      markedSentAt: party.marked_sent_at,
+      recipientName: party.recipient_name,
+      revision: party.revision,
+      response:
+        party.response_attendance &&
+        party.response_attendee_count !== null &&
+        party.response_updated_at
+          ? {
+              attendance: party.response_attendance,
+              attendeeCount: party.response_attendee_count,
+              message: party.response_message,
+              updatedAt: party.response_updated_at,
+            }
+          : null,
+    })),
+  };
 }
 
 export async function listTrashedGuestParties(
@@ -541,6 +731,24 @@ export async function setGuestInvitationSent(
   const { error } = await supabase.rpc("set_guest_invitation_sent", {
     p_guest_party_id: uuidSchema.parse(guestPartyId),
     p_sent: sent,
+  });
+  if (error) throw new GuestPersistenceError();
+}
+
+/**
+ * Stores the creator's own share wording, or clears it back to the generated default. The RPC
+ * repeats ownership, bounds, and the placeholder allowlist independently, so a forged request
+ * cannot store a message the application would refuse.
+ */
+export async function updateInvitationShareMessages(
+  supabase: SupabaseClient,
+  invitationId: string,
+  messages: { general: string | null; personal: string | null },
+): Promise<void> {
+  const { error } = await supabase.rpc("update_invitation_share_messages", {
+    p_general_message: messages.general,
+    p_invitation_id: uuidSchema.parse(invitationId),
+    p_personal_message: messages.personal,
   });
   if (error) throw new GuestPersistenceError();
 }

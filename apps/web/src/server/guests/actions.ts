@@ -9,9 +9,13 @@ import { ensurePersonalWorkspace, requireConfirmedUser } from "../auth/session";
 import {
   buildPersonalizedInvitationUrl,
   createGuestPartiesBulk,
+  type GuestInvitationSummary,
+  type GuestPartyPage,
+  type GuestPartyResponseFilter,
   GuestPersistenceError,
   getRecoverableGuestLink,
   listGuestParties,
+  listGuestPartyPage,
   listTrashedGuestParties,
   loadDeliveredGuestInvitation,
   recordGuestInvitationCopy,
@@ -21,8 +25,13 @@ import {
   setGuestInvitationSent,
   trashGuestParty,
   updateGuestParty,
+  updateInvitationShareMessages,
 } from "./guests";
-import { buildPersonalInvitationMessage } from "./sharing";
+import {
+  buildPersonalInvitationMessage,
+  GENERAL_MESSAGE_TOKENS,
+  PERSONAL_MESSAGE_TOKENS,
+} from "./sharing";
 import {
   decryptGuestLinkToken,
   encryptGuestLinkToken,
@@ -75,6 +84,19 @@ const updateGuestPartySchema = partyActionSchema
     }
   });
 const linkActionSchema = z.strictObject({ guestPartyId: uuidSchema, invitationId: uuidSchema });
+const guestPartyPageSchema = z.strictObject({
+  invitationId: uuidSchema,
+  offset: z.number().int().nonnegative().max(1000000),
+  query: z.string().trim().max(120),
+  responseFilter: z.enum([
+    "all",
+    "already-sent",
+    "attending",
+    "awaiting",
+    "declined",
+    "not-yet-sent",
+  ]),
+});
 
 export type CreateGuestPartiesActionResult =
   | { count: number; status: "created" }
@@ -102,14 +124,17 @@ export type GuestManagementActionResult =
   | { status: "restored" | "revoked" | "trashed" | "updated" }
   | { message: string; status: "error" };
 
-async function loadOwnedInvitationContext(invitationId: string): Promise<{
-  genericUrl: string;
-  invitationId: string;
-  publicIdentifier: string;
-  title: string;
-  supabase: Awaited<ReturnType<typeof ensurePersonalWorkspace>>["supabase"];
-  workspaceId: string;
-} | null> {
+export type LoadGuestPartyPageActionResult =
+  | { page: GuestPartyPage; status: "ready" }
+  | { message: string; status: "error" };
+
+async function loadOwnedInvitationContext(invitationId: string): Promise<
+  | (GuestInvitationSummary & {
+      supabase: Awaited<ReturnType<typeof ensurePersonalWorkspace>>["supabase"];
+      workspaceId: string;
+    })
+  | null
+> {
   const { error, supabase, workspaceId } = await ensurePersonalWorkspace();
   if (error || !workspaceId) return null;
   const invitation = await loadDeliveredGuestInvitation(supabase, workspaceId, invitationId);
@@ -118,6 +143,41 @@ async function loadOwnedInvitationContext(invitationId: string): Promise<{
 
 function requestHash(parties: z.infer<typeof guestPartyInputSchema>[]): string {
   return createHash("sha256").update(JSON.stringify(parties), "utf8").digest("hex");
+}
+
+export async function loadGuestPartyPageAction(
+  input: unknown,
+): Promise<LoadGuestPartyPageActionResult> {
+  const parsed = guestPartyPageSchema.safeParse(input);
+  if (!parsed.success) {
+    return { message: "This guest-page request is no longer valid.", status: "error" };
+  }
+
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) {
+      return {
+        message: "This published invitation is unavailable. Refresh and try again.",
+        status: "error",
+      };
+    }
+    const page = await listGuestPartyPage(
+      context.supabase,
+      context.workspaceId,
+      context.invitationId,
+      {
+        offset: parsed.data.offset,
+        query: parsed.data.query,
+        responseFilter: parsed.data.responseFilter as GuestPartyResponseFilter,
+      },
+    );
+    return { page, status: "ready" };
+  } catch {
+    return {
+      message: "Invitica could not load more guest parties. Check your connection and try again.",
+      status: "error",
+    };
+  }
 }
 
 export async function createGuestPartiesAction(
@@ -204,11 +264,7 @@ export async function copyGuestInvitationAction(
     );
     const personalizedUrl = buildPersonalizedInvitationUrl(context.genericUrl, token);
     return {
-      copyText: buildPersonalInvitationMessage(
-        context.title,
-        secret.recipientName,
-        personalizedUrl,
-      ),
+      copyText: buildPersonalInvitationMessage(context, secret.recipientName, personalizedUrl),
       personalizedUrl,
       status: "ready",
     };
@@ -269,6 +325,67 @@ export async function setGuestInvitationSentAction(
   }
 }
 
+/**
+ * A creator-authored message. Blank clears the customisation and restores the generated default,
+ * which is why an empty string is accepted rather than rejected.
+ */
+function shareMessageSchema(allowed: readonly string[]) {
+  return z
+    .string()
+    .max(2000)
+    .transform((value) => value.trim())
+    .refine(
+      (value) => value === "" || value.includes("{link}"),
+      "Keep {link} so guests can open the invitation.",
+    )
+    .refine((value) => {
+      for (const [, token] of value.matchAll(/\{([a-zA-Z]+)\}/g)) {
+        // An unrecognised placeholder would be pasted to a guest as literal "{name}" text.
+        if (!allowed.includes(token as string)) return false;
+      }
+      return true;
+    }, "Use only the placeholders listed below.")
+    .transform((value) => (value === "" ? null : value));
+}
+
+const shareMessagesSchema = z.strictObject({
+  general: shareMessageSchema(GENERAL_MESSAGE_TOKENS),
+  invitationId: uuidSchema,
+  personal: shareMessageSchema(PERSONAL_MESSAGE_TOKENS),
+});
+
+/** Saves the creator's own share wording, or clears it back to the generated default. */
+export async function saveInvitationShareMessagesAction(
+  input: unknown,
+): Promise<GuestManagementActionResult> {
+  const parsed = shareMessagesSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      message:
+        parsed.error.issues[0]?.message ?? "That message could not be saved. Check it and retry.",
+      status: "error",
+    };
+  }
+
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) {
+      return {
+        message: "This published invitation is unavailable. Refresh and try again.",
+        status: "error",
+      };
+    }
+    await updateInvitationShareMessages(context.supabase, parsed.data.invitationId, {
+      general: parsed.data.general,
+      personal: parsed.data.personal,
+    });
+    revalidatePath("/dashboard/guests");
+    return { status: "updated" };
+  } catch {
+    return { message: "That message could not be saved. Try again.", status: "error" };
+  }
+}
+
 const prepareCopiesSchema = z.strictObject({
   guestPartyIds: z.array(uuidSchema).min(1).max(50),
   invitationId: uuidSchema,
@@ -326,7 +443,7 @@ export async function prepareGuestInvitationCopiesAction(
           );
           return {
             copyText: buildPersonalInvitationMessage(
-              context.title,
+              context,
               secret.recipientName,
               personalizedUrl,
             ),
@@ -389,7 +506,7 @@ export async function replaceGuestPartyLinkAction(
     revalidatePath("/dashboard/guests");
     const personalizedUrl = buildPersonalizedInvitationUrl(context.genericUrl, token);
     return {
-      copyText: buildPersonalInvitationMessage(context.title, party.recipientName, personalizedUrl),
+      copyText: buildPersonalInvitationMessage(context, party.recipientName, personalizedUrl),
       personalizedUrl,
       status: "replaced",
     };

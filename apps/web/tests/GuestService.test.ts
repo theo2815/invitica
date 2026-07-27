@@ -4,6 +4,7 @@ import {
   buildGenericInvitationUrl,
   buildPersonalizedInvitationUrl,
   GuestPersistenceError,
+  listGuestPartyPage,
   updateGuestParty,
 } from "../src/server/guests/guests";
 
@@ -24,6 +25,27 @@ describe("guest invitation URLs", () => {
 
     expect(buildGenericInvitationUrl("  Álthea & Nicolás  ", identifier)).toBe(
       `https://invitica.example/i/althea-nicolas-${identifier}`,
+    );
+  });
+
+  it("upgrades a plaintext hosted origin so no guest is sent an http link", () => {
+    process.env.NEXT_PUBLIC_INVITATION_ORIGIN = "http://invitica.app";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const identifier = "0123456789abcdef0123456789abcdef";
+
+    expect(buildGenericInvitationUrl("Mara & Joaquin", identifier)).toBe(
+      `https://invitica.app/i/mara-joaquin-${identifier}`,
+    );
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("leaves a local development origin on http", () => {
+    process.env.NEXT_PUBLIC_INVITATION_ORIGIN = "http://localhost:3000";
+    const identifier = "0123456789abcdef0123456789abcdef";
+
+    expect(buildGenericInvitationUrl("Mara & Joaquin", identifier)).toBe(
+      `http://localhost:3000/i/mara-joaquin-${identifier}`,
     );
   });
 
@@ -87,5 +109,78 @@ describe("guest-party editing", () => {
         recipientName: "Mara Santos",
       }),
     ).rejects.toBeInstanceOf(GuestPersistenceError);
+  });
+});
+
+describe("guest-party pagination", () => {
+  it("requests one extra row and returns a bounded mapped page", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: Array.from({ length: 21 }, (_, index) => ({
+        archived_at: null,
+        capacity: 2,
+        copy_count: 0,
+        created_at: "2026-07-22T08:00:00+08:00",
+        first_copied_at: null,
+        guest_members:
+          index === 0 ? [{ id: "74000000-0000-4000-8000-000000000001", name: "Lena Santos" }] : [],
+        id: `73000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        internal_label: `Party ${index + 1}`,
+        last_copied_at: null,
+        link_status: index === 0 ? "active" : "revoked",
+        marked_sent_at: null,
+        recipient_name: `Recipient ${index + 1}`,
+        response_attendance: index === 0 ? "attending" : null,
+        response_attendee_count: index === 0 ? 2 : null,
+        response_message: index === 0 ? "We will be there." : null,
+        response_updated_at: index === 0 ? "2026-07-23T04:00:00+00:00" : null,
+        revision: 1,
+      })),
+      error: null,
+    });
+
+    const page = await listGuestPartyPage(
+      { rpc } as never,
+      "71000000-0000-4000-8000-000000000001",
+      "72000000-0000-4000-8000-000000000001",
+      { offset: 40, query: "Santos", responseFilter: "not-yet-sent" },
+    );
+
+    expect(rpc).toHaveBeenCalledWith("list_guest_parties_page", {
+      p_invitation_id: "72000000-0000-4000-8000-000000000001",
+      p_limit: 21,
+      p_offset: 40,
+      p_response_filter: "not-yet-sent",
+      p_search: "Santos",
+    });
+    expect(page.hasMore).toBe(true);
+    expect(page.nextOffset).toBe(60);
+    expect(page.parties).toHaveLength(20);
+    expect(page.parties[0]).toMatchObject({
+      guestMembers: [{ id: "74000000-0000-4000-8000-000000000001", name: "Lena Santos" }],
+      linkStatus: "active",
+      response: {
+        attendance: "attending",
+        attendeeCount: 2,
+        message: "We will be there.",
+      },
+    });
+  });
+
+  it("does not expose database read failures", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "permission denied" },
+    });
+
+    await expect(
+      listGuestPartyPage(
+        { rpc } as never,
+        "71000000-0000-4000-8000-000000000001",
+        "72000000-0000-4000-8000-000000000001",
+        { offset: 0, query: "", responseFilter: "all" },
+      ),
+    ).rejects.toBeInstanceOf(GuestPersistenceError);
+    consoleError.mockRestore();
   });
 });

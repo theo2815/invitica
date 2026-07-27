@@ -19,6 +19,8 @@ export const templateOccasionSchema = z.enum([
   "Debut",
   "Anniversary",
 ]);
+export type TemplateOccasion = z.infer<typeof templateOccasionSchema>;
+
 export const templateAccessTierSchema = z.enum(["Free", "Premium"]);
 export const templateSectionTypeSchema = z.enum([
   "hero",
@@ -46,9 +48,21 @@ export const templateListingSchema = z.strictObject({
   description: z.string().trim().min(1).max(500),
 });
 
+/**
+ * How the shared invitation message refers to the person being celebrated. Templates are the
+ * right home for it because occasion-specific art direction and the celebrant's pronouns are
+ * chosen together — a girl's christening template is picked as a girl's christening template.
+ *
+ * `they` is both the neutral choice and the correct one for an occasion with two celebrants,
+ * such as a wedding or an anniversary. Required, so adding a template forces the decision
+ * rather than defaulting a child into the wrong pronoun.
+ */
+export const celebrantPronounSchema = z.enum(["she", "he", "they"]);
+
 export const templateManifestSchema = z
   .strictObject({
     listing: templateListingSchema,
+    celebrantPronoun: celebrantPronounSchema,
     templateVersionId: z.string().uuid(),
     supersedesTemplateVersionId: z.string().uuid().optional(),
     version: z.number().int().positive(),

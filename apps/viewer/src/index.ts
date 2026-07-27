@@ -121,8 +121,14 @@ export default {
 
     try {
       const artifact = await loadActivePublication(env.PUBLICATION_BUCKET, publicIdentifier, ctx);
-      // The snapshot stays keyless and immutable: the map key is injected per response.
-      const html = renderPublicationHtml(artifact, env.MAPTILER_KEY);
+      // The snapshot stays keyless and immutable: the map key is injected per response. The
+      // request origin is injected for the same reason — link-preview tags need absolute URLs,
+      // and only the Worker knows which host served this invitation.
+      const html = renderPublicationHtml(
+        artifact,
+        env.MAPTILER_KEY,
+        `${url.origin}${url.pathname}`,
+      );
 
       return htmlResponse(
         html,

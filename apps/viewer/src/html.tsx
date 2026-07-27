@@ -1,8 +1,8 @@
-import type { PublicationArtifact } from "@invitica/invitation-schema";
+import type { PublicationArtifact, PublicationSnapshot } from "@invitica/invitation-schema";
 import { renderToString } from "react-dom/server.edge";
 
 import { MAP_TILE_KEY_META } from "./map-tile-key";
-import { createSnapshotImageResolver } from "./published-media";
+import { createSnapshotImageResolver, mediaPublicPath } from "./published-media";
 import { resolvePublishedRenderer } from "./published-renderer";
 
 const criticalStyles = `
@@ -71,12 +71,68 @@ function serializeBootstrap(artifact: PublicationArtifact): string {
     .replaceAll("\u2029", "\\u2029");
 }
 
+type PublicationSnapshotAsset = PublicationSnapshot["assets"][number];
+
+function heroSection(artifact: PublicationArtifact) {
+  return artifact.snapshot.document.sections.find((section) => section.type === "hero");
+}
+
 function documentTitle(artifact: PublicationArtifact): string {
-  const hero = artifact.snapshot.document.sections.find((section) => section.type === "hero");
+  const hero = heroSection(artifact);
   return hero ? `${hero.props.title} | Invitica` : "Invitation | Invitica";
 }
 
-function head(title: string, mapTileKey: string): string {
+/**
+ * The widest rendition of the hero image, as an absolute URL on the requesting origin.
+ * Preview crawlers do not resolve relative paths, and the media route is same-origin.
+ */
+function socialImageUrl(artifact: PublicationArtifact, origin: string): string | null {
+  const assetId = heroSection(artifact)?.props.imageAssetId;
+  if (!assetId) {
+    return null;
+  }
+
+  const asset = artifact.snapshot.assets.find(
+    (candidate): candidate is Extract<PublicationSnapshotAsset, { kind: "image" }> =>
+      candidate.id === assetId && candidate.kind === "image",
+  );
+  const widest = asset?.renditions.reduce<(typeof asset.renditions)[number] | null>(
+    (best, rendition) => (best && best.width >= rendition.width ? best : rendition),
+    null,
+  );
+  return widest ? `${origin}${mediaPublicPath(widest.sha256, widest.width)}` : null;
+}
+
+/**
+ * What a messaging app shows when a creator shares the link. Without these tags Messenger
+ * renders a bare domain chip, which reads as a suspicious link rather than an invitation.
+ * Only what the invitation already states publicly is exposed: the personalized guest token
+ * lives in the URL fragment, which is never sent to a server and so never reaches a crawler.
+ */
+function socialTags(artifact: PublicationArtifact, pageUrl: string): string {
+  const hero = heroSection(artifact);
+  const title = hero ? hero.props.title : "You are invited";
+  const description = [hero?.props.subtitle, hero?.props.dateLabel]
+    .filter((value): value is string => Boolean(value))
+    .join(" · ");
+  // Absolute asset and page URLs need the requesting origin, which only the Worker knows.
+  const canonical = pageUrl ? new URL(pageUrl) : null;
+  const imageUrl = canonical ? socialImageUrl(artifact, canonical.origin) : null;
+
+  return [
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="Invitica">`,
+    `<meta property="og:title" content="${escapeHtml(title)}">`,
+    description ? `<meta property="og:description" content="${escapeHtml(description)}">` : null,
+    canonical ? `<meta property="og:url" content="${escapeHtml(canonical.href)}">` : null,
+    imageUrl ? `<meta property="og:image" content="${escapeHtml(imageUrl)}">` : null,
+    `<meta name="twitter:card" content="${imageUrl ? "summary_large_image" : "summary"}">`,
+  ]
+    .filter((tag): tag is string => tag !== null)
+    .join("\n");
+}
+
+function head(title: string, mapTileKey: string, social = ""): string {
   // The MapTiler key is per-deployment configuration, so it is injected here instead of being baked
   // into the immutable snapshot (ADR-006). A meta element carries it without an inline script, which
   // the Viewer's `script-src 'self'` policy forbids.
@@ -87,13 +143,17 @@ function head(title: string, mapTileKey: string): string {
   return `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">${mapTileMeta}
-<title>${escapeHtml(title)}</title>
+<title>${escapeHtml(title)}</title>${social ? `\n${social}` : ""}
 <link rel="icon" type="image/svg+xml" href="${faviconHref}">
 <link rel="stylesheet" href="/viewer.css">
 <style>${criticalStyles}</style>`;
 }
 
-export function renderPublicationHtml(artifact: PublicationArtifact, mapTileKey = ""): string {
+export function renderPublicationHtml(
+  artifact: PublicationArtifact,
+  mapTileKey = "",
+  pageUrl = "",
+): string {
   const Renderer = resolvePublishedRenderer(artifact);
   const resolveImage = createSnapshotImageResolver(artifact.snapshot.assets);
   const invitation = renderToString(
@@ -108,7 +168,7 @@ export function renderPublicationHtml(artifact: PublicationArtifact, mapTileKey 
   return `<!doctype html>
 <html lang="${artifact.snapshot.document.locale}">
 <head>
-${head(documentTitle(artifact), mapTileKey)}
+${head(documentTitle(artifact), mapTileKey, socialTags(artifact, pageUrl))}
 </head>
 <body>
 <div id="viewer-root">${invitation}</div>

@@ -998,7 +998,8 @@
     align-self: center;
   }
 
-  .invitationCopyAction {
+  /* The wrapper is the grid item now; the buttons inside it lay themselves out with flex. */
+  .rowInvitationActions {
     grid-column: 1 / -1;
     grid-row: 2;
   }
@@ -1228,6 +1229,7 @@
 
 .copyInvitationButton,
 .rowCopyAction,
+.secondaryCopyButton,
 .bulkTools button,
 .removeDraftRow,
 .modalClose,
@@ -1249,7 +1251,6 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  justify-self: end;
   padding-inline: 0.75rem;
   border-color: var(--accent);
   background: var(--accent);
@@ -1269,8 +1270,47 @@
   font-size: 0.62rem;
 }
 
+/*
+ * Pairs the primary send action with its Copy alternative. Wraps rather than overflows so a long
+ * label on a 320 px screen drops the second button to its own line instead of shrinking either
+ * below the 44 px touch target.
+ */
+.invitationActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The general section's buttons sit at the end of a full-width grid cell; the row's sit at its start. */
+.generalInvitationActions {
+  justify-content: flex-end;
+}
+
+/*
+ * The quiet half of the pair. It stays in the accent family as the filled primary beside it and is
+ * outlined rather than filled, which is the same secondary treatment the row actions already use —
+ * so Share reads as the default and Copy as the alternative, not as a different kind of control.
+ */
+.secondaryCopyButton {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-inline: 0.75rem;
+  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.secondaryCopyButton svg {
+  width: 0.9rem;
+}
+
 .copyInvitationButton:disabled,
 .rowCopyAction:disabled,
+.secondaryCopyButton:disabled,
 .bulkTools button:disabled,
 .trashPanel button:disabled {
   cursor: wait;
@@ -1476,6 +1516,55 @@
 .editPartyForm .dialogStatus,
 .editPartyForm .dialogActions {
   grid-column: 1 / -1;
+}
+
+/* The two message fields and their preview each need the dialog's full width to stay readable. */
+.shareMessageField {
+  display: grid;
+  min-width: 0;
+  gap: 0.4rem;
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.shareMessageField small {
+  font-weight: 520;
+}
+
+.shareMessagePreview {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
+.shareMessagePreview h3 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/*
+ * The message is plain text a creator will paste into a chat app, so it is previewed as written:
+ * wrapped rather than scrolled sideways, in the body face rather than a monospace one.
+ */
+.shareMessagePreview pre {
+  margin: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.shareMessageWarning {
+  color: var(--danger);
 }
 
 .bulkRows {

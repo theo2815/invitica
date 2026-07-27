@@ -10,6 +10,8 @@ export const gardenPromiseTemplate = {
     description:
       "A quiet garden composition with sage paper, fine borders, and generous space for a personal story.",
   },
+  // A wedding celebrates two people together.
+  celebrantPronoun: "they",
   templateVersionId: "40000000-0000-4000-8000-000000000001",
   version: 1,
   qualityStatus: "production",

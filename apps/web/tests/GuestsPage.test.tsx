@@ -88,8 +88,12 @@ describe("guests and RSVPs page", () => {
     });
     vi.mocked(listDeliveredGuestInvitations).mockResolvedValue([
       {
+        celebrantPronoun: "they" as const,
+        generalShareMessage: null,
+        personalShareMessage: null,
         genericUrl: `http://localhost:3000/i/mara-and-joaquin-${"a".repeat(32)}`,
         invitationId,
+        occasion: "Wedding" as const,
         publicIdentifier: "a".repeat(32),
         title: "Mara & Joaquin",
       },

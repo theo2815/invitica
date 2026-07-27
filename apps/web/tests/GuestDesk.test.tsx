@@ -9,6 +9,7 @@ import {
   recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
   restoreGuestPartyAction,
+  saveInvitationShareMessagesAction,
   setGuestInvitationSentAction,
   trashGuestPartyAction,
   updateGuestPartyAction,
@@ -28,14 +29,19 @@ vi.mock("../src/server/guests/actions", () => ({
   replaceGuestPartyLinkAction: vi.fn(),
   restoreGuestPartyAction: vi.fn(),
   revokeGuestPartyLinkAction: vi.fn(),
+  saveInvitationShareMessagesAction: vi.fn(),
   setGuestInvitationSentAction: vi.fn(),
   trashGuestPartyAction: vi.fn(),
   updateGuestPartyAction: vi.fn(),
 }));
 
 const invitation = {
+  celebrantPronoun: "they" as const,
+  generalShareMessage: null,
+  personalShareMessage: null,
   genericUrl: `http://localhost:3000/i/mara-and-joaquin-${"a".repeat(32)}`,
   invitationId: "72000000-0000-4000-8000-000000000001",
+  occasion: "Wedding" as const,
   publicIdentifier: "a".repeat(32),
   title: "Mara & Joaquin",
 };
@@ -149,9 +155,105 @@ describe("GuestDesk", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     const copied = writeText.mock.calls[0]?.[0] as string;
-    expect(copied).toContain("You're invited to Mara & Joaquin.");
+    expect(copied).toContain("Mara & Joaquin's wedding invitation with you");
     expect(copied).toContain(invitation.genericUrl);
     expect(copied).not.toContain("RSVP");
+  });
+
+  it("hands the message to the platform share sheet where one exists", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    renderDesk();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Share general invitation" }));
+
+    await waitFor(() => expect(share).toHaveBeenCalledOnce());
+    expect(share.mock.calls[0]?.[0].text).toContain("Mara & Joaquin's wedding invitation with you");
+    // The share sheet already delivered the message; writing it to the clipboard too would
+    // silently overwrite whatever the creator had copied.
+    expect(writeText).not.toHaveBeenCalled();
+
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
+  });
+
+  it("keeps a copy action available beside share, for pasting somewhere the sheet does not offer", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    renderDesk([party()]);
+
+    // Both the general message and each party row offer share and copy side by side.
+    expect(await screen.findByRole("button", { name: "Share general invitation" })).toBeTruthy();
+    const copyGeneral = screen.getByRole("button", {
+      name: "Copy general invitation instead of sharing",
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "Copy invitation for Santos household instead of sharing",
+      }),
+    ).toBeTruthy();
+
+    fireEvent.click(copyGeneral);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    expect(writeText.mock.calls[0]?.[0]).toContain("Mara & Joaquin");
+    expect(share).not.toHaveBeenCalled();
+
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
+  });
+
+  it("lets a creator write their own message and previews it before saving", async () => {
+    vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+    renderDesk();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+    const personal = screen.getByLabelText("Personal message, for one guest party");
+    fireEvent.change(personal, {
+      target: { value: "Kumusta {recipient}! Join {celebrant}'s {occasion}: {link}" },
+    });
+
+    // The preview resolves the placeholders against real invitation data, not the raw template.
+    expect(screen.getByText(/Kumusta Ninang Anika! Join Mara & Joaquin's wedding:/)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+
+    await waitFor(() => expect(saveInvitationShareMessagesAction).toHaveBeenCalledOnce());
+    expect(saveInvitationShareMessagesAction).toHaveBeenCalledWith({
+      general: "",
+      invitationId: invitation.invitationId,
+      personal: "Kumusta {recipient}! Join {celebrant}'s {occasion}: {link}",
+    });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("warns that the general link cannot accept the RSVP a custom message asks for", () => {
+    renderDesk();
+    fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+
+    const general = screen.getByLabelText("General message, for sharing with everyone");
+    expect(screen.queryByText(/cannot accept an RSVP/)).toBeNull();
+
+    fireEvent.change(general, { target: { value: "Please RSVP here: {link}" } });
+    expect(screen.getByText(/cannot accept an RSVP/)).toBeDefined();
+  });
+
+  it("treats a dismissed share sheet as a decision rather than a failure", async () => {
+    const share = vi.fn().mockRejectedValue(new DOMException("dismissed", "AbortError"));
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    renderDesk();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Share general invitation" }));
+
+    await waitFor(() => expect(share).toHaveBeenCalledOnce());
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Clipboard access was unavailable/)).toBeNull();
+
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
   });
 
   it("copies the recoverable party invitation from its own row", async () => {

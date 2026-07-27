@@ -27,6 +27,27 @@ describe("guest invitation URLs", () => {
     );
   });
 
+  it("upgrades a plaintext hosted origin so no guest is sent an http link", () => {
+    process.env.NEXT_PUBLIC_INVITATION_ORIGIN = "http://invitica.app";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const identifier = "0123456789abcdef0123456789abcdef";
+
+    expect(buildGenericInvitationUrl("Mara & Joaquin", identifier)).toBe(
+      `https://invitica.app/i/mara-joaquin-${identifier}`,
+    );
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("leaves a local development origin on http", () => {
+    process.env.NEXT_PUBLIC_INVITATION_ORIGIN = "http://localhost:3000";
+    const identifier = "0123456789abcdef0123456789abcdef";
+
+    expect(buildGenericInvitationUrl("Mara & Joaquin", identifier)).toBe(
+      `http://localhost:3000/i/mara-joaquin-${identifier}`,
+    );
+  });
+
   it("keeps the raw personalized token in the fragment", () => {
     const token = "A".repeat(43);
     const personalized = new URL(

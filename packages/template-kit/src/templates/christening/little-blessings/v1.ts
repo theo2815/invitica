@@ -10,6 +10,7 @@ export const littleBlessingsTemplate = {
     description:
       "A warm, broadly Christian celebration with space for baby photographs, ceremony details, loved ones, and practical gift ideas.",
   },
+  celebrantPronoun: "she",
   templateVersionId: "40000000-0000-4000-8000-000000000004",
   version: 1,
   qualityStatus: "production",

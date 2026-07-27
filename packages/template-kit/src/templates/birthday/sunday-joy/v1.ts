@@ -10,6 +10,7 @@ export const sundayJoyTemplate = {
     description:
       "A bright, friendly composition with cheerful color, simple event details, and room for favorite photographs.",
   },
+  celebrantPronoun: "she",
   templateVersionId: "40000000-0000-4000-8000-000000000003",
   version: 1,
   qualityStatus: "fixture",

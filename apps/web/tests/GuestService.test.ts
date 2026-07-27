@@ -4,7 +4,9 @@ import {
   buildGenericInvitationUrl,
   buildPersonalizedInvitationUrl,
   GuestPersistenceError,
+  getRecoverableGuestLinks,
   listGuestPartyPage,
+  setGuestInvitationSent,
   updateGuestParty,
 } from "../src/server/guests/guests";
 
@@ -140,7 +142,6 @@ describe("guest-party pagination", () => {
 
     const page = await listGuestPartyPage(
       { rpc } as never,
-      "71000000-0000-4000-8000-000000000001",
       "72000000-0000-4000-8000-000000000001",
       { offset: 40, query: "Santos", responseFilter: "not-yet-sent" },
     );
@@ -174,13 +175,83 @@ describe("guest-party pagination", () => {
     });
 
     await expect(
-      listGuestPartyPage(
-        { rpc } as never,
-        "71000000-0000-4000-8000-000000000001",
-        "72000000-0000-4000-8000-000000000001",
-        { offset: 0, query: "", responseFilter: "all" },
-      ),
+      listGuestPartyPage({ rpc } as never, "72000000-0000-4000-8000-000000000001", {
+        offset: 0,
+        query: "",
+        responseFilter: "all",
+      }),
     ).rejects.toBeInstanceOf(GuestPersistenceError);
     consoleError.mockRestore();
+  });
+});
+
+describe("guest invitation delivery operations", () => {
+  it("recovers a page of private links with one ordered RPC", async () => {
+    const firstPartyId = "73000000-0000-4000-8000-000000000001";
+    const secondPartyId = "73000000-0000-4000-8000-000000000002";
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          encryption_key_version: 1,
+          guest_party_id: secondPartyId,
+          link_id: "75000000-0000-4000-8000-000000000002",
+          recipient_name: "Ana and Miguel",
+          token_ciphertext: "B".repeat(79),
+          token_nonce: "B".repeat(16),
+        },
+        {
+          encryption_key_version: 1,
+          guest_party_id: firstPartyId,
+          link_id: "75000000-0000-4000-8000-000000000001",
+          recipient_name: "Tita Lena and family",
+          token_ciphertext: "A".repeat(79),
+          token_nonce: "A".repeat(16),
+        },
+      ],
+      error: null,
+    });
+
+    const links = await getRecoverableGuestLinks(
+      { rpc } as never,
+      "72000000-0000-4000-8000-000000000001",
+      [secondPartyId, firstPartyId],
+    );
+
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith("get_guest_party_link_secrets", {
+      p_guest_party_ids: [secondPartyId, firstPartyId],
+      p_invitation_id: "72000000-0000-4000-8000-000000000001",
+    });
+    expect(links.map((link) => link.guestPartyId)).toEqual([secondPartyId, firstPartyId]);
+  });
+
+  it("rejects oversized private-link batches before querying", async () => {
+    const rpc = vi.fn();
+    const guestPartyIds = Array.from(
+      { length: 51 },
+      (_, index) => `73000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    );
+
+    await expect(
+      getRecoverableGuestLinks(
+        { rpc } as never,
+        "72000000-0000-4000-8000-000000000001",
+        guestPartyIds,
+      ),
+    ).rejects.toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns the authoritative sent timestamp from the mutation", async () => {
+    const markedSentAt = "2026-07-27T02:00:00+00:00";
+    const rpc = vi.fn().mockResolvedValue({ data: markedSentAt, error: null });
+
+    await expect(
+      setGuestInvitationSent({ rpc } as never, "73000000-0000-4000-8000-000000000001", true),
+    ).resolves.toBe(markedSentAt);
+    expect(rpc).toHaveBeenCalledWith("set_guest_invitation_sent", {
+      p_guest_party_id: "73000000-0000-4000-8000-000000000001",
+      p_sent: true,
+    });
   });
 });

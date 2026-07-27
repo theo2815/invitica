@@ -125,16 +125,11 @@ describe("guests and RSVPs page", () => {
     expect(screen.getByText("Approximate page loads").previousElementSibling?.textContent).toBe(
       "9",
     );
-    expect(listGuestPartyPage).toHaveBeenCalledWith(
-      {},
-      "71000000-0000-4000-8000-000000000001",
-      invitationId,
-      {
-        offset: 0,
-        query: "",
-        responseFilter: "all",
-      },
-    );
+    expect(listGuestPartyPage).toHaveBeenCalledWith({}, invitationId, {
+      offset: 0,
+      query: "",
+      responseFilter: "all",
+    });
     expect(listTrashedGuestParties).toHaveBeenCalledWith(
       {},
       "71000000-0000-4000-8000-000000000001",

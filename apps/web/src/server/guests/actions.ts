@@ -10,15 +10,11 @@ import {
   buildPersonalizedInvitationUrl,
   createGuestPartiesBulk,
   type GuestInvitationSummary,
-  type GuestPartyPage,
-  type GuestPartyResponseFilter,
   GuestPersistenceError,
   getRecoverableGuestLink,
   listGuestParties,
-  listGuestPartyPage,
   listTrashedGuestParties,
   loadDeliveredGuestInvitation,
-  recordGuestInvitationCopy,
   replaceGuestPartyLink,
   restoreGuestParty,
   revokeGuestPartyLink,
@@ -84,19 +80,6 @@ const updateGuestPartySchema = partyActionSchema
     }
   });
 const linkActionSchema = z.strictObject({ guestPartyId: uuidSchema, invitationId: uuidSchema });
-const guestPartyPageSchema = z.strictObject({
-  invitationId: uuidSchema,
-  offset: z.number().int().nonnegative().max(1000000),
-  query: z.string().trim().max(120),
-  responseFilter: z.enum([
-    "all",
-    "already-sent",
-    "attending",
-    "awaiting",
-    "declined",
-    "not-yet-sent",
-  ]),
-});
 
 export type CreateGuestPartiesActionResult =
   | { count: number; status: "created" }
@@ -104,16 +87,6 @@ export type CreateGuestPartiesActionResult =
 
 export type CopyGuestInvitationActionResult =
   | { copyText: string; personalizedUrl: string; status: "ready" }
-  | { message: string; status: "error" };
-
-export interface PreparedGuestInvitationCopy {
-  readonly copyText: string;
-  readonly guestPartyId: string;
-  readonly personalizedUrl: string;
-}
-
-export type PrepareGuestInvitationCopiesActionResult =
-  | { copies: readonly PreparedGuestInvitationCopy[]; status: "ready" }
   | { message: string; status: "error" };
 
 export type ReplaceGuestPartyLinkActionResult =
@@ -124,8 +97,8 @@ export type GuestManagementActionResult =
   | { status: "restored" | "revoked" | "trashed" | "updated" }
   | { message: string; status: "error" };
 
-export type LoadGuestPartyPageActionResult =
-  | { page: GuestPartyPage; status: "ready" }
+export type SetGuestInvitationSentActionResult =
+  | { markedSentAt: string | null; status: "updated" }
   | { message: string; status: "error" };
 
 async function loadOwnedInvitationContext(invitationId: string): Promise<
@@ -143,41 +116,6 @@ async function loadOwnedInvitationContext(invitationId: string): Promise<
 
 function requestHash(parties: z.infer<typeof guestPartyInputSchema>[]): string {
   return createHash("sha256").update(JSON.stringify(parties), "utf8").digest("hex");
-}
-
-export async function loadGuestPartyPageAction(
-  input: unknown,
-): Promise<LoadGuestPartyPageActionResult> {
-  const parsed = guestPartyPageSchema.safeParse(input);
-  if (!parsed.success) {
-    return { message: "This guest-page request is no longer valid.", status: "error" };
-  }
-
-  try {
-    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
-    if (!context) {
-      return {
-        message: "This published invitation is unavailable. Refresh and try again.",
-        status: "error",
-      };
-    }
-    const page = await listGuestPartyPage(
-      context.supabase,
-      context.workspaceId,
-      context.invitationId,
-      {
-        offset: parsed.data.offset,
-        query: parsed.data.query,
-        responseFilter: parsed.data.responseFilter as GuestPartyResponseFilter,
-      },
-    );
-    return { page, status: "ready" };
-  } catch {
-    return {
-      message: "Invitica could not load more guest parties. Check your connection and try again.",
-      status: "error",
-    };
-  }
 }
 
 export async function createGuestPartiesAction(
@@ -276,37 +214,12 @@ export async function copyGuestInvitationAction(
   }
 }
 
-const recordCopySchema = z.strictObject({ guestPartyId: uuidSchema });
 const setSentSchema = z.strictObject({ guestPartyId: uuidSchema, sent: z.boolean() });
-
-/**
- * Records that a party's invitation was copied.
- *
- * Called *after* the clipboard already has the message, never before: the copy must feel
- * instant, and tracking is bookkeeping rather than part of the action. A failure here is
- * reported as a no-op — losing one count is strictly better than telling a creator their
- * copy failed when it did not.
- */
-export async function recordGuestInvitationCopyAction(
-  input: unknown,
-): Promise<{ status: "ignored" | "recorded" }> {
-  const parsed = recordCopySchema.safeParse(input);
-  if (!parsed.success) return { status: "ignored" };
-
-  try {
-    const { supabase } = await requireConfirmedUser();
-    await recordGuestInvitationCopy(supabase, parsed.data.guestPartyId);
-    revalidatePath("/dashboard/guests");
-    return { status: "recorded" };
-  } catch {
-    return { status: "ignored" };
-  }
-}
 
 /** Sets or clears the creator's own "already sent" mark. Reversible by design. */
 export async function setGuestInvitationSentAction(
   input: unknown,
-): Promise<GuestManagementActionResult> {
+): Promise<SetGuestInvitationSentActionResult> {
   const parsed = setSentSchema.safeParse(input);
   if (!parsed.success) {
     return { message: "This request is no longer valid. Refresh and try again.", status: "error" };
@@ -314,9 +227,12 @@ export async function setGuestInvitationSentAction(
 
   try {
     const { supabase } = await requireConfirmedUser();
-    await setGuestInvitationSent(supabase, parsed.data.guestPartyId, parsed.data.sent);
-    revalidatePath("/dashboard/guests");
-    return { status: "updated" };
+    const markedSentAt = await setGuestInvitationSent(
+      supabase,
+      parsed.data.guestPartyId,
+      parsed.data.sent,
+    );
+    return { markedSentAt, status: "updated" };
   } catch {
     return {
       message: "That could not be saved. Refresh and try again.",
@@ -383,84 +299,6 @@ export async function saveInvitationShareMessagesAction(
     return { status: "updated" };
   } catch {
     return { message: "That message could not be saved. Try again.", status: "error" };
-  }
-}
-
-const prepareCopiesSchema = z.strictObject({
-  guestPartyIds: z.array(uuidSchema).min(1).max(50),
-  invitationId: uuidSchema,
-});
-
-/** Bounded so recovering fifty links is one short burst rather than fifty in parallel. */
-const COPY_RESOLUTION_CONCURRENCY = 8;
-
-/**
- * Recovers the ready-to-send message for several guest parties in one request.
- *
- * Copy invitation used to resolve a single token *after* the creator clicked, which
- * cost several sequential round trips to Singapore and — because
- * `navigator.clipboard.writeText` needs an unspent user gesture — made WebKit reject
- * the write outright and fall through to the manual-copy box. Resolving ahead of the
- * click lets the copy itself be synchronous.
- *
- * Ownership is still enforced per party: `get_guest_party_link_secret` is security
- * definer and derives the owner from `auth.uid()`, so an id the creator does not own
- * simply resolves to nothing. A revoked or replaced link resolves to nothing too, so
- * it is absent from the result rather than returned as a stale message.
- */
-export async function prepareGuestInvitationCopiesAction(
-  input: unknown,
-): Promise<PrepareGuestInvitationCopiesActionResult> {
-  const parsed = prepareCopiesSchema.safeParse(input);
-  if (!parsed.success) {
-    return { message: "This invitation copy request is no longer valid.", status: "error" };
-  }
-
-  try {
-    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
-    if (!context) {
-      return {
-        message: "This published invitation is unavailable. Refresh and try again.",
-        status: "error",
-      };
-    }
-
-    const copies: PreparedGuestInvitationCopy[] = [];
-    const pending = [...parsed.data.guestPartyIds];
-
-    while (pending.length > 0) {
-      const batch = pending.splice(0, COPY_RESOLUTION_CONCURRENCY);
-      const resolved = await Promise.all(
-        batch.map(async (guestPartyId) => {
-          const secret = await getRecoverableGuestLink(context.supabase, guestPartyId);
-          if (!secret) return null;
-          const personalizedUrl = buildPersonalizedInvitationUrl(
-            context.genericUrl,
-            decryptGuestLinkToken(
-              { ciphertext: secret.ciphertext, keyVersion: secret.keyVersion, nonce: secret.nonce },
-              secret.linkId,
-            ),
-          );
-          return {
-            copyText: buildPersonalInvitationMessage(
-              context,
-              secret.recipientName,
-              personalizedUrl,
-            ),
-            guestPartyId,
-            personalizedUrl,
-          };
-        }),
-      );
-      for (const copy of resolved) if (copy) copies.push(copy);
-    }
-
-    return { copies, status: "ready" };
-  } catch {
-    return {
-      message: "These private invitations could not be prepared. Try again.",
-      status: "error",
-    };
   }
 }
 

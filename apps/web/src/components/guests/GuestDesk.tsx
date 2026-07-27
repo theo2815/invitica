@@ -6,9 +6,6 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import {
   copyGuestInvitationAction,
-  loadGuestPartyPageAction,
-  prepareGuestInvitationCopiesAction,
-  recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
   restoreGuestPartyAction,
   revokeGuestPartyLinkAction,
@@ -28,6 +25,11 @@ import { GuestBulkComposer } from "./GuestBulkComposer";
 import styles from "./GuestDesk.module.css";
 import { GuestPartyEditor } from "./GuestPartyEditor";
 import { GuestShareMessageEditor } from "./GuestShareMessageEditor";
+import {
+  fetchGuestPartyPage,
+  fetchPreparedGuestInvitationCopies,
+  recordGuestInvitationCopy,
+} from "./guest-desk-api";
 
 interface GuestDeskProps {
   hasMoreParties: boolean;
@@ -199,7 +201,7 @@ export function GuestDesk({
       }
 
       try {
-        const result = await loadGuestPartyPageAction({
+        const result = await fetchGuestPartyPage({
           invitationId: selectedInvitation.invitationId,
           offset,
           query,
@@ -441,21 +443,25 @@ export function GuestDesk({
   const activePartyIds = loadedParties
     .filter((party) => party.linkStatus === "active")
     .map((party) => party.id)
+    .sort((firstId, secondId) => firstId.localeCompare(secondId))
     .join(",");
 
   // Prepared in the background after the ledger renders, so the page is never held up
   // by it. A click that arrives first still works through the per-click path below.
   useEffect(() => {
     if (!invitationId || !activePartyIds) return;
-    let cancelled = false;
+    const controller = new AbortController();
 
     void (async () => {
       try {
-        const result = await prepareGuestInvitationCopiesAction({
-          guestPartyIds: activePartyIds.split(","),
-          invitationId,
-        });
-        if (cancelled || result.status === "error") return;
+        const result = await fetchPreparedGuestInvitationCopies(
+          {
+            guestPartyIds: activePartyIds.split(","),
+            invitationId,
+          },
+          controller.signal,
+        );
+        if (controller.signal.aborted || result.status === "error") return;
         setPreparedCopies(
           new Map(
             result.copies.map((copy) => [
@@ -469,9 +475,7 @@ export function GuestDesk({
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [activePartyIds, invitationId]);
 
   /** Only the button that was actually pressed reports progress or success. */
@@ -564,9 +568,22 @@ export function GuestDesk({
    * never be reported as one. Losing a count beats a false alarm.
    */
   function trackCopy(guestPartyId: string) {
-    void recordGuestInvitationCopyAction({ guestPartyId })
+    void recordGuestInvitationCopy(guestPartyId)
       .then((result) => {
-        if (result.status === "recorded") refreshDesk();
+        if (result.status !== "recorded") return;
+        const recordedAt = new Date().toISOString();
+        setLoadedParties((current) =>
+          current.map((party) =>
+            party.id === guestPartyId
+              ? {
+                  ...party,
+                  copyCount: party.copyCount + 1,
+                  firstCopiedAt: party.firstCopiedAt ?? recordedAt,
+                  lastCopiedAt: recordedAt,
+                }
+              : party,
+          ),
+        );
       })
       .catch(() => undefined);
   }
@@ -580,21 +597,35 @@ export function GuestDesk({
   async function toggleSent(party: GuestPartySummary, sent: boolean) {
     if (sendingPartyId || isRefreshing) return;
 
+    const previousMarkedSentAt = party.markedSentAt;
+    const optimisticMarkedSentAt = sent ? new Date().toISOString() : null;
+    const updateMarkedSentAt = (markedSentAt: string | null) => {
+      setLoadedParties((current) =>
+        current.map((currentParty) =>
+          currentParty.id === party.id ? { ...currentParty, markedSentAt } : currentParty,
+        ),
+      );
+    };
+
+    updateMarkedSentAt(optimisticMarkedSentAt);
     setSendingPartyId(party.id);
     setActionMessage(null);
     try {
       const result = await setGuestInvitationSentAction({ guestPartyId: party.id, sent });
       if (result.status === "error") {
+        updateMarkedSentAt(previousMarkedSentAt);
         setActionMessage(result.message);
         return;
       }
+      updateMarkedSentAt(result.markedSentAt);
       setActionMessage(
         sent
           ? `Marked as sent to ${party.internalLabel}.`
           : `${party.internalLabel} is no longer marked as sent.`,
       );
-      refreshDesk();
+      void requestGuestPage(0, false);
     } catch {
+      updateMarkedSentAt(previousMarkedSentAt);
       setActionMessage(
         "Invitica could not update the sent status. Check your connection and try again.",
       );
@@ -1200,6 +1231,7 @@ export function GuestDesk({
 
                                 <label className={styles.sentCheck}>
                                   <input
+                                    aria-busy={sendingPartyId === party.id || undefined}
                                     checked={party.markedSentAt !== null}
                                     disabled={sendingPartyId === party.id || isRefreshing}
                                     onChange={(event) =>
@@ -1207,10 +1239,12 @@ export function GuestDesk({
                                     }
                                     type="checkbox"
                                   />
-                                  <span className={styles.sentLabel}>
-                                    {party.markedSentAt
-                                      ? `Sent ${formatResponseTime(party.markedSentAt)}`
-                                      : "I have sent this"}
+                                  <span aria-live="polite" className={styles.sentLabel}>
+                                    {sendingPartyId === party.id
+                                      ? "Saving..."
+                                      : party.markedSentAt
+                                        ? `Sent ${formatResponseTime(party.markedSentAt)}`
+                                        : "I have sent this"}
                                   </span>
                                 </label>
 

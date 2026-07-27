@@ -318,7 +318,26 @@ criteria to rows already loaded in the browser.
 Migrations `0001` through `0025` applied cleanly together in a disposable local Supabase project
 on 2026-07-27. All 25 pgTAP suites passed with 527 assertions; `0025` contributed 20 runtime
 assertions covering privileges, ownership denial, whole-result ordering/search/filtering, page
-boundaries, returned row state, and invalid requests. Migration `0025` is not hosted-applied.
+boundaries, returned row state, and invalid requests. Migration `0025` is founder-reported
+hosted-applied; independent privilege and 21+ party flow verification remains pending.
+
+## Batched private-link recovery
+
+Migration `0026_guest_link_batch_recovery.sql` adds the authenticated owner-only
+`get_guest_party_link_secrets()` RPC used to prepare the visible Guest Desk page's private
+invitation messages with one database request.
+
+The call accepts one invitation and between 1 and 50 unique party ids. It returns recoverable
+encrypted link material only for active, unarchived parties owned by the authenticated creator and
+belonging to the requested delivered invitation. Results preserve input order. Revoked links,
+archived parties, cross-invitation ids, and non-owner ids are omitted.
+
+This replaces up to 20 per-party Server Action reads that serialized ahead of later creator
+mutations. The focused 15-assertion pgTAP suite covers grants, the security-definer boundary,
+pinned search path, ordered output, ownership denial, inactive rows, and every batch bound.
+Migrations `0001` through `0026` applied cleanly together in a disposable local Supabase Postgres
+17.6.1.143 container on 2026-07-27, and all 15 focused assertions passed. Migration `0026` is not
+hosted-applied.
 
 **Documentation gap:** this README documents `0001`–`0014` and then `0024`–`0025`.
 Migrations `0015`–`0023` have no sections here; see

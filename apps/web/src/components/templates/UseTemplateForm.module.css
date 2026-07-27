@@ -103,6 +103,12 @@
   color: var(--muted);
 }
 
+.reuseConfirmation button:disabled,
+.reuseConfirmation a[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .reuseConfirmation button:focus-visible,
 .reuseConfirmation a:focus-visible {
   outline: 2px solid var(--focus);

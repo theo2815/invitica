@@ -10,10 +10,16 @@ import styles from "./LandingConcept.module.css";
 
 interface LandingConceptProps {
   authenticated?: boolean;
+  /** When true (production beta), account creation is closed, so the CTA points to sign-in instead. */
+  betaLocked?: boolean;
   templates: readonly TemplateCatalogEntry[];
 }
 
-export function LandingConcept({ authenticated = false, templates }: LandingConceptProps) {
+export function LandingConcept({
+  authenticated = false,
+  betaLocked = false,
+  templates,
+}: LandingConceptProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   function closeMenu() {
@@ -43,6 +49,10 @@ export function LandingConcept({ authenticated = false, templates }: LandingConc
           {authenticated ? (
             <Link className={styles.headerCta} href="/dashboard">
               Home
+            </Link>
+          ) : betaLocked ? (
+            <Link className={styles.headerCta} href="/login">
+              Log in
             </Link>
           ) : (
             <>
@@ -92,6 +102,10 @@ export function LandingConcept({ authenticated = false, templates }: LandingConc
         {authenticated ? (
           <Link className={styles.mobileCta} href="/dashboard" onClick={closeMenu}>
             Home
+          </Link>
+        ) : betaLocked ? (
+          <Link className={styles.mobileCta} href="/login" onClick={closeMenu}>
+            Log in
           </Link>
         ) : (
           <>

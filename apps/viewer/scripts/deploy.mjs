@@ -34,7 +34,7 @@ if (!key && !allowNoMap) {
       "MapTiler dashboard rather than by secrecy — but it must never be committed. Supply it",
       "for the deploy only.",
       "",
-      "  PowerShell:  $env:MAPTILER_KEY = \"<key>\"; pnpm --filter @invitica/viewer deploy",
+      '  PowerShell:  $env:MAPTILER_KEY = "<key>"; pnpm --filter @invitica/viewer deploy',
       "  bash:        MAPTILER_KEY=<key> pnpm --filter @invitica/viewer deploy",
       "",
       "Those allowed origins must cover the creator app as well as the guest lane, because the",

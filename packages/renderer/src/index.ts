@@ -16,6 +16,7 @@ export type {
 export { InvitationRenderer } from "./InvitationRenderer.js";
 export { buildIcsCalendar, formatIcsUtc, type IcsEvent } from "./ics.js";
 export { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
+export { LittleBlessingsRendererV2 } from "./LittleBlessingsRendererV2.js";
 export {
   largestImageRendition,
   PhotoPreviewDialog,

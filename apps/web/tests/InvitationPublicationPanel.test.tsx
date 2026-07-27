@@ -141,6 +141,28 @@ describe("invitation publication panel", () => {
 
     expect(loadInvitationPublicationStatusAction).toHaveBeenCalledTimes(30);
     expect(screen.getByText(/Publishing is taking longer than expected/)).toBeDefined();
+    const statusButton = screen.getByRole("button", { name: "Check latest status" });
+
+    vi.mocked(loadInvitationPublicationStatusAction).mockResolvedValueOnce({
+      publication: {
+        errorCode: null,
+        livePublicIdentifier: "0123456789abcdef0123456789abcdef",
+        publicationId,
+        publishedRevision: 4,
+        status: "delivered",
+      },
+      status: "loaded",
+    });
+    fireEvent.click(statusButton);
+    fireEvent.click(statusButton);
+    expect(loadInvitationPublicationStatusAction).toHaveBeenCalledTimes(31);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "Published" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Check latest status" })).toBeNull();
   });
 
   it("moves confirmed publications to the guest desk without exposing a share link", () => {

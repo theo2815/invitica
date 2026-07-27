@@ -201,17 +201,26 @@ export function GuestBulkComposer({
 
     setIsPending(true);
     setMessage(null);
-    const result = await createGuestPartiesAction({
-      invitationId: invitation.invitationId,
-      mutationId: mutationIdRef.current,
-      parties: normalized,
-    });
-    setIsPending(false);
-    if (result.status === "error") {
-      setMessage(result.message);
-      return;
+    let createdCount: number | null = null;
+    try {
+      const result = await createGuestPartiesAction({
+        invitationId: invitation.invitationId,
+        mutationId: mutationIdRef.current,
+        parties: normalized,
+      });
+      if (result.status === "error") {
+        setMessage(result.message);
+        return;
+      }
+      createdCount = result.count;
+    } catch {
+      setMessage(
+        "Invitica could not create these guest parties. Check your connection and try again.",
+      );
+    } finally {
+      setIsPending(false);
     }
-    onCreated(result.count);
+    if (createdCount !== null) onCreated(createdCount);
   }
 
   return (
@@ -248,12 +257,13 @@ export function GuestBulkComposer({
           </div>
         </header>
 
-        <form onSubmit={(event) => void submit(event)}>
+        <form aria-busy={isPending || undefined} onSubmit={(event) => void submit(event)}>
           <div className={styles.bulkRows}>
             {rows.map((row, index) => (
               <fieldset
                 className={styles.bulkRow}
                 data-invalid={invalidRows.has(row.id)}
+                disabled={isPending}
                 key={row.id}
               >
                 <legend>Guest party {index + 1}</legend>
@@ -320,10 +330,18 @@ export function GuestBulkComposer({
           </div>
 
           <div className={styles.bulkTools}>
-            <button disabled={rows.length >= 50} onClick={() => addRows(1)} type="button">
+            <button
+              disabled={isPending || rows.length >= 50}
+              onClick={() => addRows(1)}
+              type="button"
+            >
               <Plus /> Add row
             </button>
-            <button disabled={rows.length >= 50} onClick={() => addRows(5)} type="button">
+            <button
+              disabled={isPending || rows.length >= 50}
+              onClick={() => addRows(5)}
+              type="button"
+            >
               Add 5 rows
             </button>
           </div>

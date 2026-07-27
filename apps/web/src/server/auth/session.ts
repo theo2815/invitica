@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { createClient } from "../../lib/supabase/server";
 
@@ -22,7 +23,7 @@ export async function getOptionalConfirmedUser() {
   return { supabase, user };
 }
 
-export async function requireConfirmedUser() {
+const loadConfirmedUser = cache(async () => {
   const supabase = await createClient();
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
   const claims = claimsData?.claims;
@@ -41,6 +42,10 @@ export async function requireConfirmedUser() {
   }
 
   return { supabase, user };
+});
+
+export async function requireConfirmedUser() {
+  return loadConfirmedUser();
 }
 
 /**

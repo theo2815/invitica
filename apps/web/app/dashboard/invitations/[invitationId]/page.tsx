@@ -1,10 +1,9 @@
+import { resolveTemplateUpgrade } from "@invitica/template-kit";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CreatorShell } from "../../../../src/components/dashboard/CreatorShell";
 import { InvitationDraftEditor } from "../../../../src/components/invitations/InvitationDraftEditor";
 import { LittleBlessingsDraftEditor } from "../../../../src/components/invitations/LittleBlessingsDraftEditor";
-import { LITTLE_BLESSINGS_TEMPLATE_VERSION_ID } from "../../../../src/lib/invitations/little-blessings-details";
 import { ensurePersonalWorkspace } from "../../../../src/server/auth/session";
 import { loadInvitationDraft } from "../../../../src/server/invitations/drafts";
 import { loadInvitationPublicationStatus } from "../../../../src/server/invitations/publications";
@@ -17,7 +16,7 @@ interface InvitationDraftPageProps {
 
 export default async function InvitationDraftPage({ params }: InvitationDraftPageProps) {
   const { invitationId } = await params;
-  const { error: workspaceError, supabase, user, workspaceId } = await ensurePersonalWorkspace();
+  const { error: workspaceError, supabase, workspaceId } = await ensurePersonalWorkspace();
 
   if (workspaceError || !workspaceId) {
     throw new Error("The creator workspace is unavailable.");
@@ -35,14 +34,22 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
   // Little Blessings edits eleven sections, per-section visibility, and bounded
   // photo and gift collections, so it has its own editor. Garden Promise keeps
   // the narrow Opening/Venue/RSVP slice it was built for.
-  const isLittleBlessings =
-    draft.document.templateVersionId === LITTLE_BLESSINGS_TEMPLATE_VERSION_ID;
+  const isLittleBlessings = draft.manifest.listing.id === "little-blessings";
+  const upgradeManifest = resolveTemplateUpgrade(draft.manifest.templateVersionId);
+  const templateUpgrade = upgradeManifest
+    ? {
+        currentTemplateVersionId: draft.manifest.templateVersionId,
+        targetTemplateVersionId: upgradeManifest.templateVersionId,
+        targetVersion: upgradeManifest.version,
+        templateName: upgradeManifest.listing.name,
+      }
+    : null;
   const assets = isLittleBlessings
     ? await listInvitationImageAssets(supabase, draft.invitationId)
     : [];
 
   return (
-    <CreatorShell activePage="invitations" email={user.email} metadata={user.user_metadata}>
+    <>
       <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
         <Link href="/dashboard/invitations">Invitations</Link>
         <span aria-hidden="true">/</span>
@@ -70,6 +77,7 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
           initialDocument={draft.document}
           initialPublication={publication}
           initialRevision={draft.revision}
+          templateUpgrade={templateUpgrade}
           invitationId={draft.invitationId}
           rendererKey={draft.manifest.rendererKey}
         />
@@ -79,9 +87,10 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
           initialPublication={publication}
           initialRevision={draft.revision}
           invitationId={draft.invitationId}
+          templateUpgrade={templateUpgrade}
           rendererKey={draft.manifest.rendererKey}
         />
       )}
-    </CreatorShell>
+    </>
   );
 }

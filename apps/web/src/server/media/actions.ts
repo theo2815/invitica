@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@invitica/invitation-schema";
 
 import { ensurePersonalWorkspace } from "../auth/session";
-import { type CreatorImageAsset, listInvitationImageAssets } from "./library";
+import { type CreatorImageAsset, creatorMediaUrl, listInvitationImageAssets } from "./library";
 import { R2MediaObjectStore, readR2MediaConfig } from "./object-store";
 import {
   invitationImageRoleSchema,
@@ -19,6 +19,7 @@ import {
 export type UploadInvitationImageActionResult =
   | {
       readonly assetId: string;
+      readonly asset: CreatorImageAsset;
       readonly height: number;
       readonly width: number;
       readonly status: "uploaded";
@@ -105,7 +106,23 @@ export async function uploadInvitationImageAction(
       invitationId,
       role: role.data,
     });
-    return { ...uploaded, status: "uploaded" };
+    return {
+      asset: {
+        height: uploaded.height,
+        id: uploaded.assetId,
+        renditions: uploaded.renditions.map(({ height, width }) => ({
+          height,
+          url: creatorMediaUrl(uploaded.assetId, width),
+          width,
+        })),
+        role: role.data,
+        width: uploaded.width,
+      },
+      assetId: uploaded.assetId,
+      height: uploaded.height,
+      status: "uploaded",
+      width: uploaded.width,
+    };
   } catch (error: unknown) {
     if (error instanceof MediaValidationError) {
       return { message: error.message, status: "error" };

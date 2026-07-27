@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyLittleBlessingsDetails,
-  LITTLE_BLESSINGS_TEMPLATE_VERSION_ID,
   LittleBlessingsSectionError,
   littleBlessingsDetailsSchema,
 } from "../src/lib/invitations/little-blessings-details";
@@ -23,10 +22,6 @@ function heroDetails(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Little Blessings details contract", () => {
-  it("pins the template version the editor and migration 0016 both check", () => {
-    expect(LITTLE_BLESSINGS_TEMPLATE_VERSION_ID).toBe(littleBlessings.templateVersionId);
-  });
-
   it("treats a cleared optional field as absent rather than blank", () => {
     const parsed = littleBlessingsDetailsSchema.parse(
       heroDetails({ dateLabel: "   ", eyebrow: "", subtitle: "  A welcome  " }),

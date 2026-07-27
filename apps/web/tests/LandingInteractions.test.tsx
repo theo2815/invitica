@@ -25,6 +25,17 @@ describe("Invitica marketing landing interactions", () => {
     ).toBe(true);
   });
 
+  it("replaces account creation with sign-in while the production beta lock is on", () => {
+    render(createElement(LandingConcept, { betaLocked: true, templates: templateCatalog }));
+
+    expect(screen.queryByRole("link", { name: "Create account" })).toBeNull();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Log in" })
+        .every((link) => link.getAttribute("href") === "/login"),
+    ).toBe(true);
+  });
+
   it("replaces authentication actions with Home for signed-in visitors", () => {
     render(createElement(LandingConcept, { authenticated: true, templates: templateCatalog }));
 

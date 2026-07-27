@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createClient } from "../../lib/supabase/server";
+import { publicAuthLocked } from "./beta-gate";
 import { getSafeNextPath, getSiteOrigin } from "./redirects";
 import { ensurePersonalWorkspace } from "./session";
 import type { AuthActionState } from "./types";
@@ -60,6 +61,11 @@ export async function signUpWithEmail(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  // Closed during the production beta; the register UI and route are gated too (see beta-gate).
+  if (publicAuthLocked()) {
+    return { error: "Creating an account is closed while Invitica is in beta." };
+  }
+
   const nextValue = formData.get("next");
   const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
   const result = validateEmailRegistration(formData);
@@ -95,6 +101,11 @@ export async function signUpWithEmail(
 }
 
 export async function signInWithGoogle(formData: FormData): Promise<void> {
+  // Closed during the production beta; the Google button is hidden too (see beta-gate).
+  if (publicAuthLocked()) {
+    redirect("/login?message=beta");
+  }
+
   const supabase = await createClient();
   const origin = getSiteOrigin();
   const nextValue = formData.get("next");
@@ -122,6 +133,11 @@ export async function requestPasswordReset(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  // Closed during the production beta; the forgot-password link and route are gated too.
+  if (publicAuthLocked()) {
+    return { error: "Password recovery is closed while Invitica is in beta." };
+  }
+
   const result = validateRecoveryEmail(formData);
 
   if (!result.ok) {

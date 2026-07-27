@@ -1,4 +1,8 @@
-import { resolveTemplateById } from "@invitica/template-kit";
+import {
+  resolveTemplateById,
+  resolveTemplateVersion,
+  templateStarterDocument,
+} from "@invitica/template-kit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +13,7 @@ import {
   deleteInvitationAction,
   publishInvitationAction,
   saveGardenPromiseAction,
+  upgradeInvitationTemplateAction,
 } from "../src/server/invitations/actions";
 import { enqueueInvitationPublication } from "../src/server/invitations/publication-jobs";
 
@@ -29,6 +34,7 @@ vi.mock("../src/server/invitations/publication-jobs", () => ({
   enqueueInvitationPublication: vi.fn(),
   PublicationEnqueueError: class PublicationEnqueueError extends Error {},
 }));
+const littleBlessingsV1 = resolveTemplateVersion("40000000-0000-4000-8000-000000000004");
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const publicationId = "92000000-0000-4000-8000-000000000001";
@@ -183,6 +189,50 @@ describe("save Garden Promise action", () => {
       }),
     ).resolves.toMatchObject({ status: "conflict" });
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("upgrade invitation template action", () => {
+  it("applies the declared transition and revalidates the editor route", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        document: templateStarterDocument(littleBlessingsV1),
+        invitation_id: invitationId,
+        revision: 4,
+        template_version_id: littleBlessingsV1.templateVersionId,
+      },
+      error: null,
+    });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+    const rpc = vi.fn().mockResolvedValue({ data: 5, error: null });
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
+      supabase: { from, rpc } as never,
+      user: {} as never,
+    });
+    const latest = resolveTemplateById("little-blessings");
+
+    await expect(
+      upgradeInvitationTemplateAction({
+        currentTemplateVersionId: littleBlessingsV1.templateVersionId,
+        expectedRevision: 4,
+        invitationId,
+        targetTemplateVersionId: latest.templateVersionId,
+      }),
+    ).resolves.toEqual({
+      revision: 5,
+      status: "updated",
+      templateVersionId: latest.templateVersionId,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "upgrade_invitation_template",
+      expect.objectContaining({
+        p_from_template_version_id: littleBlessingsV1.templateVersionId,
+        p_to_template_version_id: latest.templateVersionId,
+      }),
+    );
+    expect(revalidatePath).toHaveBeenCalledWith(`/dashboard/invitations/${invitationId}`);
   });
 });
 

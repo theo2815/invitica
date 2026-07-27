@@ -13,11 +13,15 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { fetchWithTimeout } from "./fetch-with-timeout";
 
 const RSVP_MUTATION_TIMEOUT_MS = 15_000;
+const RSVP_LONG_WAIT_MS = 8_000;
+
+type SubmissionStage = "checking" | "idle" | "saving";
+type RefreshReason = "closed" | "conflict";
 
 interface RsvpFormProps {
   context: GuestRsvpContext;
   locale: "en-PH" | "fil-PH";
-  onRefresh: () => Promise<void>;
+  onRefresh: () => Promise<boolean>;
   onSaved: (response: GuestRsvpResponse) => void;
   publicIdentifier: string;
   timezone: string;
@@ -54,7 +58,10 @@ export function RsvpForm({
   const [message, setMessage] = useState(context.response?.message ?? "");
   const [editing, setEditing] = useState(context.response === null);
   const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
+  const [longWait, setLongWait] = useState(false);
+  const [refreshReason, setRefreshReason] = useState<RefreshReason>();
+  const [submissionStage, setSubmissionStage] = useState<SubmissionStage>("idle");
+  const operationInFlight = useRef(false);
   const retryRequest = useRef<GuestRsvpMutationRequest | undefined>(undefined);
 
   useEffect(() => {
@@ -63,17 +70,58 @@ export function RsvpForm({
     setAttendeeCount(response?.attendance === "attending" ? response.attendeeCount : 1);
     setMessage(response?.message ?? "");
     setEditing(response === null);
+    setError(undefined);
+    setRefreshReason(undefined);
     retryRequest.current = undefined;
-  }, [context.response]);
+  }, [context.response, context.status]);
 
   function changeDraft(action: () => void) {
     action();
     retryRequest.current = undefined;
+    if (!refreshReason) setError(undefined);
+  }
+
+  async function refreshLatest(reason: RefreshReason) {
+    setLongWait(false);
+    setSubmissionStage("checking");
+
+    let refreshed = false;
+    try {
+      refreshed = await onRefresh();
+    } catch {
+      refreshed = false;
+    }
+
+    if (refreshed) {
+      setError(undefined);
+      setRefreshReason(undefined);
+      return;
+    }
+
+    setRefreshReason(reason);
+    setError(
+      reason === "closed"
+        ? "We could not confirm whether responses have closed. Check your connection and try again."
+        : "Your response changed elsewhere, but the latest response could not be loaded. Check your connection and try again.",
+    );
+  }
+
+  async function retryRefresh() {
+    if (operationInFlight.current || !refreshReason) return;
+
+    operationInFlight.current = true;
     setError(undefined);
+    try {
+      await refreshLatest(refreshReason);
+    } finally {
+      operationInFlight.current = false;
+      setSubmissionStage("idle");
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (operationInFlight.current) return;
     setError(undefined);
 
     let request = retryRequest.current;
@@ -100,12 +148,17 @@ export function RsvpForm({
     }
 
     if (request.attendance === "attending" && request.attendeeCount > context.capacity) {
+      retryRequest.current = undefined;
       setError(`Choose a party size from 1 to ${context.capacity}.`);
       return;
     }
 
     retryRequest.current = request;
-    setSubmitting(true);
+    operationInFlight.current = true;
+    setLongWait(false);
+    setRefreshReason(undefined);
+    setSubmissionStage("saving");
+    const longWaitTimer = window.setTimeout(() => setLongWait(true), RSVP_LONG_WAIT_MS);
 
     try {
       const response = await fetchWithTimeout(
@@ -122,6 +175,7 @@ export function RsvpForm({
         const parsed = guestRsvpMutationResponseSchema.safeParse(await response.json());
         if (!parsed.success) throw new Error("Invalid RSVP response");
         retryRequest.current = undefined;
+        setError(undefined);
         onSaved(parsed.data.response);
         setEditing(false);
         return;
@@ -130,14 +184,12 @@ export function RsvpForm({
       const result = (await response.json().catch(() => null)) as { status?: unknown } | null;
       if (response.status === 409 || result?.status === "conflict") {
         retryRequest.current = undefined;
-        await onRefresh();
-        setError(
-          "Your response changed elsewhere. Review the latest response before saving again.",
-        );
+        window.clearTimeout(longWaitTimer);
+        await refreshLatest("conflict");
       } else if (response.status === 410 || result?.status === "closed") {
         retryRequest.current = undefined;
-        await onRefresh();
-        setError("Responses are now closed for this invitation.");
+        window.clearTimeout(longWaitTimer);
+        await refreshLatest("closed");
       } else if (response.status === 400 || result?.status === "invalid") {
         retryRequest.current = undefined;
         setError("Review your response and try again.");
@@ -145,16 +197,37 @@ export function RsvpForm({
         retryRequest.current = undefined;
         setError("This personalized response link is no longer available.");
       } else {
-        setError("Your response could not be saved. Try again.");
+        setError(
+          "We could not confirm that your response was saved. Your answers are still here; try again safely.",
+        );
       }
     } catch {
-      setError("Your response could not be saved. Check your connection and try again.");
+      setError(
+        typeof navigator !== "undefined" && navigator.onLine === false
+          ? "You appear to be offline. Your answers are still here; reconnect and try again safely."
+          : "We could not confirm that your response was saved. Your answers are still here; check your connection and try again safely.",
+      );
     } finally {
-      setSubmitting(false);
+      window.clearTimeout(longWaitTimer);
+      operationInFlight.current = false;
+      setLongWait(false);
+      setSubmissionStage("idle");
     }
   }
 
   const deadline = deadlineLabel(context.deadline, locale, timezone);
+  const submitting = submissionStage !== "idle";
+  const retryingSave = Boolean(error && retryRequest.current && !refreshReason);
+  const submissionStatus =
+    submissionStage === "checking"
+      ? "Checking the latest response..."
+      : submissionStage === "saving" && longWait
+        ? "This is taking longer than usual. Keep this page open while we finish saving."
+        : submissionStage === "saving"
+          ? "Saving your response..."
+          : retryingSave
+            ? "Trying again will safely reuse the same submission."
+            : "";
 
   if (context.status === "unavailable") {
     return (
@@ -195,6 +268,7 @@ export function RsvpForm({
         {context.status === "open" ? (
           <button
             className="rsvp-card__secondary"
+            disabled={submitting}
             onClick={() => {
               setEditing(true);
               setError(undefined);
@@ -213,7 +287,7 @@ export function RsvpForm({
   }
 
   return (
-    <form aria-busy={submitting} className="rsvp-card" onSubmit={submit}>
+    <form aria-busy={submitting || undefined} className="rsvp-card" onSubmit={submit}>
       <fieldset disabled={submitting}>
         <legend>Will you be joining us?</legend>
         <div className="rsvp-card__choices">
@@ -276,16 +350,36 @@ export function RsvpForm({
             {error}
           </p>
         ) : null}
+        <p aria-atomic="true" aria-live="polite" className="rsvp-card__status">
+          {submissionStatus}
+        </p>
 
         <div className="rsvp-card__actions">
-          <button className="rsvp-card__primary" disabled={submitting} type="submit">
-            {submitting
-              ? "Saving response..."
-              : context.response
-                ? "Save changes"
-                : "Send response"}
-          </button>
-          {context.response ? (
+          {refreshReason ? (
+            <button
+              className="rsvp-card__primary"
+              disabled={submitting}
+              onClick={() => void retryRefresh()}
+              type="button"
+            >
+              {submissionStage === "checking"
+                ? "Checking latest response..."
+                : "Check latest response"}
+            </button>
+          ) : (
+            <button className="rsvp-card__primary" disabled={submitting} type="submit">
+              {submissionStage === "saving"
+                ? longWait
+                  ? "Still saving..."
+                  : "Saving response..."
+                : retryingSave
+                  ? "Try saving again"
+                  : context.response
+                    ? "Save changes"
+                    : "Send response"}
+            </button>
+          )}
+          {context.response && !refreshReason ? (
             <button
               className="rsvp-card__secondary"
               disabled={submitting}

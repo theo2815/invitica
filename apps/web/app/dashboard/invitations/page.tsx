@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { CreatorShell } from "../../../src/components/dashboard/CreatorShell";
 import { ArrowRight, Envelope, Plus } from "../../../src/components/Icons";
 import { InvitationDeleteButton } from "../../../src/components/invitations/InvitationDeleteButton";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
@@ -35,7 +34,7 @@ function publicationBadge(
 }
 
 export default async function InvitationsPage() {
-  const { error, supabase, user, workspaceId } = await ensurePersonalWorkspace();
+  const { error, supabase, workspaceId } = await ensurePersonalWorkspace();
   const [drafts, publicationStatuses] =
     !error && workspaceId
       ? await Promise.all([
@@ -45,7 +44,7 @@ export default async function InvitationsPage() {
       : [[], {} as Record<string, InvitationPublicationStatus>];
 
   return (
-    <CreatorShell activePage="invitations" email={user.email} metadata={user.user_metadata}>
+    <>
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>Invitation library</p>
@@ -201,6 +200,6 @@ export default async function InvitationsPage() {
         <span>Invitica invitation library</span>
         <span>Invitations, thoughtfully made.</span>
       </footer>
-    </CreatorShell>
+    </>
   );
 }

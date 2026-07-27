@@ -112,7 +112,8 @@ describe("public guest viewer", () => {
 
     expect(response.status).toBe(200);
     expect(html).toContain("Mara &amp; Joaquin");
-    expect(html).toContain("Tap the invitation card to open");
+    expect(html).toContain("Preparing invitation…");
+    expect(html).toContain('aria-disabled="true"');
     expect(html).toContain("Use your personalized invitation link to respond");
     expect(html).toContain('data-render-mode="published"');
     expect(html).toContain('id="publication-artifact"');

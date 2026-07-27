@@ -8,6 +8,7 @@ import {
   GardenPromiseRenderer,
   InvitationRenderer,
   LittleBlessingsRenderer,
+  LittleBlessingsRendererV2,
   resolveTemplateRenderer,
   resolveTemplateRendererRegistration,
   UnknownTemplateRendererError,
@@ -23,7 +24,9 @@ describe("InvitationRenderer", () => {
       />,
     );
 
-    expect(html).toContain("Open invitation for Uncle John");
+    expect(html).toContain("Preparing invitation for Uncle John");
+    expect(html).toContain('data-envelope-hydrated="false"');
+    expect(html).toContain('disabled=""');
     expect(html).toContain("Theo &amp; Maria");
     expect(html).toContain("The Glass Garden");
     expect(html).toContain('data-render-mode="published"');
@@ -50,6 +53,10 @@ describe("InvitationRenderer", () => {
     expect(resolveTemplateRenderer("standard-v1")).toBe(InvitationRenderer);
     expect(resolveTemplateRenderer("garden-promise-v1")).toBe(GardenPromiseRenderer);
     expect(resolveTemplateRenderer("little-blessings-v1")).toBe(LittleBlessingsRenderer);
+    expect(resolveTemplateRenderer("little-blessings-v2")).toBe(LittleBlessingsRendererV2);
+    expect(resolveTemplateRendererRegistration("little-blessings-v1").version).toBe(1);
+    expect(resolveTemplateRendererRegistration("little-blessings-v2").version).toBe(2);
+    expect(resolveTemplateRenderer("little-blessings-v2")).not.toBe(LittleBlessingsRenderer);
     expect(() => resolveTemplateRenderer("remote-template-code")).toThrow(
       UnknownTemplateRendererError,
     );
@@ -108,8 +115,10 @@ describe("InvitationRenderer", () => {
     expect(html).toContain("Mara &amp; Joaquin");
     expect(html).toContain("Hiraya Garden Pavilion");
     expect(html).toContain("Kindly reply by December 17, 2026");
-    expect(html).toContain("Tap the invitation card to open");
-    expect(html).toContain('aria-label="Open invitation for The Villanueva and de la Cruz Family"');
+    expect(html).toContain("Preparing invitation…");
+    expect(html).toContain(
+      'aria-label="Preparing invitation for The Villanueva and de la Cruz Family"',
+    );
     expect(html).toContain("Use your personalized invitation link to respond");
     expect(html).toContain('data-opening-state="closed"');
     expect(html).toContain('data-motion-enabled="false"');
@@ -151,7 +160,7 @@ describe("InvitationRenderer", () => {
       }
       expect(html).toContain(`data-invitation-schema-version="${manifest.schemaVersion}"`);
       expect(html).toContain('data-opening-state="closed"');
-      expect(html).toContain("Open invitation for");
+      expect(html).toContain("Preparing invitation for");
       expect(html).toContain('data-envelope-gated="false"');
     }
   });
@@ -297,7 +306,7 @@ describe("InvitationRenderer", () => {
       expect(html).toContain(`data-section-type="${sectionType}"`);
     }
 
-    expect(html).toContain("Open invitation for The Reyes Family");
+    expect(html).toContain("Preparing invitation for The Reyes Family");
     expect(html).toContain(">Eliana</em>");
     expect(html).toContain(">Grace</span>");
     expect(html).toContain("Sunday, April 11, 2027 at 9:00 AM");

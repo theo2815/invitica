@@ -54,11 +54,8 @@
 
 .navItem,
 .activeNavItem {
-  display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr);
-  align-items: center;
+  display: block;
   min-height: 2.85rem;
-  padding-inline: 0.8rem;
   border-radius: 0.35rem;
   color: var(--muted);
   font-size: 0.82rem;
@@ -69,10 +66,28 @@
     color 160ms ease;
 }
 
-.navItem svg,
-.activeNavItem svg {
+.navLinkContent {
+  display: grid;
+  min-height: 2.85rem;
+  grid-template-columns: 1.25rem minmax(0, 1fr) 0.75rem;
+  align-items: center;
+  gap: 0.05rem;
+  padding-inline: 0.8rem 0.55rem;
+}
+
+.navLinkContent svg,
+.mobileNavContent svg {
   width: 1.15rem;
   height: 1.15rem;
+}
+
+.pendingMark {
+  display: inline-grid;
+  width: 0.75rem;
+  color: var(--accent);
+  font-size: 1rem;
+  line-height: 1;
+  place-items: center;
 }
 
 .navItem:hover {
@@ -114,10 +129,20 @@
   outline: none;
 }
 
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .page {
     display: block;
-    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
   }
 
   .sidebar {
@@ -151,7 +176,7 @@
     left: 0;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    min-height: calc(4.5rem + env(safe-area-inset-bottom));
+    min-height: calc(4rem + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -161,15 +186,40 @@
 
   .mobileNavigation a {
     display: flex;
-    min-height: 4.5rem;
+    min-height: 4rem;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  /* A column that centres the icon over the label and the whole cluster within the tab, so the
+     icon is not pinned to the top edge — the balanced vertical rhythm the header already uses. */
+  .mobileNavContent {
+    position: relative;
+    display: flex;
+    flex: 1;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
-    color: var(--muted);
+    gap: 0.22rem;
+    padding-inline: 0.3rem;
     font-size: 0.62rem;
     font-weight: 700;
-    text-decoration: none;
+    text-align: center;
+  }
+
+  /* A pending route swaps the tab's icon for a spinner in the same 1.5rem box. The global
+     reduced-motion rule halts the spin, leaving a static accent ring as the fallback cue. */
+  .mobileNavContent .navSpinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid color-mix(in srgb, var(--accent) 26%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: nav-spin 0.7s linear infinite;
+  }
+
+  .mobileNavContent > span:nth-child(2) {
+    max-width: 100%;
   }
 
   .mobileNavigation a[aria-current="page"] {
@@ -177,13 +227,19 @@
   }
 
   .mobileNavigation svg {
-    width: 1.2rem;
-    height: 1.2rem;
+    width: 1.5rem;
+    height: 1.5rem;
   }
 }
 
 @media (max-width: 380px) {
   .mobileNavigation span {
     font-size: 0.56rem;
+  }
+}
+
+@keyframes nav-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

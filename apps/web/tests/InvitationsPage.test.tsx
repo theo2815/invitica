@@ -62,11 +62,6 @@ describe("invitations page", () => {
     expect(
       screen.getByRole("link", { name: "Create your first invitation" }).getAttribute("href"),
     ).toBe("/dashboard/templates");
-    expect(screen.getAllByRole("link", { name: "Invitations" })).toHaveLength(2);
-    expect(screen.getAllByRole("link", { name: "Invitations" })[0]?.getAttribute("href")).toBe(
-      "/dashboard/invitations",
-    );
-    expect(screen.getAllByText("maria@example.com").length).toBeGreaterThanOrEqual(2);
   });
 
   it("lists saved drafts with direct links back to their editors", async () => {

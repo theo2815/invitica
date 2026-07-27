@@ -22,6 +22,7 @@ const wranglerBinary = resolve(
 const wranglerConfig = resolve(appRoot, "wrangler.jsonc");
 const publicIdentifier = "e000000000000000000000000000000e";
 const publicationId = "a0000000-0000-4000-8000-000000000015";
+const screenshotDirectory = process.env.INVITICA_SCREENSHOT_DIR;
 
 assert.equal(dirname(persistenceDirectory), temporaryRoot);
 assert.ok(existsSync(edgeExecutable), `Microsoft Edge was not found at ${edgeExecutable}`);
@@ -139,10 +140,16 @@ async function waitForViewer(origin, processLog) {
   throw new Error(`Wrangler did not become ready: ${processLog.output}`);
 }
 
-function watchPage(page, failures) {
+function watchPage(page, failures, expectedStatuses = []) {
   page.on("console", (message) => {
+    const expectedStatus = expectedStatuses.some((status) =>
+      message
+        .text()
+        .startsWith(`Failed to load resource: the server responded with a status of ${status}`),
+    );
     if (
       message.type() === "error" &&
+      !expectedStatus &&
       !message
         .text()
         .startsWith("Failed to load resource: the server responded with a status of 404")
@@ -156,8 +163,9 @@ function watchPage(page, failures) {
       response.status() === 404 &&
       response.request().resourceType() === "document" &&
       new URL(response.url()).pathname === "/i/not-a-valid-invitation";
+    const expectedStatus = expectedStatuses.includes(response.status());
 
-    if (response.status() >= 400 && !expectedUnavailableDocument) {
+    if (response.status() >= 400 && !expectedUnavailableDocument && !expectedStatus) {
       failures.push(`response: ${response.status()} ${response.url()}`);
     }
   });
@@ -180,6 +188,22 @@ async function assertNoHorizontalOverflow(page) {
     overflow.scrollWidth <= overflow.clientWidth,
     `Horizontal overflow: ${JSON.stringify(overflow)}`,
   );
+}
+
+async function captureMilestonePair(page, surface) {
+  if (!screenshotDirectory) return;
+
+  mkdirSync(screenshotDirectory, { recursive: true });
+  const originalViewport = page.viewportSize();
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.screenshot({
+    path: resolve(screenshotDirectory, `2026-07-27 ${surface}-mobile-390.png`),
+  });
+  await page.setViewportSize({ height: 1000, width: 1440 });
+  await page.screenshot({
+    path: resolve(screenshotDirectory, `2026-07-27 ${surface}-desktop-1440.png`),
+  });
+  if (originalViewport) await page.setViewportSize(originalViewport);
 }
 
 async function routeViewTracking(context, trackedViews) {
@@ -392,8 +416,8 @@ async function runBrowserChecks(origin) {
     await routeViewTracking(rsvp, trackedViews);
     const rsvpPage = await rsvp.newPage();
     const personalizedToken = "A".repeat(43);
-    let submittedRsvp;
-    watchPage(rsvpPage, failures);
+    const submittedRsvps = [];
+    watchPage(rsvpPage, failures, [503]);
     await rsvpPage.route("**/api/public/guest-context", async (route) => {
       const request = route.request();
       const requestBody = request.postDataJSON();
@@ -417,9 +441,19 @@ async function runBrowserChecks(origin) {
     });
     await rsvpPage.route("**/api/public/rsvp", async (route) => {
       const request = route.request();
-      submittedRsvp = request.postDataJSON();
+      const submittedRsvp = request.postDataJSON();
+      submittedRsvps.push(submittedRsvp);
       assert.equal(request.method(), "POST");
       assert.equal(request.url().includes(personalizedToken), false);
+      if (submittedRsvps.length === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await route.fulfill({
+          body: JSON.stringify({ status: "unavailable" }),
+          contentType: "application/json",
+          status: 503,
+        });
+        return;
+      }
       await route.fulfill({
         body: JSON.stringify({
           response: {
@@ -451,9 +485,32 @@ async function runBrowserChecks(origin) {
       "The RSVP submit control must be at least 44px tall",
     );
     await sendResponse.press("Enter");
+    const savingResponse = rsvpPage.getByRole("button", { name: "Saving response..." });
+    assert.equal(await savingResponse.isDisabled(), true, "The RSVP action must lock while saving");
+    await rsvpPage.locator("form.rsvp-card").evaluate((form) => {
+      form.requestSubmit();
+      form.requestSubmit();
+    });
+    await rsvpPage.getByText(/We could not confirm that your response was saved/).waitFor();
+    await captureMilestonePair(rsvpPage, "guest-rsvp-recovery");
+    assert.equal(
+      await rsvpPage.getByRole("spinbutton", { name: "Guests attending" }).inputValue(),
+      "2",
+      "An interrupted RSVP must preserve the guest's answers",
+    );
+    const retryResponse = rsvpPage.getByRole("button", { name: "Try saving again" });
+    await retryResponse.press("Enter");
     await rsvpPage.getByRole("heading", { name: "We saved your place." }).waitFor();
     await rsvpPage.getByRole("button", { name: "Change response" }).focus();
     await expectFocused(rsvpPage.getByRole("button", { name: "Change response" }));
+    const submittedRsvp = submittedRsvps.at(-1);
+    assert.ok(submittedRsvp, "The RSVP retry must submit a request");
+    assert.equal(submittedRsvps.length, 2, "The failed request must only be retried once");
+    assert.equal(
+      submittedRsvps[0].mutationId,
+      submittedRsvps[1].mutationId,
+      "An uncertain RSVP retry must reuse its mutation ID",
+    );
     assert.deepEqual(
       {
         attendance: submittedRsvp.attendance,
@@ -481,13 +538,36 @@ async function runBrowserChecks(origin) {
     });
     await routeViewTracking(degraded, trackedViews);
     const degradedPage = await degraded.newPage();
-    await degradedPage.route("**/api/public/guest-context", (route) =>
-      route.fulfill({
-        body: JSON.stringify({ status: "unavailable" }),
+    let degradedContextAttempts = 0;
+    let releaseDegradedContextRetry = () => {};
+    const degradedContextRetryGate = new Promise((resolve) => {
+      releaseDegradedContextRetry = resolve;
+    });
+    await degradedPage.route("**/api/public/guest-context", async (route) => {
+      degradedContextAttempts += 1;
+      if (degradedContextAttempts === 1) {
+        await route.fulfill({
+          body: JSON.stringify({ status: "unavailable" }),
+          contentType: "application/json",
+          status: 503,
+        });
+        return;
+      }
+      await degradedContextRetryGate;
+      await route.fulfill({
+        body: JSON.stringify({
+          recipientName: "The Santos Family",
+          rsvp: {
+            capacity: 4,
+            deadline: "2099-12-01T00:00:00+08:00",
+            response: null,
+            status: "open",
+          },
+        }),
         contentType: "application/json",
-        status: 503,
-      }),
-    );
+        status: 200,
+      });
+    });
     await degradedPage.goto(`${origin}${path}#g=${personalizedToken}`, {
       waitUntil: "domcontentloaded",
     });
@@ -499,6 +579,24 @@ async function runBrowserChecks(origin) {
     await degradedPage
       .getByText("Online response is temporarily unavailable. You can still read the invitation.")
       .waitFor();
+    await degradedPage.getByRole("button", { name: "Try online response again" }).press("Enter");
+    const checkingResponse = degradedPage.getByRole("button", { name: "Checking response..." });
+    try {
+      await checkingResponse.waitFor();
+      assert.equal(
+        await checkingResponse.isDisabled(),
+        true,
+        "Guest-context retry must lock while checking",
+      );
+    } finally {
+      releaseDegradedContextRetry();
+    }
+    await degradedPage.getByRole("radio", { name: "Joyfully attending" }).waitFor();
+    assert.equal(
+      degradedContextAttempts,
+      2,
+      "Unavailable guest context should retry once on demand",
+    );
     await degradedPage.getByRole("heading", { name: "Alexandria & Maximiliano" }).waitFor();
     await assertNoHorizontalOverflow(degradedPage);
     await degraded.close();

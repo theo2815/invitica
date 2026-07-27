@@ -14,6 +14,11 @@
   background: color-mix(in srgb, var(--danger) 7%, var(--surface));
 }
 
+.deleteButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .deleteButton:focus-visible,
 .actions button:focus-visible {
   outline: 2px solid var(--focus);

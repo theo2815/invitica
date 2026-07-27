@@ -1,21 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { templateCatalog } from "@invitica/template-kit";
 
-import { CreatorShell } from "../../../src/components/dashboard/CreatorShell";
 import { TemplateCatalog } from "../../../src/components/templates/TemplateCatalog";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import { listInvitationDrafts } from "../../../src/server/invitations/drafts";
 import styles from "./Templates.module.css";
 
 export default async function TemplatesPage() {
-  const { error, supabase, user, workspaceId } = await ensurePersonalWorkspace();
+  const { error, supabase, workspaceId } = await ensurePersonalWorkspace();
   const creationRequestIds = Object.fromEntries(
     templateCatalog.map((template) => [template.id, randomUUID()]),
   );
   const drafts = !error && workspaceId ? await listInvitationDrafts(supabase, workspaceId) : [];
 
   return (
-    <CreatorShell activePage="templates" email={user.email} metadata={user.user_metadata}>
+    <>
       <header className={styles.pageHeader}>
         <p className={styles.eyebrow}>Creator catalog</p>
         <h1>Templates</h1>
@@ -46,6 +45,6 @@ export default async function TemplatesPage() {
         <span>Invitica template collection</span>
         <span>Curated beginnings for meaningful celebrations.</span>
       </footer>
-    </CreatorShell>
+    </>
   );
 }

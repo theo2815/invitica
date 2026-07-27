@@ -56,10 +56,12 @@ export function InvitationPublicationPanel({
 }: InvitationPublicationPanelProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [isStatusCheckPending, setIsStatusCheckPending] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publication, setPublication] = useState(initialPublication);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const publishButtonRef = useRef<HTMLButtonElement>(null);
+  const statusRequestInFlightRef = useRef(false);
   const isCurrentRevisionLive =
     publication.status === "delivered" && publication.publishedRevision === revision;
   const isProcessing = publication.status === "publishing" || publication.status === "retrying";
@@ -97,7 +99,14 @@ export function InvitationPublicationPanel({
 
     const pollPublication = async () => {
       if (cancelled || document.visibilityState === "hidden") return;
+      if (statusRequestInFlightRef.current) {
+        schedulePoll();
+        return;
+      }
+
       completedPolls += 1;
+      statusRequestInFlightRef.current = true;
+      setIsStatusCheckPending(true);
 
       try {
         const result = await loadInvitationPublicationStatusAction({ invitationId });
@@ -109,13 +118,14 @@ export function InvitationPublicationPanel({
         }
       } catch {
         setActionMessage("Publication status is temporarily unavailable. We will try again.");
+      } finally {
+        statusRequestInFlightRef.current = false;
+        setIsStatusCheckPending(false);
       }
 
       if (cancelled) return;
       if (completedPolls >= MAX_STATUS_POLLS) {
-        setActionMessage(
-          "Publishing is taking longer than expected. Refresh to check the latest saved status.",
-        );
+        setActionMessage("Publishing is taking longer than expected. Your saved draft is safe.");
         return;
       }
       schedulePoll();
@@ -133,6 +143,36 @@ export function InvitationPublicationPanel({
       document.removeEventListener("visibilitychange", resumeWhenVisible);
     };
   }, [invitationId, isProcessing]);
+
+  async function checkLatestStatus() {
+    if (statusRequestInFlightRef.current) return;
+
+    statusRequestInFlightRef.current = true;
+    setIsStatusCheckPending(true);
+    try {
+      const result = await loadInvitationPublicationStatusAction({ invitationId });
+      if (result.status === "error") {
+        setActionMessage(result.message);
+        return;
+      }
+
+      setPublication(result.publication);
+      const stillProcessing =
+        result.publication.status === "publishing" || result.publication.status === "retrying";
+      setActionMessage(
+        stillProcessing
+          ? "Publishing is still underway. Your saved draft is safe; check again in a moment."
+          : null,
+      );
+    } catch {
+      setActionMessage(
+        "Publication status is temporarily unavailable. Your saved draft is safe; try again.",
+      );
+    } finally {
+      statusRequestInFlightRef.current = false;
+      setIsStatusCheckPending(false);
+    }
+  }
 
   function closeConfirmation() {
     setConfirmationOpen(false);
@@ -179,6 +219,7 @@ export function InvitationPublicationPanel({
           : publication.livePublicIdentifier
             ? "Publish update"
             : "Publish invitation";
+  const showStatusCheck = isProcessing && actionMessage !== null;
 
   return (
     <section aria-labelledby="publication-heading" className={styles.panel}>
@@ -219,6 +260,17 @@ export function InvitationPublicationPanel({
         {publication.livePublicIdentifier && !isCurrentRevisionLive ? (
           <p>Your previous published revision remains live while this update is prepared.</p>
         ) : null}
+        {showStatusCheck ? (
+          <button
+            aria-busy={isStatusCheckPending}
+            className={styles.statusCheckButton}
+            disabled={isStatusCheckPending}
+            onClick={() => void checkLatestStatus()}
+            type="button"
+          >
+            {isStatusCheckPending ? "Checking status…" : "Check latest status"}
+          </button>
+        ) : null}
       </div>
 
       {publication.livePublicIdentifier ? (
@@ -234,6 +286,7 @@ export function InvitationPublicationPanel({
       ) : null}
 
       <button
+        aria-busy={isSubmitting || isProcessing}
         className={styles.publishButton}
         disabled={disabled}
         onClick={() => setConfirmationOpen(true)}

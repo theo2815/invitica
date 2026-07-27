@@ -7,7 +7,7 @@ import {
   guestLinkTokenSchema,
   type PublicationArtifact,
 } from "@invitica/invitation-schema";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import { publicIdentifierFromInvitationPath } from "./invitation-path";
@@ -27,6 +27,8 @@ interface GuestCapability {
 }
 
 const GUEST_CONTEXT_TIMEOUT_MS = 10_000;
+
+type GuestContextLoadState = "idle" | "loading" | "refreshing" | "retrying" | "unavailable";
 
 async function requestGuestContext(
   capability: GuestCapability,
@@ -52,11 +54,50 @@ async function requestGuestContext(
 export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPublicationProps) {
   const [capability, setCapability] = useState<GuestCapability>();
   const [context, setContext] = useState<GuestContextResponse>();
-  const [loadState, setLoadState] = useState<"idle" | "loading" | "unavailable">("idle");
+  const [loadState, setLoadState] = useState<GuestContextLoadState>("idle");
+  const activeController = useRef<AbortController | null>(null);
+  const requestSequence = useRef(0);
   const Renderer = resolvePublishedRenderer(artifact);
   const resolveImage = useMemo(
     () => createSnapshotImageResolver(artifact.snapshot.assets),
     [artifact],
+  );
+
+  const loadGuestContext = useCallback(
+    async (
+      nextCapability: GuestCapability,
+      nextState: "loading" | "refreshing" | "retrying",
+      preserveContext: boolean,
+    ): Promise<boolean> => {
+      const requestId = requestSequence.current + 1;
+      requestSequence.current = requestId;
+      activeController.current?.abort();
+
+      const controller = new AbortController();
+      activeController.current = controller;
+      setLoadState(nextState);
+
+      let result: GuestContextResponse | null = null;
+      try {
+        result = await requestGuestContext(nextCapability, controller.signal);
+      } catch {
+        result = null;
+      }
+
+      if (requestId !== requestSequence.current) return false;
+      if (activeController.current === controller) activeController.current = null;
+
+      if (result) {
+        setContext(result);
+        setLoadState("idle");
+        return true;
+      }
+
+      if (!preserveContext) setContext(undefined);
+      setLoadState(preserveContext ? "idle" : "unavailable");
+      return false;
+    },
+    [],
   );
 
   useEffect(() => {
@@ -67,44 +108,33 @@ export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPu
     if (!token.success || !publicIdentifier) return;
 
     const nextCapability = { publicIdentifier, token: token.data };
-    const controller = new AbortController();
     setCapability(nextCapability);
-    setLoadState("loading");
-    void requestGuestContext(nextCapability, controller.signal)
-      .then((result) => {
-        if (result) {
-          setContext(result);
-          setLoadState("idle");
-        } else {
-          setLoadState("unavailable");
-        }
-      })
-      .catch(() => setLoadState("unavailable"));
+    void loadGuestContext(nextCapability, "loading", false);
 
-    return () => controller.abort();
-  }, []);
+    return () => {
+      requestSequence.current += 1;
+      activeController.current?.abort();
+      activeController.current = null;
+    };
+  }, [loadGuestContext]);
 
-  async function refreshContext() {
-    if (!capability) return;
-    try {
-      const refreshed = await requestGuestContext(capability);
-      if (refreshed) {
-        setContext(refreshed);
-        setLoadState("idle");
-        return;
-      }
-      setLoadState("unavailable");
-    } catch {
-      setLoadState("unavailable");
-    }
+  async function refreshContext(): Promise<boolean> {
+    if (!capability) return false;
+    return loadGuestContext(capability, "refreshing", true);
+  }
+
+  async function retryContext() {
+    if (!capability || loadState === "loading" || loadState === "retrying") return;
+    await loadGuestContext(capability, "retrying", false);
   }
 
   let rsvpSlot: ReactNode;
   if (capability && loadState === "loading") {
     rsvpSlot = (
-      <p className="rsvp-card__notice" role="status">
-        Preparing your response...
-      </p>
+      <div aria-busy="true" className="rsvp-card rsvp-card--centered">
+        <p className="rsvp-card__eyebrow">Your response</p>
+        <p role="status">Preparing your response...</p>
+      </div>
     );
   } else if (capability && context) {
     rsvpSlot = (
@@ -122,11 +152,25 @@ export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPu
         token={capability.token}
       />
     );
-  } else if (capability && loadState === "unavailable") {
+  } else if (capability && (loadState === "retrying" || loadState === "unavailable")) {
+    const retrying = loadState === "retrying";
     rsvpSlot = (
-      <p className="rsvp-card__notice" role="status">
-        Online response is temporarily unavailable. You can still read the invitation.
-      </p>
+      <div aria-busy={retrying || undefined} className="rsvp-card rsvp-card--centered">
+        <p className="rsvp-card__eyebrow">Online response</p>
+        <p role="status">
+          {retrying
+            ? "Checking whether online response is available..."
+            : "Online response is temporarily unavailable. You can still read the invitation."}
+        </p>
+        <button
+          className="rsvp-card__secondary"
+          disabled={retrying}
+          onClick={() => void retryContext()}
+          type="button"
+        >
+          {retrying ? "Checking response..." : "Try online response again"}
+        </button>
+      </div>
     );
   }
 

@@ -297,9 +297,29 @@ grant with an explicit allowlist and every new column needs its own `grant selec
 The RPC re-checks ownership, the 2000-character bound, the required `{link}` placeholder, and the
 per-message placeholder allowlist (`{recipient}` is rejected in the general message, which addresses
 everyone at once and has no single recipient). An unrecognised placeholder is rejected rather than
-pasted to a guest as literal `{name}` text. The `0024` pgTAP suite has 18 assertions covering both
+pasted to a guest as literal `{name}` text. The `0024` pgTAP suite has 19 assertions covering both
 the catalog shape and the validation branches, including cross-workspace denial.
 
-**Documentation gap:** this README documents `0001`–`0014` and then `0024`. Migrations `0015`–`0023`
-have no sections here; see `Operations/Migration and Environment Ledger` in the Second Brain for
-their canonical status.
+## Bounded Guest Desk pagination
+
+Migration `0025_guest_party_pagination.sql` adds the authenticated owner-only
+`list_guest_parties_page()` RPC used by the Guest Desk's 20-item **Load More** flow.
+
+The function applies search across party labels, envelope recipients, and named guests; filters by
+RSVP or sent status; then orders the complete active set with unsent parties first before applying
+offset and limit. It returns only the party, member, private-link status, delivery counters, and RSVP
+fields the existing ledger renders. The RPC validates ownership through `auth.uid()`, fixes its
+`search_path`, rejects unbounded limits, and is executable only by `authenticated`.
+
+The application requests 21 rows, renders 20, and treats the lookahead row only as evidence that
+another page exists. Search or filter changes restart at offset zero, so pagination never limits the
+criteria to rows already loaded in the browser.
+
+Migrations `0001` through `0025` applied cleanly together in a disposable local Supabase project
+on 2026-07-27. All 25 pgTAP suites passed with 527 assertions; `0025` contributed 20 runtime
+assertions covering privileges, ownership denial, whole-result ordering/search/filtering, page
+boundaries, returned row state, and invalid requests. Migration `0025` is not hosted-applied.
+
+**Documentation gap:** this README documents `0001`–`0014` and then `0024`–`0025`.
+Migrations `0015`–`0023` have no sections here; see
+`Operations/Migration and Environment Ledger` in the Second Brain for their canonical status.

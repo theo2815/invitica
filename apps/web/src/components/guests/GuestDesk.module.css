@@ -1093,8 +1093,15 @@
     font-size: 1.45rem;
   }
 
+  /*
+   * Hides the sections' explanatory prose to save vertical space on a phone — but feedback is not
+   * prose. Before these exclusions the copy confirmation and the save confirmation were both
+   * `display: none` on mobile, so the actions appeared to do nothing on the one device the product
+   * is built for. Chained `:not()` rather than the selector-list form, which Safari only supports
+   * from 16.4.
+   */
   .context p:not(.eyebrow),
-  .generalLink p:not(.eyebrow) {
+  .generalLink p:not(.eyebrow):not(.copySuccess):not(.copyError) {
     display: none;
   }
 

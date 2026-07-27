@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GuestDesk } from "../src/components/guests/GuestDesk";
@@ -274,6 +274,40 @@ describe("GuestDesk", () => {
     expect((field as HTMLTextAreaElement).value).toBe("Kumusta po!");
     expect(screen.getByRole("dialog")).toBeDefined();
     expect(screen.queryByText(/Saved\./)).toBeNull();
+  });
+
+  it("clears a success confirmation on its own but leaves a failure on screen", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(saveInvitationShareMessagesAction).mockResolvedValue({ status: "updated" });
+      renderDesk();
+
+      fireEvent.click(screen.getByRole("button", { name: "Write your own" }));
+      fireEvent.change(screen.getByLabelText("Personal message, for one guest party"), {
+        target: { value: "Kumusta {recipient}! {link}" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+      await waitFor(() => expect(screen.getByText(/Saved\./)).toBeDefined());
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByText(/Saved\./)).toBeNull();
+
+      // A clipboard failure leaves something the creator still has to do, so it must not expire.
+      writeText.mockRejectedValueOnce(new Error("denied"));
+      fireEvent.click(screen.getByRole("button", { name: "Copy general invitation" }));
+      await waitFor(() =>
+        expect(screen.getByText(/Clipboard access was unavailable/)).toBeDefined(),
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(30000);
+      });
+      expect(screen.getByText(/Clipboard access was unavailable/)).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("warns that the general link cannot accept the RSVP a custom message asks for", () => {

@@ -49,6 +49,13 @@ type CopyFeedback = {
 
 type CopyFallback = { label: string; text: string } | null;
 
+/**
+ * How long a success confirmation stays on screen. Long enough to read and to be announced,
+ * short enough that the desk does not accumulate stale banners. Failures are never cleared on a
+ * timer: they carry something the creator still has to act on.
+ */
+const SUCCESS_FEEDBACK_MS = 5000;
+
 /** Ready-to-send message per guest party, resolved before the creator clicks Copy. */
 type PreparedCopies = ReadonlyMap<string, { copyText: string; personalizedUrl: string }>;
 
@@ -216,6 +223,20 @@ export function GuestDesk({
   useEffect(() => {
     setCanShare(typeof navigator.share === "function" && typeof navigator.canShare === "function");
   }, []);
+
+  // Only a success expires. An error, and the manual-copy fallback beneath it, stay until the
+  // creator acts again.
+  useEffect(() => {
+    if (copyFeedback?.status !== "success") return;
+    const timer = window.setTimeout(() => setCopyFeedback(null), SUCCESS_FEEDBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [copyFeedback]);
+
+  useEffect(() => {
+    if (!shareMessageSaved) return;
+    const timer = window.setTimeout(() => setShareMessageSaved(null), SUCCESS_FEEDBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [shareMessageSaved]);
 
   const copySucceeded = useCallback((target: string) => {
     setCopyFeedback({

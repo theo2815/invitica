@@ -4,6 +4,7 @@ import { renderToString } from "react-dom/server.edge";
 import { MAP_TILE_KEY_META } from "./map-tile-key";
 import { createSnapshotImageResolver, mediaPublicPath } from "./published-media";
 import { resolvePublishedRenderer } from "./published-renderer";
+import { socialPreviewPublicPath } from "./published-social-preview";
 
 const criticalStyles = `
 :root { color-scheme: light; }
@@ -86,7 +87,29 @@ function documentTitle(artifact: PublicationArtifact): string {
  * The widest rendition of the hero image, as an absolute URL on the requesting origin.
  * Preview crawlers do not resolve relative paths, and the media route is same-origin.
  */
-function socialImageUrl(artifact: PublicationArtifact, origin: string): string | null {
+interface SocialImageMetadata {
+  readonly alt: string;
+  readonly contentType: string;
+  readonly height: number;
+  readonly url: string;
+  readonly width: number;
+}
+
+function socialImageMetadata(
+  artifact: PublicationArtifact,
+  origin: string,
+  title: string,
+): SocialImageMetadata | null {
+  if (artifact.artifactVersion === 2) {
+    return {
+      alt: `Invitation for ${title}`,
+      contentType: artifact.socialPreview.contentType,
+      height: artifact.socialPreview.height,
+      url: `${origin}${socialPreviewPublicPath(artifact.socialPreview.sha256)}`,
+      width: artifact.socialPreview.width,
+    };
+  }
+
   const assetId = heroSection(artifact)?.props.imageAssetId;
   if (!assetId) {
     return null;
@@ -100,7 +123,15 @@ function socialImageUrl(artifact: PublicationArtifact, origin: string): string |
     (best, rendition) => (best && best.width >= rendition.width ? best : rendition),
     null,
   );
-  return widest ? `${origin}${mediaPublicPath(widest.sha256, widest.width)}` : null;
+  return widest
+    ? {
+        alt: `Invitation for ${title}`,
+        contentType: asset?.contentType ?? "image/webp",
+        height: widest.height,
+        url: `${origin}${mediaPublicPath(widest.sha256, widest.width)}`,
+        width: widest.width,
+      }
+    : null;
 }
 
 /**
@@ -114,10 +145,10 @@ function socialTags(artifact: PublicationArtifact, pageUrl: string): string {
   const title = hero ? hero.props.title : "You are invited";
   const description = [hero?.props.subtitle, hero?.props.dateLabel]
     .filter((value): value is string => Boolean(value))
-    .join(" · ");
+    .join(" \u00b7 ");
   // Absolute asset and page URLs need the requesting origin, which only the Worker knows.
   const canonical = pageUrl ? new URL(pageUrl) : null;
-  const imageUrl = canonical ? socialImageUrl(artifact, canonical.origin) : null;
+  const image = canonical ? socialImageMetadata(artifact, canonical.origin, title) : null;
 
   return [
     `<meta property="og:type" content="website">`,
@@ -125,8 +156,17 @@ function socialTags(artifact: PublicationArtifact, pageUrl: string): string {
     `<meta property="og:title" content="${escapeHtml(title)}">`,
     description ? `<meta property="og:description" content="${escapeHtml(description)}">` : null,
     canonical ? `<meta property="og:url" content="${escapeHtml(canonical.href)}">` : null,
-    imageUrl ? `<meta property="og:image" content="${escapeHtml(imageUrl)}">` : null,
-    `<meta name="twitter:card" content="${imageUrl ? "summary_large_image" : "summary"}">`,
+    image ? `<meta property="og:image" content="${escapeHtml(image.url)}">` : null,
+    image ? `<meta property="og:image:secure_url" content="${escapeHtml(image.url)}">` : null,
+    image ? `<meta property="og:image:type" content="${escapeHtml(image.contentType)}">` : null,
+    image ? `<meta property="og:image:width" content="${image.width}">` : null,
+    image ? `<meta property="og:image:height" content="${image.height}">` : null,
+    image ? `<meta property="og:image:alt" content="${escapeHtml(image.alt)}">` : null,
+    `<meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}">`,
+    `<meta name="twitter:title" content="${escapeHtml(title)}">`,
+    description ? `<meta name="twitter:description" content="${escapeHtml(description)}">` : null,
+    image ? `<meta name="twitter:image" content="${escapeHtml(image.url)}">` : null,
+    image ? `<meta name="twitter:image:alt" content="${escapeHtml(image.alt)}">` : null,
   ]
     .filter((tag): tag is string => tag !== null)
     .join("\n");

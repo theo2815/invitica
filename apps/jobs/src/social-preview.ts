@@ -1,0 +1,264 @@
+import { createHash } from "node:crypto";
+
+import {
+  MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES,
+  MAX_RENDITION_BYTES,
+  type PublicationSnapshot,
+  type PublicationSocialPreview,
+  publicationSocialPreviewObjectKey,
+  publicationSocialPreviewSchema,
+} from "@invitica/invitation-schema";
+import sharp from "sharp";
+
+const SOCIAL_WIDTH = 1200;
+const SOCIAL_HEIGHT = 630;
+const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+export interface PublicationSocialPreviewStore {
+  getBinary(key: string, maxBytes: number): Promise<Uint8Array | null>;
+  putBinaryIfAbsent(
+    key: string,
+    body: Uint8Array,
+    options: { readonly cacheControl: string; readonly contentType: "image/jpeg" },
+  ): Promise<void>;
+}
+
+export class PublicationSocialPreviewError extends Error {
+  constructor() {
+    super("The publication social preview could not be generated.");
+    this.name = "PublicationSocialPreviewError";
+  }
+}
+
+function escapeXml(value: string): string {
+  const entity = String.fromCharCode(38);
+  return value
+    .replaceAll(entity, `${entity}amp;`)
+    .replaceAll("<", `${entity}lt;`)
+    .replaceAll(">", `${entity}gt;`)
+    .replaceAll('"', `${entity}quot;`)
+    .replaceAll("'", `${entity}apos;`);
+}
+
+function normalize(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function wrapText(value: string, maxCharacters: number, maxLines: number): string[] {
+  const words = normalize(value).split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharacters || current.length === 0) {
+      current = candidate;
+      continue;
+    }
+    lines.push(current);
+    current = word;
+  }
+  if (current) lines.push(current);
+
+  if (lines.length <= maxLines) return lines;
+  const visible = lines.slice(0, maxLines);
+  visible[maxLines - 1] = `${visible[maxLines - 1]?.slice(0, maxCharacters - 3).trimEnd()}...`;
+  return visible;
+}
+
+function textBlock(
+  lines: readonly string[],
+  input: {
+    readonly fill: string;
+    readonly fontFamily: string;
+    readonly fontSize: number;
+    readonly fontWeight: number;
+    readonly lineHeight: number;
+    readonly x: number;
+    readonly y: number;
+  },
+): string {
+  return `<text x="${input.x}" y="${input.y}" fill="${input.fill}" font-family="${input.fontFamily}" font-size="${input.fontSize}" font-weight="${input.fontWeight}">${lines
+    .map(
+      (line, index) =>
+        `<tspan x="${input.x}" dy="${index === 0 ? 0 : input.lineHeight}">${escapeXml(line)}</tspan>`,
+    )
+    .join("")}</text>`;
+}
+
+function heroSection(snapshot: PublicationSnapshot) {
+  return snapshot.document.sections.find((section) => section.type === "hero");
+}
+
+type PublicationSnapshotAsset = PublicationSnapshot["assets"][number];
+
+async function heroImage(
+  snapshot: PublicationSnapshot,
+  store: PublicationSocialPreviewStore,
+): Promise<Uint8Array | null> {
+  const assetId = heroSection(snapshot)?.props.imageAssetId;
+  if (!assetId) return null;
+
+  const asset = snapshot.assets.find(
+    (candidate): candidate is Extract<PublicationSnapshotAsset, { kind: "image" }> =>
+      candidate.kind === "image" && candidate.id === assetId,
+  );
+  const rendition = asset?.renditions.reduce<(typeof asset.renditions)[number] | null>(
+    (widest, candidate) => (!widest || candidate.width > widest.width ? candidate : widest),
+    null,
+  );
+  if (!rendition) throw new PublicationSocialPreviewError();
+
+  const bytes = await store.getBinary(rendition.objectKey, MAX_RENDITION_BYTES);
+  if (!bytes) throw new PublicationSocialPreviewError();
+  return bytes;
+}
+
+function templateKind(rendererKey: string): "garden" | "storybook" | "standard" {
+  if (rendererKey.startsWith("little-blessings-")) return "storybook";
+  if (rendererKey.startsWith("garden-promise-")) return "garden";
+  return "standard";
+}
+
+function cardOverlay(snapshot: PublicationSnapshot, hasPhoto: boolean): Buffer {
+  const hero = heroSection(snapshot);
+  const title = hero?.props.title ?? "You are invited";
+  const subtitle = hero?.props.subtitle ?? "A celebration shared with the people we love";
+  const date = hero?.props.dateLabel ?? "";
+  const { surface, text, accent } = snapshot.document.theme.colors;
+  const kind = templateKind(snapshot.rendererKey);
+  const photoOnLeft = kind === "storybook";
+  const textX = hasPhoto ? (photoOnLeft ? 650 : 92) : 126;
+  const titleLines = wrapText(title, hasPhoto ? 21 : 30, 2);
+  const subtitleLines = wrapText(subtitle, hasPhoto ? 39 : 54, 2);
+  const titleY = hasPhoto ? 238 : 246;
+  const subtitleY = titleY + titleLines.length * 78 + 22;
+  const eventLabel =
+    kind === "storybook"
+      ? "CHRISTENING INVITATION"
+      : kind === "garden"
+        ? "WEDDING INVITATION"
+        : "YOU ARE INVITED";
+
+  const decoration =
+    kind === "storybook"
+      ? `
+        <path d="M28 28h1144v574H28z" fill="none" stroke="${accent}" stroke-opacity=".55" stroke-width="3" stroke-dasharray="3 10"/>
+        <path d="M52 52h1096v526H52z" fill="none" stroke="${surface}" stroke-width="2"/>
+        <circle cx="1120" cy="88" r="46" fill="${surface}" fill-opacity=".48"/>
+        <path d="M1087 88h66M1120 55v66" stroke="${accent}" stroke-opacity=".32" stroke-width="2"/>
+      `
+      : kind === "garden"
+        ? `
+          <path d="M25 26h1150v578H25z" fill="none" stroke="${accent}" stroke-opacity=".48" stroke-width="2"/>
+          <path d="M66 554c65-94 109-156 188-211M97 500c-4-38 9-66 43-87M142 454c33-5 58 5 77 31M1095 85c-54 35-91 78-120 137M1059 113c-34 0-57 14-70 43M1026 160c10 30 29 49 57 58" fill="none" stroke="${accent}" stroke-linecap="round" stroke-width="5" opacity=".44"/>
+          <circle cx="141" cy="420" r="10" fill="${accent}" opacity=".34"/>
+          <circle cx="1001" cy="154" r="9" fill="${accent}" opacity=".34"/>
+        `
+        : `<path d="M32 32h1136v566H32z" fill="none" stroke="${accent}" stroke-opacity=".5" stroke-width="3"/>`;
+
+  const photoFrame = hasPhoto
+    ? photoOnLeft
+      ? `
+        <rect x="60" y="58" width="520" height="514" rx="5" fill="none" stroke="${accent}" stroke-opacity=".35" stroke-width="2"/>
+        <path d="M68 98h42V66M530 66v32h42M68 532h42v32M530 564v-32h42" fill="none" stroke="${accent}" stroke-width="5" opacity=".55"/>
+      `
+      : `
+        <rect x="660" y="62" width="474" height="506" fill="none" stroke="${accent}" stroke-opacity=".44" stroke-width="3"/>
+        <path d="M686 88h422v454H686z" fill="none" stroke="${accent}" stroke-opacity=".25" stroke-width="2"/>
+      `
+    : `<rect x="88" y="76" width="1024" height="478" rx="4" fill="${surface}" fill-opacity=".42" stroke="${accent}" stroke-opacity=".3"/>`;
+
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${SOCIAL_WIDTH}" height="${SOCIAL_HEIGHT}">
+    ${decoration}
+    ${photoFrame}
+    <text x="${textX}" y="${hasPhoto ? 150 : 154}" fill="${accent}" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">${eventLabel}</text>
+    ${textBlock(titleLines, {
+      fill: text,
+      fontFamily: "Georgia, serif",
+      fontSize: hasPhoto ? 66 : 76,
+      fontWeight: 600,
+      lineHeight: hasPhoto ? 76 : 86,
+      x: textX,
+      y: titleY,
+    })}
+    ${textBlock(subtitleLines, {
+      fill: text,
+      fontFamily: "Arial, sans-serif",
+      fontSize: 25,
+      fontWeight: 400,
+      lineHeight: 36,
+      x: textX,
+      y: subtitleY,
+    })}
+    <text x="${textX}" y="${hasPhoto ? 518 : 520}" fill="${accent}" font-family="Arial, sans-serif" font-size="23" font-weight="700">${escapeXml(date)}</text>
+    <text x="${textX}" y="560" fill="${text}" fill-opacity=".72" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="4">INVITICA</text>
+  </svg>`);
+}
+
+export async function createPublicationSocialPreview(
+  snapshot: PublicationSnapshot,
+  store: PublicationSocialPreviewStore,
+): Promise<PublicationSocialPreview> {
+  try {
+    const source = await heroImage(snapshot, store);
+    const photoOnLeft = templateKind(snapshot.rendererKey) === "storybook";
+    const photo = source
+      ? await sharp(source)
+          .resize({
+            background: snapshot.document.theme.colors.surface,
+            fit: "contain",
+            height: photoOnLeft ? 474 : 454,
+            width: photoOnLeft ? 480 : 422,
+          })
+          .jpeg({ quality: 88 })
+          .toBuffer()
+      : null;
+    const overlay = cardOverlay(snapshot, Boolean(photo));
+    const output = await sharp({
+      create: {
+        background: snapshot.document.theme.colors.background,
+        channels: 4,
+        height: SOCIAL_HEIGHT,
+        width: SOCIAL_WIDTH,
+      },
+    })
+      .composite([
+        ...(photo
+          ? [
+              {
+                input: photo,
+                left: photoOnLeft ? 80 : 686,
+                top: photoOnLeft ? 78 : 88,
+              },
+            ]
+          : []),
+        { input: overlay, left: 0, top: 0 },
+      ])
+      .jpeg({ chromaSubsampling: "4:4:4", mozjpeg: true, quality: 88 })
+      .toBuffer();
+
+    if (output.byteLength > MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES) {
+      throw new PublicationSocialPreviewError();
+    }
+
+    const sha256 = createHash("sha256").update(output).digest("hex");
+    const objectKey = publicationSocialPreviewObjectKey(sha256);
+    await store.putBinaryIfAbsent(objectKey, output, {
+      cacheControl: IMMUTABLE_CACHE_CONTROL,
+      contentType: "image/jpeg",
+    });
+
+    return publicationSocialPreviewSchema.parse({
+      byteLength: output.byteLength,
+      contentType: "image/jpeg",
+      height: SOCIAL_HEIGHT,
+      objectKey,
+      sha256,
+      width: SOCIAL_WIDTH,
+    });
+  } catch (error) {
+    if (error instanceof PublicationSocialPreviewError) throw error;
+    throw new PublicationSocialPreviewError();
+  }
+}

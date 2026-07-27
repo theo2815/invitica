@@ -7,7 +7,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist/client",
-    "run_worker_first": ["/i/*", "/m/*"]
+    "run_worker_first": ["/i/*", "/m/*", "/s/*"]
   },
   "r2_buckets": [
     {
@@ -28,7 +28,8 @@
   // blanks every guest map. Deploy through `pnpm --filter @invitica/viewer deploy`, which supplies
   // the key from the environment and refuses to deploy without it. Never bare `wrangler deploy`.
   "vars": {
-    "MAPTILER_KEY": ""
+    "MAPTILER_KEY": "",
+    "PUBLIC_INVITATION_ORIGIN": "https://invitica.app"
   },
   "env": {
     "production": {
@@ -40,7 +41,8 @@
         }
       ],
       "vars": {
-        "MAPTILER_KEY": ""
+        "MAPTILER_KEY": "",
+        "PUBLIC_INVITATION_ORIGIN": "https://invitica.app"
       }
     }
   }

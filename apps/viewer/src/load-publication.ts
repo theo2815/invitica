@@ -142,9 +142,12 @@ export async function loadActivePublication(
       ctx,
     );
     const alias = parsePublicationAlias(parseJson(aliasText));
-    const expectedArtifactKey = publicationArtifactKey(alias.publicationId);
+    const expectedArtifactKeys = [
+      publicationArtifactKey(alias.publicationId, 1),
+      publicationArtifactKey(alias.publicationId, 2),
+    ];
 
-    if (alias.artifactKey !== expectedArtifactKey) {
+    if (!expectedArtifactKeys.includes(alias.artifactKey)) {
       throw new PublicationUnavailableError();
     }
 
@@ -164,7 +167,10 @@ export async function loadActivePublication(
 
     const artifact = parsePublicationArtifact(parseJson(artifactText));
 
-    if (artifact.publicationId !== alias.publicationId) {
+    if (
+      artifact.publicationId !== alias.publicationId ||
+      alias.artifactKey !== publicationArtifactKey(artifact.publicationId, artifact.artifactVersion)
+    ) {
       throw new PublicationUnavailableError();
     }
 

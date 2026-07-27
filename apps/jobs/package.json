@@ -13,6 +13,7 @@
     "@invitica/invitation-schema": "workspace:*",
     "@supabase/supabase-js": "2.105.3",
     "@trigger.dev/sdk": "4.5.4",
+    "sharp": "0.34.5",
     "zod": "catalog:"
   },
   "devDependencies": {

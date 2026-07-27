@@ -9,9 +9,12 @@ import { ensurePersonalWorkspace, requireConfirmedUser } from "../auth/session";
 import {
   buildPersonalizedInvitationUrl,
   createGuestPartiesBulk,
+  type GuestPartyPage,
+  type GuestPartyResponseFilter,
   GuestPersistenceError,
   getRecoverableGuestLink,
   listGuestParties,
+  listGuestPartyPage,
   listTrashedGuestParties,
   loadDeliveredGuestInvitation,
   recordGuestInvitationCopy,
@@ -75,6 +78,19 @@ const updateGuestPartySchema = partyActionSchema
     }
   });
 const linkActionSchema = z.strictObject({ guestPartyId: uuidSchema, invitationId: uuidSchema });
+const guestPartyPageSchema = z.strictObject({
+  invitationId: uuidSchema,
+  offset: z.number().int().nonnegative().max(1000000),
+  query: z.string().trim().max(120),
+  responseFilter: z.enum([
+    "all",
+    "already-sent",
+    "attending",
+    "awaiting",
+    "declined",
+    "not-yet-sent",
+  ]),
+});
 
 export type CreateGuestPartiesActionResult =
   | { count: number; status: "created" }
@@ -102,6 +118,10 @@ export type GuestManagementActionResult =
   | { status: "restored" | "revoked" | "trashed" | "updated" }
   | { message: string; status: "error" };
 
+export type LoadGuestPartyPageActionResult =
+  | { page: GuestPartyPage; status: "ready" }
+  | { message: string; status: "error" };
+
 async function loadOwnedInvitationContext(invitationId: string): Promise<{
   genericUrl: string;
   invitationId: string;
@@ -118,6 +138,41 @@ async function loadOwnedInvitationContext(invitationId: string): Promise<{
 
 function requestHash(parties: z.infer<typeof guestPartyInputSchema>[]): string {
   return createHash("sha256").update(JSON.stringify(parties), "utf8").digest("hex");
+}
+
+export async function loadGuestPartyPageAction(
+  input: unknown,
+): Promise<LoadGuestPartyPageActionResult> {
+  const parsed = guestPartyPageSchema.safeParse(input);
+  if (!parsed.success) {
+    return { message: "This guest-page request is no longer valid.", status: "error" };
+  }
+
+  try {
+    const context = await loadOwnedInvitationContext(parsed.data.invitationId);
+    if (!context) {
+      return {
+        message: "This published invitation is unavailable. Refresh and try again.",
+        status: "error",
+      };
+    }
+    const page = await listGuestPartyPage(
+      context.supabase,
+      context.workspaceId,
+      context.invitationId,
+      {
+        offset: parsed.data.offset,
+        query: parsed.data.query,
+        responseFilter: parsed.data.responseFilter as GuestPartyResponseFilter,
+      },
+    );
+    return { page, status: "ready" };
+  } catch {
+    return {
+      message: "Invitica could not load more guest parties. Check your connection and try again.",
+      status: "error",
+    };
+  }
 }
 
 export async function createGuestPartiesAction(

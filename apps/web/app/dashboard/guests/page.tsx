@@ -2,7 +2,7 @@ import { GuestDesk } from "../../../src/components/guests/GuestDesk";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import {
   listDeliveredGuestInvitations,
-  listGuestParties,
+  listGuestPartyPage,
   listTrashedGuestParties,
 } from "../../../src/server/guests/guests";
 import {
@@ -34,12 +34,16 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const partyData =
     selectedInvitation && workspaceId
       ? await Promise.all([
-          listGuestParties(supabase, workspaceId, selectedInvitation.invitationId),
+          listGuestPartyPage(supabase, workspaceId, selectedInvitation.invitationId, {
+            offset: 0,
+            query: "",
+            responseFilter: "all",
+          }),
           listTrashedGuestParties(supabase, workspaceId, selectedInvitation.invitationId),
         ])
-      : [[], []];
-  const parties = partyData[0];
-  const trashedParties = partyData[1];
+      : null;
+  const partyPage = partyData?.[0] ?? { hasMore: false, nextOffset: 0, parties: [] };
+  const trashedParties = partyData?.[1] ?? [];
 
   return (
     <>
@@ -67,7 +71,9 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
         <>
           <GuestDesk
             invitations={invitations}
-            parties={parties}
+            hasMoreParties={partyPage.hasMore}
+            nextPartyOffset={partyPage.nextOffset}
+            parties={partyPage.parties}
             resultSummary={
               selectedInvitation
                 ? (resultSummaries[selectedInvitation.invitationId] ??

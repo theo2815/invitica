@@ -7,7 +7,7 @@ import GuestsPage from "../app/dashboard/guests/page";
 import { ensurePersonalWorkspace } from "../src/server/auth/session";
 import {
   listDeliveredGuestInvitations,
-  listGuestParties,
+  listGuestPartyPage,
   listTrashedGuestParties,
 } from "../src/server/guests/guests";
 import { listInvitationResultSummaries } from "../src/server/guests/results";
@@ -23,7 +23,7 @@ vi.mock("../src/server/auth/actions", () => ({ signOut: vi.fn() }));
 vi.mock("../src/server/auth/session", () => ({ ensurePersonalWorkspace: vi.fn() }));
 vi.mock("../src/server/guests/guests", () => ({
   listDeliveredGuestInvitations: vi.fn(),
-  listGuestParties: vi.fn(),
+  listGuestPartyPage: vi.fn(),
   listTrashedGuestParties: vi.fn(),
 }));
 vi.mock("../src/server/guests/results", async () => {
@@ -35,6 +35,7 @@ vi.mock("../src/server/guests/results", async () => {
 vi.mock("../src/server/guests/actions", () => ({
   copyGuestInvitationAction: vi.fn(),
   createGuestPartiesAction: vi.fn(),
+  loadGuestPartyPageAction: vi.fn(),
   replaceGuestPartyLinkAction: vi.fn(),
   restoreGuestPartyAction: vi.fn(),
   revokeGuestPartyLinkAction: vi.fn(),
@@ -47,7 +48,11 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listDeliveredGuestInvitations).mockResolvedValue([]);
-  vi.mocked(listGuestParties).mockResolvedValue([]);
+  vi.mocked(listGuestPartyPage).mockResolvedValue({
+    hasMore: false,
+    nextOffset: 0,
+    parties: [],
+  });
   vi.mocked(listTrashedGuestParties).mockResolvedValue([]);
   vi.mocked(listInvitationResultSummaries).mockResolvedValue({});
 });
@@ -116,10 +121,15 @@ describe("guests and RSVPs page", () => {
     expect(screen.getByText("Approximate page loads").previousElementSibling?.textContent).toBe(
       "9",
     );
-    expect(listGuestParties).toHaveBeenCalledWith(
+    expect(listGuestPartyPage).toHaveBeenCalledWith(
       {},
       "71000000-0000-4000-8000-000000000001",
       invitationId,
+      {
+        offset: 0,
+        query: "",
+        responseFilter: "all",
+      },
     );
     expect(listTrashedGuestParties).toHaveBeenCalledWith(
       {},

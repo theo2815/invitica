@@ -5,6 +5,7 @@ import { GuestDesk } from "../src/components/guests/GuestDesk";
 import {
   copyGuestInvitationAction,
   createGuestPartiesAction,
+  loadGuestPartyPageAction,
   prepareGuestInvitationCopiesAction,
   recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
@@ -23,6 +24,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("../src/server/guests/actions", () => ({
   copyGuestInvitationAction: vi.fn(),
   createGuestPartiesAction: vi.fn(),
+  loadGuestPartyPageAction: vi.fn(),
   prepareGuestInvitationCopiesAction: vi.fn(),
   recordGuestInvitationCopyAction: vi.fn(),
   replaceGuestPartyLinkAction: vi.fn(),
@@ -75,10 +77,16 @@ function party(overrides: Partial<GuestPartySummary> = {}): GuestPartySummary {
 function renderDesk(
   parties: readonly GuestPartySummary[] = [],
   trashedParties: readonly GuestPartySummary[] = [],
+  pagination: { hasMore: boolean; nextOffset: number } = {
+    hasMore: false,
+    nextOffset: parties.length,
+  },
 ) {
   return render(
     <GuestDesk
+      hasMoreParties={pagination.hasMore}
       invitations={[invitation]}
+      nextPartyOffset={pagination.nextOffset}
       parties={parties}
       resultSummary={{
         ...resultSummary,
@@ -97,6 +105,10 @@ beforeEach(() => {
   // path override this with a populated result.
   vi.mocked(prepareGuestInvitationCopiesAction).mockResolvedValue({
     copies: [],
+    status: "ready",
+  });
+  vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+    page: { hasMore: false, nextOffset: 0, parties: [] },
     status: "ready",
   });
   vi.mocked(recordGuestInvitationCopyAction).mockResolvedValue({ status: "ignored" });
@@ -315,7 +327,9 @@ describe("GuestDesk", () => {
 
     view.rerender(
       <GuestDesk
+        hasMoreParties={false}
         invitations={[invitation]}
+        nextPartyOffset={0}
         parties={[]}
         resultSummary={resultSummary}
         selectedInvitation={invitation}
@@ -572,41 +586,52 @@ describe("GuestDesk", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false);
   });
 
-  it("keeps search and response filtering on the real party ledger", () => {
-    renderDesk([
-      party({
-        response: {
-          attendance: "attending",
-          attendeeCount: 2,
-          message: "We are delighted to celebrate.",
-          updatedAt: "2026-07-23T04:00:00+00:00",
-        },
-      }),
-      party({
-        guestMembers: [],
-        id: "73000000-0000-4000-8000-000000000002",
-        internalLabel: "Reyes couple",
-        recipientName: "Ana and Miguel",
-      }),
-    ]);
+  it("keeps response filtering on the complete server-side ledger", async () => {
+    const attendingParty = party({
+      response: {
+        attendance: "attending",
+        attendeeCount: 2,
+        message: "We are delighted to celebrate.",
+        updatedAt: "2026-07-23T04:00:00+00:00",
+      },
+    });
+    const awaitingParty = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000002",
+      internalLabel: "Reyes couple",
+      recipientName: "Ana and Miguel",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+      page: { hasMore: false, nextOffset: 1, parties: [attendingParty] },
+      status: "ready",
+    });
+    renderDesk([attendingParty, awaitingParty]);
 
     fireEvent.click(screen.getByRole("combobox", { name: /Response/ }));
     fireEvent.click(screen.getByRole("option", { name: "Attending" }));
+    await waitFor(() =>
+      expect(loadGuestPartyPageAction).toHaveBeenCalledWith({
+        invitationId: invitation.invitationId,
+        offset: 0,
+        query: "",
+        responseFilter: "attending",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("Reyes couple")).toBeNull());
     expect(screen.getByText("Santos household")).toBeDefined();
-    expect(screen.queryByText("Reyes couple")).toBeNull();
   });
 
-  it("lists parties that still need sending before parties already sent", () => {
+  it("renders the whole-result order returned by the server", () => {
     renderDesk([
-      party({
-        internalLabel: "Abella family",
-        markedSentAt: "2026-07-26T10:00:00+08:00",
-      }),
       party({
         guestMembers: [],
         id: "73000000-0000-4000-8000-000000000002",
         internalLabel: "Zulueta couple",
         recipientName: "Ana and Miguel",
+      }),
+      party({
+        internalLabel: "Abella family",
+        markedSentAt: "2026-07-26T10:00:00+08:00",
       }),
     ]);
 
@@ -617,27 +642,94 @@ describe("GuestDesk", () => {
     expect(within(rows[1] as HTMLElement).getByText("Abella family")).toBeDefined();
   });
 
-  it("filters parties by whether their invitation was sent", () => {
-    renderDesk([
-      party(),
-      party({
-        guestMembers: [],
-        id: "73000000-0000-4000-8000-000000000002",
-        internalLabel: "Reyes couple",
-        markedSentAt: "2026-07-26T10:00:00+08:00",
-        recipientName: "Ana and Miguel",
-      }),
-    ]);
+  it("filters parties by sent status across the complete server-side ledger", async () => {
+    const unsentParty = party();
+    const sentParty = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000002",
+      internalLabel: "Reyes couple",
+      markedSentAt: "2026-07-26T10:00:00+08:00",
+      recipientName: "Ana and Miguel",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockImplementation(async (input) => ({
+      page: {
+        hasMore: false,
+        nextOffset: 1,
+        parties:
+          (input as { responseFilter: string }).responseFilter === "already-sent"
+            ? [sentParty]
+            : [unsentParty],
+      },
+      status: "ready",
+    }));
+    renderDesk([unsentParty, sentParty]);
 
     const responseFilter = screen.getByRole("combobox", { name: /Response/ });
     fireEvent.click(responseFilter);
     fireEvent.click(screen.getByRole("option", { name: "Not Yet Sent" }));
+    await waitFor(() => expect(screen.queryByText("Reyes couple")).toBeNull());
     expect(screen.getByText("Santos household")).toBeDefined();
-    expect(screen.queryByText("Reyes couple")).toBeNull();
 
     fireEvent.click(responseFilter);
     fireEvent.click(screen.getByRole("option", { name: "Already Sent" }));
-    expect(screen.queryByText("Santos household")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Santos household")).toBeNull());
     expect(screen.getByText("Reyes couple")).toBeDefined();
+  });
+
+  it("loads the next server page without refreshing and hides the action at the end", async () => {
+    const nextParty = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000002",
+      internalLabel: "Reyes couple",
+      recipientName: "Ana and Miguel",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+      page: { hasMore: false, nextOffset: 21, parties: [nextParty] },
+      status: "ready",
+    });
+    renderDesk([party()], [], { hasMore: true, nextOffset: 20 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Load More" }));
+
+    await waitFor(() =>
+      expect(loadGuestPartyPageAction).toHaveBeenCalledWith({
+        invitationId: invitation.invitationId,
+        offset: 20,
+        query: "",
+        responseFilter: "all",
+      }),
+    );
+    expect(await screen.findByText("Reyes couple")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Load More" })).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("resets pagination when a search query changes", async () => {
+    const match = party({
+      guestMembers: [],
+      id: "73000000-0000-4000-8000-000000000003",
+      internalLabel: "Navarro family",
+      recipientName: "Celia Navarro",
+    });
+    vi.mocked(loadGuestPartyPageAction).mockResolvedValue({
+      page: { hasMore: false, nextOffset: 1, parties: [match] },
+      status: "ready",
+    });
+    renderDesk([party()], [], { hasMore: true, nextOffset: 20 });
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search parties or guests" }), {
+      target: { value: "Navarro" },
+    });
+
+    await waitFor(() =>
+      expect(loadGuestPartyPageAction).toHaveBeenCalledWith({
+        invitationId: invitation.invitationId,
+        offset: 0,
+        query: "Navarro",
+        responseFilter: "all",
+      }),
+    );
+    expect(await screen.findByText("Navarro family")).toBeDefined();
+    expect(screen.queryByText("Santos household")).toBeNull();
   });
 });

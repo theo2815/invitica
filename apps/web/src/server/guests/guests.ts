@@ -43,6 +43,19 @@ const guestRsvpRowSchema = z.strictObject({
   message: z.string().trim().min(1).max(500).nullable(),
   updated_at: z.string().datetime({ offset: true }),
 });
+const guestPartyPageRowSchema = guestPartySchema.extend({
+  guest_members: z.array(
+    z.strictObject({
+      id: uuidSchema,
+      name: z.string().trim().min(1).max(120),
+    }),
+  ),
+  link_status: z.enum(["active", "revoked"]),
+  response_attendance: z.enum(["attending", "declined"]).nullable(),
+  response_attendee_count: z.number().int().min(0).max(50).nullable(),
+  response_message: z.string().trim().min(1).max(500).nullable(),
+  response_updated_at: z.string().datetime({ offset: true }).nullable(),
+});
 const resolvedGuestSchema = z.strictObject({ recipient_name: z.string().trim().min(1).max(120) });
 const recoverableGuestLinkSchema = z.strictObject({
   encryption_key_version: z.number().int().positive(),
@@ -82,6 +95,22 @@ export interface GuestPartySummary {
     readonly updatedAt: string;
   } | null;
 }
+
+export type GuestPartyResponseFilter =
+  | "all"
+  | "already-sent"
+  | "attending"
+  | "awaiting"
+  | "declined"
+  | "not-yet-sent";
+
+export interface GuestPartyPage {
+  readonly hasMore: boolean;
+  readonly nextOffset: number;
+  readonly parties: readonly GuestPartySummary[];
+}
+
+export const GUEST_PARTY_PAGE_SIZE = 20;
 
 export class GuestPersistenceError extends Error {
   constructor() {
@@ -373,6 +402,72 @@ export async function listGuestParties(
   invitationId: string,
 ): Promise<GuestPartySummary[]> {
   return listGuestPartiesByArchiveState(supabase, workspaceId, invitationId, false);
+}
+
+export async function listGuestPartyPage(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  invitationId: string,
+  input: {
+    offset: number;
+    query: string;
+    responseFilter: GuestPartyResponseFilter;
+  },
+): Promise<GuestPartyPage> {
+  uuidSchema.parse(workspaceId);
+  const parsedInvitationId = uuidSchema.parse(invitationId);
+  const offset = z.number().int().nonnegative().max(1000000).parse(input.offset);
+  const query = z.string().trim().max(120).parse(input.query);
+  const responseFilter = z
+    .enum(["all", "already-sent", "attending", "awaiting", "declined", "not-yet-sent"])
+    .parse(input.responseFilter);
+  const { data, error } = await supabase.rpc("list_guest_parties_page", {
+    p_invitation_id: parsedInvitationId,
+    p_limit: GUEST_PARTY_PAGE_SIZE + 1,
+    p_offset: offset,
+    p_response_filter: responseFilter,
+    p_search: query,
+  });
+
+  if (error) {
+    logGuestReadFailure("list_guest_parties_page", error, {
+      invitationId: parsedInvitationId,
+    });
+    throw new GuestPersistenceError();
+  }
+
+  const rows = z.array(guestPartyPageRowSchema).parse(data ?? []);
+  const visibleRows = rows.slice(0, GUEST_PARTY_PAGE_SIZE);
+  return {
+    hasMore: rows.length > GUEST_PARTY_PAGE_SIZE,
+    nextOffset: offset + visibleRows.length,
+    parties: visibleRows.map((party) => ({
+      archivedAt: party.archived_at,
+      capacity: party.capacity,
+      copyCount: party.copy_count,
+      createdAt: party.created_at,
+      firstCopiedAt: party.first_copied_at,
+      guestMembers: party.guest_members,
+      id: party.id,
+      internalLabel: party.internal_label,
+      lastCopiedAt: party.last_copied_at,
+      linkStatus: party.link_status,
+      markedSentAt: party.marked_sent_at,
+      recipientName: party.recipient_name,
+      revision: party.revision,
+      response:
+        party.response_attendance &&
+        party.response_attendee_count !== null &&
+        party.response_updated_at
+          ? {
+              attendance: party.response_attendance,
+              attendeeCount: party.response_attendee_count,
+              message: party.response_message,
+              updatedAt: party.response_updated_at,
+            }
+          : null,
+    })),
+  };
 }
 
 export async function listTrashedGuestParties(

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import {
   copyGuestInvitationAction,
+  loadGuestPartyPageAction,
   prepareGuestInvitationCopiesAction,
   recordGuestInvitationCopyAction,
   replaceGuestPartyLinkAction,
@@ -14,7 +15,11 @@ import {
   setGuestInvitationSentAction,
   trashGuestPartyAction,
 } from "../../server/guests/actions";
-import type { GuestInvitationSummary, GuestPartySummary } from "../../server/guests/guests";
+import type {
+  GuestInvitationSummary,
+  GuestPartyResponseFilter,
+  GuestPartySummary,
+} from "../../server/guests/guests";
 import type { InvitationResultSummary } from "../../server/guests/results";
 import { buildGeneralInvitationMessage } from "../../server/guests/sharing";
 import { Select } from "../forms/Select";
@@ -24,7 +29,9 @@ import styles from "./GuestDesk.module.css";
 import { GuestPartyEditor } from "./GuestPartyEditor";
 
 interface GuestDeskProps {
+  hasMoreParties: boolean;
   invitations: readonly GuestInvitationSummary[];
+  nextPartyOffset: number;
   parties: readonly GuestPartySummary[];
   resultSummary: InvitationResultSummary | null;
   selectedInvitation: GuestInvitationSummary | null;
@@ -43,14 +50,6 @@ type CopyFallback = { label: string; text: string } | null;
 
 /** Ready-to-send message per guest party, resolved before the creator clicks Copy. */
 type PreparedCopies = ReadonlyMap<string, { copyText: string; personalizedUrl: string }>;
-
-type ResponseFilter =
-  | "all"
-  | "already-sent"
-  | "attending"
-  | "awaiting"
-  | "declined"
-  | "not-yet-sent";
 
 function responseState(party: GuestPartySummary): "attending" | "awaiting" | "declined" {
   return party.response?.attendance ?? "awaiting";
@@ -118,7 +117,9 @@ function confirmationPendingLabel(confirmation: Exclude<Confirmation, null>): st
 }
 
 export function GuestDesk({
+  hasMoreParties,
   invitations,
+  nextPartyOffset,
   parties,
   resultSummary,
   selectedInvitation,
@@ -143,14 +144,109 @@ export function GuestDesk({
   const [restoringPartyId, setRestoringPartyId] = useState<string | null>(null);
   const [openPartyMenuId, setOpenPartyMenuId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [responseFilter, setResponseFilter] = useState<ResponseFilter>("all");
+  const [responseFilter, setResponseFilter] = useState<GuestPartyResponseFilter>("all");
+  const [loadedParties, setLoadedParties] = useState<readonly GuestPartySummary[]>(parties);
+  const [hasMore, setHasMore] = useState(hasMoreParties);
+  const [nextOffset, setNextOffset] = useState(nextPartyOffset);
+  const [isPagePending, setIsPagePending] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const fallbackRef = useRef<HTMLTextAreaElement>(null);
   const ledgerHeadingRef = useRef<HTMLHeadingElement>(null);
   const openPartyMenuRef = useRef<HTMLDivElement>(null);
   const partyMenuButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pageRequestIdRef = useRef(0);
+  const previousInvitationIdRef = useRef(selectedInvitation?.invitationId ?? null);
+  const skippedInitialCriteriaRequestRef = useRef(false);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  const requestGuestPage = useCallback(
+    async (offset: number, append: boolean) => {
+      if (!selectedInvitation) return;
+
+      const requestId = pageRequestIdRef.current + 1;
+      pageRequestIdRef.current = requestId;
+      setIsPagePending(true);
+      setPageError(null);
+      if (!append) {
+        setHasMore(false);
+        setNextOffset(0);
+      }
+
+      try {
+        const result = await loadGuestPartyPageAction({
+          invitationId: selectedInvitation.invitationId,
+          offset,
+          query,
+          responseFilter,
+        });
+        if (pageRequestIdRef.current !== requestId) return;
+        if (result.status === "error") {
+          setPageError(result.message);
+          return;
+        }
+
+        setLoadedParties((current) => {
+          if (!append) return result.page.parties;
+          const knownIds = new Set(current.map((party) => party.id));
+          return [...current, ...result.page.parties.filter((party) => !knownIds.has(party.id))];
+        });
+        setHasMore(result.page.hasMore);
+        setNextOffset(result.page.nextOffset);
+      } catch {
+        if (pageRequestIdRef.current === requestId) {
+          setPageError(
+            "Invitica could not load more guest parties. Check your connection and try again.",
+          );
+        }
+      } finally {
+        if (pageRequestIdRef.current === requestId) setIsPagePending(false);
+      }
+    },
+    [query, responseFilter, selectedInvitation],
+  );
+
+  useEffect(() => {
+    const invitationId = selectedInvitation?.invitationId ?? null;
+    if (previousInvitationIdRef.current !== invitationId) {
+      previousInvitationIdRef.current = invitationId;
+      pageRequestIdRef.current += 1;
+      setQuery("");
+      setResponseFilter("all");
+      setLoadedParties(parties);
+      setHasMore(hasMoreParties);
+      setNextOffset(nextPartyOffset);
+      setPageError(null);
+      setIsPagePending(false);
+      return;
+    }
+    if (query === "" && responseFilter === "all") {
+      setLoadedParties(parties);
+      setHasMore(hasMoreParties);
+      setNextOffset(nextPartyOffset);
+    }
+  }, [
+    hasMoreParties,
+    nextPartyOffset,
+    parties,
+    query,
+    responseFilter,
+    selectedInvitation?.invitationId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedInvitation) return;
+    if (!skippedInitialCriteriaRequestRef.current) {
+      skippedInitialCriteriaRequestRef.current = true;
+      return;
+    }
+    const timeout = window.setTimeout(
+      () => void requestGuestPage(0, false),
+      query.trim() ? 300 : 0,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [query, requestGuestPage, selectedInvitation]);
 
   useEffect(() => {
     if (!confirmation) return;
@@ -263,7 +359,7 @@ export function GuestDesk({
   }
 
   const invitationId = selectedInvitation?.invitationId;
-  const activePartyIds = parties
+  const activePartyIds = loadedParties
     .filter((party) => party.linkStatus === "active")
     .map((party) => party.id)
     .join(",");
@@ -372,6 +468,7 @@ export function GuestDesk({
   function refreshDesk() {
     setOpenPartyMenuId(null);
     startRefreshing(() => router.refresh());
+    void requestGuestPage(0, false);
   }
 
   async function toggleSent(party: GuestPartySummary, sent: boolean) {
@@ -528,34 +625,13 @@ export function GuestDesk({
     }
   }
 
-  const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
-  const filteredParties = parties
-    .filter((party) => {
-      const matchesResponse =
-        responseFilter === "all" ||
-        (responseFilter === "not-yet-sent" && party.markedSentAt === null) ||
-        (responseFilter === "already-sent" && party.markedSentAt !== null) ||
-        responseState(party) === responseFilter;
-      if (!matchesResponse) return false;
-      if (!normalizedQuery) return true;
-      return [
-        party.internalLabel,
-        party.recipientName,
-        ...party.guestMembers.map(({ name }) => name),
-      ].some((value) => value.toLocaleLowerCase("en-PH").includes(normalizedQuery));
-    })
-    .sort((left, right) => {
-      const sentOrder = Number(left.markedSentAt !== null) - Number(right.markedSentAt !== null);
-      const responseOrder =
-        Date.parse(right.response?.updatedAt ?? "1970-01-01") -
-        Date.parse(left.response?.updatedAt ?? "1970-01-01");
-      return (
-        sentOrder || responseOrder || left.internalLabel.localeCompare(right.internalLabel, "en-PH")
-      );
-    });
+  const visibleParties = loadedParties;
 
   return (
-    <div aria-busy={isSelecting || isRefreshing || undefined} className={styles.desk}>
+    <div
+      aria-busy={isSelecting || isRefreshing || isPagePending || undefined}
+      className={styles.desk}
+    >
       <section aria-labelledby="invitation-context-heading" className={styles.context}>
         <div>
           <p className={styles.eyebrow}>Invitation context</p>
@@ -758,6 +834,7 @@ export function GuestDesk({
                   <label>
                     <span>Search parties or guests</span>
                     <input
+                      maxLength={120}
                       onChange={(event) => setQuery(event.currentTarget.value)}
                       placeholder="Search the guest ledger"
                       type="search"
@@ -768,7 +845,9 @@ export function GuestDesk({
                     className={styles.responseFilter}
                     id="guest-response-filter"
                     label="Response"
-                    onChange={(nextValue) => setResponseFilter(nextValue as typeof responseFilter)}
+                    onChange={(nextValue) =>
+                      setResponseFilter(nextValue as GuestPartyResponseFilter)
+                    }
                     options={[
                       { label: "All responses", value: "all" },
                       { label: "Not Yet Sent", value: "not-yet-sent" },
@@ -781,10 +860,16 @@ export function GuestDesk({
                   />
                 </div>
 
-                {filteredParties.length === 0 ? (
+                {visibleParties.length === 0 ? (
                   <div className={styles.filteredEmpty} role="status">
-                    <h3>No matching guest parties</h3>
-                    <p>Try a different search or response filter.</p>
+                    <h3>
+                      {isPagePending ? "Finding guest parties..." : "No matching guest parties"}
+                    </h3>
+                    <p>
+                      {isPagePending
+                        ? "Searching the complete guest ledger."
+                        : "Try a different search or response filter."}
+                    </p>
                   </div>
                 ) : (
                   <div className={styles.tableFrame}>
@@ -799,7 +884,7 @@ export function GuestDesk({
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredParties.map((party) => (
+                        {visibleParties.map((party) => (
                           <tr data-pending={copyingPartyId === party.id} key={party.id}>
                             <td data-label="Party">
                               <div className={styles.partyIdentity}>
@@ -1036,8 +1121,25 @@ export function GuestDesk({
                         ))}
                       </tbody>
                     </table>
+                    {hasMore ? (
+                      <div className={styles.pagination}>
+                        <button
+                          className={styles.loadMoreAction}
+                          disabled={isPagePending}
+                          onClick={() => void requestGuestPage(nextOffset, true)}
+                          type="button"
+                        >
+                          {isPagePending ? "Loading more..." : "Load More"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 )}
+                {pageError ? (
+                  <p className={styles.paginationError} role="status">
+                    {pageError}
+                  </p>
+                ) : null}
               </>
             )}
           </section>

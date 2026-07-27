@@ -17,18 +17,26 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Every Invitica surface paints this cream, but each did so on its own root element, leaving
-   `html` and `body` transparent — which renders white. In a browser tab Safari's chrome hides
-   that; installed on a phone it is the strip behind the status bar and the rubber-band overscroll
-   area, so the app appeared to sit in a white frame it never intended. */
-html,
-body {
-  background: #f7f3eb;
-}
+/* Every Invitica surface paints this cream, but each did so on its own root element, leaving the
+   document transparent — which renders white. In a browser tab Safari's chrome hides that;
+   installed on a phone it is the strip behind the status bar and the rubber-band overscroll area,
+   so the app appeared to sit in a white frame it never intended.
 
+   Declared on `body` alone, with no `html` background, so it propagates to the canvas and covers
+   the whole screen rather than only body's box. */
 body {
   margin: 0;
   min-width: 320px;
+  background: #f7f3eb;
+}
+
+/* The creator shell's header is `--surface`, a shade lighter than the cream above. iOS fills the
+   status-bar strip from the document background rather than from the header element, so the two
+   disagreed and a seam ran across the top of the installed app. Raising the document to the same
+   `--surface` while that shell is mounted makes the strip and the header read as one bar. Scoped
+   rather than global: the landing and auth surfaces have no such header and stay cream. */
+body:has([data-surface="creator"]) {
+  background: #fffdf8;
 }
 
 button,

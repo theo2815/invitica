@@ -1,3 +1,4 @@
+import { additionalFiles } from "@trigger.dev/build/extensions/core";
 import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
@@ -5,8 +6,14 @@ export default defineConfig({
   dirs: ["./src/trigger"],
   runtime: "node-22",
   maxDuration: 300,
+  legacyDevProcessCwdBehaviour: false,
   build: {
     external: ["sharp"],
+    extensions: [
+      additionalFiles({
+        files: ["./assets/fonts/**"],
+      }),
+    ],
   },
   retries: {
     enabledInDev: true,

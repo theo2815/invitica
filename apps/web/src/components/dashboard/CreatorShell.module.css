@@ -152,7 +152,16 @@
   /* Installed, the app paints edge to edge, so this header owns the status-bar strip: its own
      background runs to the top of the screen and the inset becomes padding above the control row.
      The row itself drops from 4.25rem to 3.5rem — still a 56px touch target, but the old height
-     stacked on top of the inset read as a large empty band before any content. */
+     stacked on top of the inset read as a large empty band before any content.
+
+     iOS fills the status-bar strip from the document background, so `globals.css` raises the
+     document to this same `--surface` while the creator shell is on screen. Both must agree or a
+     seam runs across the top of the installed app.
+
+     Opaque, unlike the bottom navigation's translucent glass. The navigation can stay translucent
+     because it paints its own safe-area strip, so bar and strip are one element and can never
+     disagree. Here the strip belongs to the document, so any translucency would let scrolling
+     content tint the header away from it and reopen the seam mid-scroll. */
   .mobileHeader {
     position: sticky;
     z-index: 30;
@@ -164,9 +173,8 @@
     padding-top: env(safe-area-inset-top);
     padding-inline: max(1.25rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-right));
     border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    background: var(--surface);
     box-shadow: 0 0.5rem 1.5rem rgb(61 45 37 / 5%);
-    backdrop-filter: blur(12px);
   }
 
   .content {

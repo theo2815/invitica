@@ -43,12 +43,7 @@ interface GuestDeskProps {
 
 type Confirmation = { kind: "replace" | "revoke" | "trash"; party: GuestPartySummary } | null;
 
-/**
- * Sharing hands the message to the platform sheet; copying puts it on the clipboard. Both stay
- * available wherever a share sheet exists, because a creator may be pasting into something the
- * sheet does not offer — a note, a spreadsheet, an email draft.
- */
-type CopyMode = "copy" | "share";
+type CopyDeliveryOutcome = "delivered" | "failed";
 
 type CopyFeedback = {
   message: string;
@@ -64,6 +59,9 @@ type CopyFallback = { label: string; text: string } | null;
  * timer: they carry something the creator still has to act on.
  */
 const SUCCESS_FEEDBACK_MS = 5000;
+
+/** Avoid flashing a loading label for clipboard writes that settle within one short interaction beat. */
+const COPY_PENDING_DELAY_MS = 150;
 
 /** Ready-to-send message per guest party, resolved before the creator clicks Copy. */
 type PreparedCopies = ReadonlyMap<string, { copyText: string; personalizedUrl: string }>;
@@ -152,13 +150,9 @@ export function GuestDesk({
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [copyFallback, setCopyFallback] = useState<CopyFallback>(null);
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>(null);
+  // This state is visual feedback only. A ref below owns the immediate concurrency lock so a
+  // clipboard write can settle without painting an unnecessary loading state.
   const [copyingPartyId, setCopyingPartyId] = useState<string | null>(null);
-  // Detected after mount, never during render: `navigator` does not exist on the server, and
-  // branching the button label on it directly would produce a hydration mismatch.
-  const [canShare, setCanShare] = useState(false);
-  // Which of the two invitation actions is in flight, so only the button that was pressed
-  // reports "Sharing…"/"Copying…" and then "Shared"/"Copied".
-  const [copyActionMode, setCopyActionMode] = useState<CopyMode>("share");
   const [preparedCopies, setPreparedCopies] = useState<PreparedCopies>(() => new Map());
   const [sendingPartyId, setSendingPartyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -176,6 +170,8 @@ export function GuestDesk({
   const [isPagePending, setIsPagePending] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const copyOperationTargetRef = useRef<string | null>(null);
+  const copyPendingTimerRef = useRef<number | null>(null);
   const messageEditorButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const fallbackRef = useRef<HTMLTextAreaElement>(null);
@@ -324,10 +320,6 @@ export function GuestDesk({
     };
   }, [openPartyMenuId]);
 
-  useEffect(() => {
-    setCanShare(typeof navigator.share === "function" && typeof navigator.canShare === "function");
-  }, []);
-
   // Only a success expires. An error, and the manual-copy fallback beneath it, stay until the
   // creator acts again.
   useEffect(() => {
@@ -342,17 +334,44 @@ export function GuestDesk({
     return () => window.clearTimeout(timer);
   }, [shareMessageSaved]);
 
+  useEffect(
+    () => () => {
+      if (copyPendingTimerRef.current !== null) {
+        window.clearTimeout(copyPendingTimerRef.current);
+      }
+      copyOperationTargetRef.current = null;
+    },
+    [],
+  );
+
+  function startCopyOperation(target: string, showPendingImmediately = false): boolean {
+    if (copyOperationTargetRef.current !== null) return false;
+    copyOperationTargetRef.current = target;
+
+    if (showPendingImmediately) {
+      setCopyingPartyId(target);
+      return true;
+    }
+
+    copyPendingTimerRef.current = window.setTimeout(() => {
+      copyPendingTimerRef.current = null;
+      if (copyOperationTargetRef.current === target) setCopyingPartyId(target);
+    }, COPY_PENDING_DELAY_MS);
+    return true;
+  }
+
+  function finishCopyOperation(target: string) {
+    if (copyPendingTimerRef.current !== null) {
+      window.clearTimeout(copyPendingTimerRef.current);
+      copyPendingTimerRef.current = null;
+    }
+    if (copyOperationTargetRef.current === target) copyOperationTargetRef.current = null;
+    setCopyingPartyId((current) => (current === target ? null : current));
+  }
+
   const copySucceeded = useCallback((target: string) => {
     setCopyFeedback({
       message: "Invitation message copied. It is ready to paste into any messaging app.",
-      status: "success",
-      target,
-    });
-  }, []);
-
-  const shareSucceeded = useCallback((target: string) => {
-    setCopyFeedback({
-      message: "Invitation message shared.",
       status: "success",
       target,
     });
@@ -377,65 +396,48 @@ export function GuestDesk({
    * rejects the write, which is why copying used to land in the manual box on iOS.
    */
   const writeCopyNow = useCallback(
-    (text: string, target: string, fallbackLabel: string): Promise<void> => {
+    (text: string, target: string, fallbackLabel: string): Promise<CopyDeliveryOutcome> => {
       setCopyFeedback(null);
       setCopyFallback(null);
       if (!navigator.clipboard?.writeText) {
         copyFailed(text, target, fallbackLabel);
-        return Promise.resolve();
+        return Promise.resolve("failed");
       }
       try {
         return navigator.clipboard.writeText(text).then(
-          () => copySucceeded(target),
-          () => copyFailed(text, target, fallbackLabel),
+          () => {
+            copySucceeded(target);
+            return "delivered";
+          },
+          () => {
+            copyFailed(text, target, fallbackLabel);
+            return "failed";
+          },
         );
       } catch {
         copyFailed(text, target, fallbackLabel);
-        return Promise.resolve();
+        return Promise.resolve("failed");
       }
     },
     [copyFailed, copySucceeded],
   );
 
-  /**
-   * Opens the platform share sheet where one exists, which on a phone lands the message
-   * directly in Messenger or Viber instead of asking the creator to paste it. Called in the
-   * same task as the click for the same reason as `writeCopyNow`: WebKit rejects `share` and
-   * `writeText` alike once the user gesture has been spent on an await. Only `text` is passed,
-   * because a separate `url` is dropped or concatenated inconsistently across targets and the
-   * composed message already carries the link.
-   */
-  const shareOrCopyNow = useCallback(
-    (text: string, target: string, fallbackLabel: string): Promise<void> => {
-      if (!canShare) return writeCopyNow(text, target, fallbackLabel);
-      setCopyFeedback(null);
-      setCopyFallback(null);
-      try {
-        return navigator.share({ text }).then(
-          () => shareSucceeded(target),
-          (error: unknown) => {
-            // Dismissing the sheet is a decision, not a failure, and must not read as one.
-            if (error instanceof DOMException && error.name === "AbortError") return;
-            void writeCopyNow(text, target, fallbackLabel);
-          },
-        );
-      } catch {
-        return writeCopyNow(text, target, fallbackLabel);
-      }
-    },
-    [canShare, shareSucceeded, writeCopyNow],
-  );
-
   /** Used only when a copy was not prepared in advance; the gesture is already spent. */
-  async function writeCopyAfterAwait(text: string, target: string, fallbackLabel: string) {
+  async function writeCopyAfterAwait(
+    text: string,
+    target: string,
+    fallbackLabel: string,
+  ): Promise<CopyDeliveryOutcome> {
     setCopyFeedback(null);
     setCopyFallback(null);
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(text);
       copySucceeded(target);
+      return "delivered";
     } catch {
       copyFailed(text, target, fallbackLabel);
+      return "failed";
     }
   }
 
@@ -478,66 +480,59 @@ export function GuestDesk({
     return () => controller.abort();
   }, [activePartyIds, invitationId]);
 
-  /** Only the button that was actually pressed reports progress or success. */
-  function isBusy(target: string, mode: CopyMode): boolean {
-    return copyingPartyId === target && copyActionMode === mode;
+  function isBusy(target: string): boolean {
+    return copyingPartyId === target;
   }
 
-  function isDone(target: string, mode: CopyMode): boolean {
+  function isDone(target: string): boolean {
     return (
       copyFeedback?.target === target &&
       copyFeedback.status === "success" &&
-      copyActionMode === mode &&
       copyingPartyId === null
     );
   }
 
-  const generalBusy = (mode: CopyMode) => isBusy("general", mode);
-  const generalDone = (mode: CopyMode) => isDone("general", mode);
+  const generalBusy = isBusy("general");
+  const generalDone = isDone("general");
 
-  function sendGeneralInvitation(mode: CopyMode) {
-    if (!selectedInvitation || copyingPartyId) return;
+  function sendGeneralInvitation() {
+    if (!selectedInvitation || !startCopyOperation("general")) return;
     setActionMessage(null);
-    setCopyActionMode(mode);
-    setCopyingPartyId("general");
     const message = buildGeneralInvitationMessage(
       selectedInvitation,
       selectedInvitation.genericUrl,
     );
-    const deliver = mode === "share" ? shareOrCopyNow : writeCopyNow;
-    void deliver(message, "general", "General invitation message").finally(() =>
-      setCopyingPartyId(null),
+    void writeCopyNow(message, "general", "General invitation message").finally(() =>
+      finishCopyOperation("general"),
     );
   }
 
-  async function sendPersonalInvitation(party: GuestPartySummary, mode: CopyMode) {
+  async function sendPersonalInvitation(party: GuestPartySummary) {
     if (!selectedInvitation) return;
-    if (copyingPartyId) return;
+    if (copyOperationTargetRef.current !== null) return;
     if (party.linkStatus !== "active") {
       requestConfirmation(party, "replace", partyMenuButtonRefs.current.get(party.id));
       return;
     }
     setActionMessage(null);
-    setCopyActionMode(mode);
 
     const prepared = preparedCopies.get(party.id);
     if (prepared) {
-      setCopyingPartyId(party.id);
-      const deliver = mode === "share" ? shareOrCopyNow : writeCopyNow;
-      void deliver(
+      if (!startCopyOperation(party.id)) return;
+      void writeCopyNow(
         prepared.copyText,
         party.id,
         `Invitation message for ${party.internalLabel}`,
-      ).finally(() => setCopyingPartyId(null));
-      trackCopy(party.id);
+      )
+        .then((outcome) => {
+          if (outcome === "delivered") trackCopy(party.id);
+        })
+        .finally(() => finishCopyOperation(party.id));
       return;
     }
 
-    // Nothing was prepared, so the message has to be fetched first — and that await spends the
-    // gesture the share sheet needs. This path can only ever reach the clipboard, so it reports
-    // itself as a copy rather than claiming a share that did not happen.
-    setCopyActionMode("copy");
-    setCopyingPartyId(party.id);
+    // Nothing was prepared, so the message has to be fetched before it can reach the clipboard.
+    if (!startCopyOperation(party.id, true)) return;
     try {
       const result = await copyGuestInvitationAction({
         guestPartyId: party.id,
@@ -547,18 +542,18 @@ export function GuestDesk({
         setActionMessage(result.message);
         return;
       }
-      await writeCopyAfterAwait(
+      const outcome = await writeCopyAfterAwait(
         result.copyText,
         party.id,
         `Invitation message for ${party.internalLabel}`,
       );
-      trackCopy(party.id);
+      if (outcome === "delivered") trackCopy(party.id);
     } catch {
       setActionMessage(
         "Invitica could not prepare this invitation message. Check your connection and try again.",
       );
     } finally {
-      setCopyingPartyId(null);
+      finishCopyOperation(party.id);
     }
   }
 
@@ -680,8 +675,7 @@ export function GuestDesk({
           });
           return next;
         });
-        // Confirming a dialog already spent the gesture, so this reaches the clipboard only.
-        setCopyActionMode("copy");
+        // Confirming a dialog already spent the gesture, so this reaches the clipboard after await.
         await writeCopyAfterAwait(
           result.copyText,
           replacedParty.id,
@@ -851,55 +845,22 @@ export function GuestDesk({
             <div className={styles.copyStack}>
               <div className={`${styles.invitationActions} ${styles.generalInvitationActions}`}>
                 <button
-                  aria-label={
-                    generalBusy(canShare ? "share" : "copy")
-                      ? `${canShare ? "Sharing" : "Copying"} general invitation`
-                      : undefined
-                  }
+                  aria-label={generalBusy ? "Copying general invitation" : undefined}
                   className={styles.copyInvitationButton}
                   disabled={copyingPartyId !== null || isRefreshing}
-                  onClick={() => sendGeneralInvitation(canShare ? "share" : "copy")}
+                  onClick={sendGeneralInvitation}
                   type="button"
                 >
-                  {generalBusy(canShare ? "share" : "copy") ? (
-                    canShare ? (
-                      "Sharing…"
-                    ) : (
-                      "Copying…"
-                    )
-                  ) : generalDone(canShare ? "share" : "copy") ? (
+                  {generalBusy ? (
+                    "Copying…"
+                  ) : generalDone ? (
                     <>
-                      <Check /> {canShare ? "Shared" : "Copied"}
+                      <Check /> Copied
                     </>
-                  ) : canShare ? (
-                    "Share general invitation"
                   ) : (
                     "Copy general invitation"
                   )}
                 </button>
-                {canShare ? (
-                  <button
-                    aria-label={
-                      generalBusy("copy")
-                        ? "Copying general invitation"
-                        : "Copy general invitation instead of sharing"
-                    }
-                    className={styles.secondaryCopyButton}
-                    disabled={copyingPartyId !== null || isRefreshing}
-                    onClick={() => sendGeneralInvitation("copy")}
-                    type="button"
-                  >
-                    {generalBusy("copy") ? (
-                      "Copying…"
-                    ) : generalDone("copy") ? (
-                      <>
-                        <Check /> Copied
-                      </>
-                    ) : (
-                      "Copy"
-                    )}
-                  </button>
-                ) : null}
                 <button
                   className={styles.secondaryCopyButton}
                   disabled={copyingPartyId !== null || isRefreshing}
@@ -1173,55 +1134,27 @@ export function GuestDesk({
                                 >
                                   <button
                                     aria-label={
-                                      isBusy(party.id, canShare ? "share" : "copy")
-                                        ? `Preparing invitation for ${party.internalLabel}`
-                                        : isDone(party.id, canShare ? "share" : "copy")
-                                          ? `${canShare ? "Shared" : "Copied"} invitation for ${party.internalLabel}`
+                                      isBusy(party.id)
+                                        ? `Copying invitation for ${party.internalLabel}`
+                                        : isDone(party.id)
+                                          ? `Copied invitation for ${party.internalLabel}`
                                           : party.linkStatus === "active"
-                                            ? `${canShare ? "Share" : "Copy"} invitation for ${party.internalLabel}`
-                                            : `Create and ${canShare ? "share" : "copy"} invitation for ${party.internalLabel}`
+                                            ? `Copy invitation for ${party.internalLabel}`
+                                            : `Create and copy invitation for ${party.internalLabel}`
                                     }
                                     className={styles.rowCopyAction}
                                     disabled={copyingPartyId !== null || isRefreshing}
-                                    onClick={() =>
-                                      void sendPersonalInvitation(
-                                        party,
-                                        canShare ? "share" : "copy",
-                                      )
-                                    }
+                                    onClick={() => void sendPersonalInvitation(party)}
                                     type="button"
                                   >
-                                    {isBusy(party.id, canShare ? "share" : "copy")
-                                      ? "Preparing..."
-                                      : isDone(party.id, canShare ? "share" : "copy")
-                                        ? canShare
-                                          ? "Shared"
-                                          : "Copied"
+                                    {isBusy(party.id)
+                                      ? "Copying..."
+                                      : isDone(party.id)
+                                        ? "Copied"
                                         : party.linkStatus === "active"
-                                          ? canShare
-                                            ? "Share invitation"
-                                            : "Copy invitation"
-                                          : `Create & ${canShare ? "share" : "copy"} invitation`}
+                                          ? "Copy invitation"
+                                          : "Create & copy invitation"}
                                   </button>
-                                  {canShare ? (
-                                    <button
-                                      aria-label={
-                                        isBusy(party.id, "copy")
-                                          ? `Copying invitation for ${party.internalLabel}`
-                                          : `Copy invitation for ${party.internalLabel} instead of sharing`
-                                      }
-                                      className={`${styles.rowCopyAction} ${styles.secondaryCopyButton}`}
-                                      disabled={copyingPartyId !== null || isRefreshing}
-                                      onClick={() => void sendPersonalInvitation(party, "copy")}
-                                      type="button"
-                                    >
-                                      {isBusy(party.id, "copy")
-                                        ? "Copying…"
-                                        : isDone(party.id, "copy")
-                                          ? "Copied"
-                                          : "Copy"}
-                                    </button>
-                                  ) : null}
                                 </div>
                                 {copyFeedback?.target === party.id ? (
                                   <span aria-live="polite" className={styles.visuallyHidden}>

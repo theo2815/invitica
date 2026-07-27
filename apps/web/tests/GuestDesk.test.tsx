@@ -177,40 +177,17 @@ describe("GuestDesk", () => {
     expect(copied).not.toContain("RSVP");
   });
 
-  it("hands the message to the platform share sheet where one exists", async () => {
-    const share = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "share", { configurable: true, value: share });
-    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
-    renderDesk();
-
-    fireEvent.click(await screen.findByRole("button", { name: "Share general invitation" }));
-
-    await waitFor(() => expect(share).toHaveBeenCalledOnce());
-    expect(share.mock.calls[0]?.[0].text).toContain("Mara & Joaquin's wedding invitation with you");
-    // The share sheet already delivered the message; writing it to the clipboard too would
-    // silently overwrite whatever the creator had copied.
-    expect(writeText).not.toHaveBeenCalled();
-
-    Reflect.deleteProperty(navigator, "share");
-    Reflect.deleteProperty(navigator, "canShare");
-  });
-
-  it("keeps a copy action available beside share, for pasting somewhere the sheet does not offer", async () => {
+  it("always copies instead of opening the platform share sheet", async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", { configurable: true, value: share });
     Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
     renderDesk([party()]);
 
-    // Both the general message and each party row offer share and copy side by side.
-    expect(await screen.findByRole("button", { name: "Share general invitation" })).toBeTruthy();
-    const copyGeneral = screen.getByRole("button", {
-      name: "Copy general invitation instead of sharing",
-    });
+    const copyGeneral = screen.getByRole("button", { name: "Copy general invitation" });
     expect(
-      screen.getByRole("button", {
-        name: "Copy invitation for Santos household instead of sharing",
-      }),
+      screen.getByRole("button", { name: "Copy invitation for Santos household" }),
     ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /share .*invitation/i })).toBeNull();
 
     fireEvent.click(copyGeneral);
 
@@ -336,22 +313,6 @@ describe("GuestDesk", () => {
 
     fireEvent.change(general, { target: { value: "Please RSVP here: {link}" } });
     expect(screen.getByText(/cannot accept an RSVP/)).toBeDefined();
-  });
-
-  it("treats a dismissed share sheet as a decision rather than a failure", async () => {
-    const share = vi.fn().mockRejectedValue(new DOMException("dismissed", "AbortError"));
-    Object.defineProperty(navigator, "share", { configurable: true, value: share });
-    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
-    renderDesk();
-
-    fireEvent.click(await screen.findByRole("button", { name: "Share general invitation" }));
-
-    await waitFor(() => expect(share).toHaveBeenCalledOnce());
-    expect(writeText).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Clipboard access was unavailable/)).toBeNull();
-
-    Reflect.deleteProperty(navigator, "share");
-    Reflect.deleteProperty(navigator, "canShare");
   });
 
   it("copies the recoverable party invitation from its own row", async () => {
@@ -592,6 +553,85 @@ describe("GuestDesk", () => {
     // Written synchronously inside the click, so the gesture is still valid on WebKit.
     expect(writeText).toHaveBeenCalledWith(copyText);
     expect(copyGuestInvitationAction).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Copy invitation for Santos household" }),
+    ).toBeDefined();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Copied invitation for Santos household" }),
+      ).toBeDefined(),
+    );
+  });
+
+  it("shows pending feedback only when a prepared clipboard write is genuinely slow", async () => {
+    let resolveClipboard: (() => void) | undefined;
+    writeText.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClipboard = resolve;
+        }),
+    );
+    vi.mocked(fetchPreparedGuestInvitationCopies).mockResolvedValue({
+      copies: [
+        {
+          copyText: "Hi Tita Lena!",
+          guestPartyId: "73000000-0000-4000-8000-000000000001",
+          personalizedUrl: `${invitation.genericUrl}#g=${"B".repeat(43)}`,
+        },
+      ],
+      status: "ready",
+    });
+    renderDesk([party()]);
+    await waitFor(() => expect(fetchPreparedGuestInvitationCopies).toHaveBeenCalledOnce());
+
+    const copyButton = screen.getByRole("button", {
+      name: "Copy invitation for Santos household",
+    });
+    fireEvent.click(copyButton);
+    fireEvent.click(copyButton);
+
+    expect(
+      screen.getByRole("button", { name: "Copy invitation for Santos household" }),
+    ).toBeDefined();
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(recordGuestInvitationCopy).not.toHaveBeenCalled();
+
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 175)));
+    expect(
+      screen.getByRole("button", { name: "Copying invitation for Santos household" }),
+    ).toBeDefined();
+
+    await act(async () => resolveClipboard?.());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Copied invitation for Santos household" }),
+      ).toBeDefined(),
+    );
+    expect(recordGuestInvitationCopy).toHaveBeenCalledOnce();
+  });
+
+  it("does not record a prepared copy when the clipboard write fails", async () => {
+    writeText.mockRejectedValue(new Error("Clipboard unavailable"));
+    vi.mocked(fetchPreparedGuestInvitationCopies).mockResolvedValue({
+      copies: [
+        {
+          copyText: "Hi Tita Lena!",
+          guestPartyId: "73000000-0000-4000-8000-000000000001",
+          personalizedUrl: `${invitation.genericUrl}#g=${"B".repeat(43)}`,
+        },
+      ],
+      status: "ready",
+    });
+    renderDesk([party()]);
+    await waitFor(() => expect(fetchPreparedGuestInvitationCopies).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy invitation for Santos household" }));
+
+    expect(
+      await screen.findByRole("textbox", { name: "Invitation message for Santos household" }),
+    ).toBeDefined();
+    expect(recordGuestInvitationCopy).not.toHaveBeenCalled();
   });
 
   it("prepares copies only for parties whose private link is still active", async () => {
@@ -690,6 +730,8 @@ describe("GuestDesk", () => {
     expect(writeText).toHaveBeenCalledOnce();
     await waitFor(() => expect(recordGuestInvitationCopy).toHaveBeenCalledOnce());
     expect(recordGuestInvitationCopy).toHaveBeenCalledWith("73000000-0000-4000-8000-000000000001");
+    expect(fetchGuestPartyPage).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("marks a party as sent immediately, before persistence finishes", async () => {

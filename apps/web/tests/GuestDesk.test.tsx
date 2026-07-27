@@ -595,4 +595,49 @@ describe("GuestDesk", () => {
     expect(screen.getByText("Santos household")).toBeDefined();
     expect(screen.queryByText("Reyes couple")).toBeNull();
   });
+
+  it("lists parties that still need sending before parties already sent", () => {
+    renderDesk([
+      party({
+        internalLabel: "Abella family",
+        markedSentAt: "2026-07-26T10:00:00+08:00",
+      }),
+      party({
+        guestMembers: [],
+        id: "73000000-0000-4000-8000-000000000002",
+        internalLabel: "Zulueta couple",
+        recipientName: "Ana and Miguel",
+      }),
+    ]);
+
+    const rows = within(screen.getByRole("table", { name: "Guest party response ledger" }))
+      .getAllByRole("row")
+      .slice(1);
+    expect(within(rows[0] as HTMLElement).getByText("Zulueta couple")).toBeDefined();
+    expect(within(rows[1] as HTMLElement).getByText("Abella family")).toBeDefined();
+  });
+
+  it("filters parties by whether their invitation was sent", () => {
+    renderDesk([
+      party(),
+      party({
+        guestMembers: [],
+        id: "73000000-0000-4000-8000-000000000002",
+        internalLabel: "Reyes couple",
+        markedSentAt: "2026-07-26T10:00:00+08:00",
+        recipientName: "Ana and Miguel",
+      }),
+    ]);
+
+    const responseFilter = screen.getByRole("combobox", { name: /Response/ });
+    fireEvent.click(responseFilter);
+    fireEvent.click(screen.getByRole("option", { name: "Not Yet Sent" }));
+    expect(screen.getByText("Santos household")).toBeDefined();
+    expect(screen.queryByText("Reyes couple")).toBeNull();
+
+    fireEvent.click(responseFilter);
+    fireEvent.click(screen.getByRole("option", { name: "Already Sent" }));
+    expect(screen.queryByText("Santos household")).toBeNull();
+    expect(screen.getByText("Reyes couple")).toBeDefined();
+  });
 });

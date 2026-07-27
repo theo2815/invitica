@@ -44,6 +44,14 @@ type CopyFallback = { label: string; text: string } | null;
 /** Ready-to-send message per guest party, resolved before the creator clicks Copy. */
 type PreparedCopies = ReadonlyMap<string, { copyText: string; personalizedUrl: string }>;
 
+type ResponseFilter =
+  | "all"
+  | "already-sent"
+  | "attending"
+  | "awaiting"
+  | "declined"
+  | "not-yet-sent";
+
 function responseState(party: GuestPartySummary): "attending" | "awaiting" | "declined" {
   return party.response?.attendance ?? "awaiting";
 }
@@ -135,9 +143,7 @@ export function GuestDesk({
   const [restoringPartyId, setRestoringPartyId] = useState<string | null>(null);
   const [openPartyMenuId, setOpenPartyMenuId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [responseFilter, setResponseFilter] = useState<
-    "all" | "attending" | "awaiting" | "declined"
-  >("all");
+  const [responseFilter, setResponseFilter] = useState<ResponseFilter>("all");
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const fallbackRef = useRef<HTMLTextAreaElement>(null);
@@ -525,7 +531,11 @@ export function GuestDesk({
   const normalizedQuery = query.trim().toLocaleLowerCase("en-PH");
   const filteredParties = parties
     .filter((party) => {
-      const matchesResponse = responseFilter === "all" || responseState(party) === responseFilter;
+      const matchesResponse =
+        responseFilter === "all" ||
+        (responseFilter === "not-yet-sent" && party.markedSentAt === null) ||
+        (responseFilter === "already-sent" && party.markedSentAt !== null) ||
+        responseState(party) === responseFilter;
       if (!matchesResponse) return false;
       if (!normalizedQuery) return true;
       return [
@@ -535,10 +545,13 @@ export function GuestDesk({
       ].some((value) => value.toLocaleLowerCase("en-PH").includes(normalizedQuery));
     })
     .sort((left, right) => {
+      const sentOrder = Number(left.markedSentAt !== null) - Number(right.markedSentAt !== null);
       const responseOrder =
         Date.parse(right.response?.updatedAt ?? "1970-01-01") -
         Date.parse(left.response?.updatedAt ?? "1970-01-01");
-      return responseOrder || left.internalLabel.localeCompare(right.internalLabel, "en-PH");
+      return (
+        sentOrder || responseOrder || left.internalLabel.localeCompare(right.internalLabel, "en-PH")
+      );
     });
 
   return (
@@ -758,6 +771,8 @@ export function GuestDesk({
                     onChange={(nextValue) => setResponseFilter(nextValue as typeof responseFilter)}
                     options={[
                       { label: "All responses", value: "all" },
+                      { label: "Not Yet Sent", value: "not-yet-sent" },
+                      { label: "Already Sent", value: "already-sent" },
                       { label: "Attending", value: "attending" },
                       { label: "Declined", value: "declined" },
                       { label: "Awaiting reply", value: "awaiting" },

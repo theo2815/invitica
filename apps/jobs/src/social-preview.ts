@@ -235,15 +235,19 @@ async function cardTextLayers(snapshot: PublicationSnapshot, hasPhoto: boolean) 
         x: textX,
       }),
     ),
-    textLayer(date, {
-      baseline: hasPhoto ? 518 : 520,
-      fill: accent,
-      fontFamily: "Instrument Sans",
-      fontFile: INSTRUMENT_SANS_FONT_FILE,
-      fontSize: 23,
-      fontWeight: 700,
-      x: textX,
-    }),
+    ...(normalize(date)
+      ? [
+          textLayer(date, {
+            baseline: hasPhoto ? 518 : 520,
+            fill: accent,
+            fontFamily: "Instrument Sans",
+            fontFile: INSTRUMENT_SANS_FONT_FILE,
+            fontSize: 23,
+            fontWeight: 700,
+            x: textX,
+          }),
+        ]
+      : []),
     textLayer("INVITICA", {
       baseline: 560,
       fill: text,

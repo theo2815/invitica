@@ -20,4 +20,5 @@ test-results/
 tests/e2e/render-fixture.generated.mjs
 .DS_Store
 Thumbs.db
-.claude/worktrees/
+/.codex/
+/.claude/

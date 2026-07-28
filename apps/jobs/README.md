@@ -27,21 +27,23 @@ pnpm --filter @invitica/jobs test
 pnpm --filter @invitica/jobs build
 ```
 
-How to Run the jobs dev:
+Run the local Trigger.dev worker from `apps/jobs` with the workspace-pinned CLI:
 
 ```bash
-  pnpm dlx trigger.dev@4.5.4 dev
+cd apps/jobs
+pnpm exec trigger dev
 ```
 
-  If authentication is requested:
+If authentication is requested:
 
 ```bash
-  pnpm dlx trigger.dev@4.5.4 login
-  ```
+pnpm exec trigger login
+```
 
-  Use this only to validate compilation:
+Use the package build only to validate TypeScript compilation; it does not start or deploy a task:
+
 ```bash
-  pnpm --filter @invitica/jobs build
+pnpm --filter @invitica/jobs build
 ```
 
 ## Deploying
@@ -73,7 +75,7 @@ command deployed to — a `tr_dev_*` key only resolves tasks while `trigger.dev 
 `.env.local`, pass it explicitly rather than letting the fallback deploy somewhere unintended:
 
 ```bash
-pnpm dlx trigger.dev@4.5.4 deploy --project-ref proj_your_reference
+pnpm exec trigger deploy --project-ref proj_your_reference
 ```
 
 **Trigger.dev's GitHub integration does not work with this repository by default.** It looks for

@@ -4,7 +4,11 @@
 
 Invitica is a Philippines-first platform for creating premium, interactive digital invitation websites. It is designed around mobile-first editing, curated templates, expressive motion, media, and fast account-free guest experiences.
 
-> **Project status:** Foundation and walking skeleton. Creator drafts, the shared renderer, an edge guest viewer, the local retry-safe publication pipeline, privacy-safe personalized links, and account-free RSVP are implemented. Provider configuration and deployment remain deliberate release work; RSVP is not deployed and payments are not production-ready.
+> **Project status:** The production foundation and creator-to-guest vertical slice are live. Creators
+> can create, edit, publish, and share Garden Promise and Little Blessings invitations; invited guests
+> can open personalized links and reply without an account. Guest management, delivery tracking,
+> aggregate results, immutable social-preview cards, and versioned template upgrades are implemented.
+> Payments, CSV import, and published audio are not implemented.
 
 ## Current foundation
 
@@ -15,6 +19,9 @@ Invitica is a Philippines-first platform for creating premium, interactive digit
 - Supabase email/password and Google OAuth flows with protected creator routes
 - Workspace-based ownership and row-level security migration with negative cross-user policy tests
 - Party-scoped personalized links and retry-safe account-free RSVP with no raw-token persistence
+- Creator guest management, sent tracking, share-message customization, pagination, and aggregate results
+- Immutable image publications and template-branded social-preview cards served from private R2
+- Two production templates: Garden Promise and Little Blessings; fixture templates remain preview-only
 - TypeScript monorepo with pnpm workspaces, Turborepo, Biome, Vitest, and GitHub Actions
 
 ## Repository structure
@@ -28,6 +35,7 @@ packages/
   database/            Reviewed SQL migrations and database policy tests
   invitation-schema/   Versioned invitation document schemas and fixtures
   renderer/            Shared semantic invitation renderer
+  template-kit/        Curated template manifests, versions, starters, and catalog metadata
 ```
 
 Additional applications and packages are added through verified vertical slices rather than created speculatively.
@@ -97,6 +105,18 @@ confirmation link before entering the creator dashboard.
 - `dev-main` is the active development and integration branch.
 - Changes move from `dev-main` to `main` through a GitHub pull request after `pnpm check` passes.
 - Repository rulesets and required checks must not be bypassed.
+
+## Deployment
+
+The web application deploys from `main` through its hosting provider. The Viewer Worker and
+Trigger.dev publication jobs are separate manual deployments:
+
+- [Viewer deployment guide](./apps/viewer/README.md#manual-production-deployment)
+- [Publication-jobs deployment guide](./apps/jobs/README.md#deploying)
+
+Provider deployment state changes outside Git and is tracked in the Invitica Second Brain rather
+than repeated here. Deploy only a clean, reviewed `main` revision; merging or pushing alone does not
+deploy the Viewer or publication jobs.
 
 ## Quality checks
 

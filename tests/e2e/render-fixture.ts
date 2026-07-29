@@ -1,11 +1,18 @@
 import type { InvitationDocument, PublicationArtifact } from "@invitica/invitation-schema";
 import { publicationMediaObjectKey } from "@invitica/invitation-schema";
+import { resolveTemplateRendererRegistration } from "@invitica/renderer";
 import { resolveTemplateById } from "@invitica/template-kit";
 
 import { renderPublicationHtml, renderUnavailableHtml } from "../../apps/viewer/src/html";
 
 const publicationId = "a0000000-0000-4000-8000-000000000015";
 const littleBlessingsPublicationId = "a0000000-0000-4000-8000-000000000016";
+const landingTemplateIds = [
+  "garden-promise",
+  "golden-hour",
+  "sunday-joy",
+  "little-blessings",
+] as const;
 
 function fixture(): PublicationArtifact {
   const template = resolveTemplateById("garden-promise");
@@ -70,6 +77,7 @@ function littleBlessingsAssetId(tail: string): string {
 
 function littleBlessingsFixture(): PublicationArtifact {
   const template = resolveTemplateById("little-blessings");
+  const renderer = resolveTemplateRendererRegistration(template.rendererKey);
   const heroAssetId = littleBlessingsAssetId("1");
   // The template deliberately ships two gift ideas without a picture; this lane gives every idea
   // one so the page carries its heaviest realistic media load.
@@ -129,7 +137,32 @@ function littleBlessingsFixture(): PublicationArtifact {
       draftRevision: 3,
       invitationSchemaVersion: template.schemaVersion,
       rendererKey: template.rendererKey,
-      rendererVersion: 1,
+      rendererVersion: renderer.version,
+      snapshotVersion: 1,
+      templateVersion: template.version,
+      templateVersionId: template.templateVersionId,
+    },
+  };
+}
+
+function landingTemplateFixture(
+  templateId: (typeof landingTemplateIds)[number],
+  index: number,
+): PublicationArtifact {
+  const template = resolveTemplateById(templateId);
+  const document = template.starterDocument ?? template.defaultDocument;
+  const renderer = resolveTemplateRendererRegistration(template.rendererKey);
+
+  return {
+    artifactVersion: 1,
+    publicationId: `a1000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    snapshot: {
+      assets: [],
+      document,
+      draftRevision: 1,
+      invitationSchemaVersion: template.schemaVersion,
+      rendererKey: template.rendererKey,
+      rendererVersion: renderer.version,
       snapshotVersion: 1,
       templateVersion: template.version,
       templateVersionId: template.templateVersionId,
@@ -145,6 +178,12 @@ const FIXTURE_MAP_TILE_KEY = "e2e-fixture-map-key";
 
 export function renderFixture() {
   return {
+    landingTemplateHtml: Object.fromEntries(
+      landingTemplateIds.map((templateId, index) => [
+        templateId,
+        renderPublicationHtml(landingTemplateFixture(templateId, index)),
+      ]),
+    ),
     littleBlessingsHtml: renderPublicationHtml(littleBlessingsFixture(), FIXTURE_MAP_TILE_KEY),
     publicationHtml: renderPublicationHtml(fixture()),
     unavailableHtml: renderUnavailableHtml(),

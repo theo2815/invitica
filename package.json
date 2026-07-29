@@ -17,6 +17,7 @@
     "dev:viewer": "pnpm --filter @invitica/viewer dev",
     "dev:web": "pnpm --filter @invitica/web dev",
     "format": "biome check --write .",
+    "landing:stills": "pnpm --filter @invitica/renderer build && pnpm --filter @invitica/viewer run build:client && pnpm --filter @invitica/viewer exec esbuild ../../tests/e2e/render-fixture.ts --bundle --platform=node --format=esm --target=node24 --outfile=../../tests/e2e/render-fixture.generated.mjs && node tests/generate-landing-stills.mjs",
     "lint": "biome check .",
     "test": "turbo run test",
     "test:e2e": "turbo run build --filter=@invitica/renderer... && pnpm --filter @invitica/viewer run build:client && pnpm --filter @invitica/viewer exec esbuild ../../tests/e2e/render-fixture.ts --bundle --platform=node --format=esm --target=node24 --outfile=../../tests/e2e/render-fixture.generated.mjs && playwright test",

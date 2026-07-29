@@ -48,16 +48,32 @@ describe("Invitica marketing landing interactions", () => {
     ).toBe(true);
   });
 
-  it("keeps the hero focused and sends each template to its full preview", () => {
+  it("makes real invitation previews the page's primary conversion", () => {
     render(createElement(LandingConcept, { templates: templateCatalog }));
 
-    expect(screen.queryByRole("button", { name: /Open invitation for/ })).toBeNull();
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Make your invitation feel as special as the event.",
+        name: "An invitation they will remember opening.",
       }),
     ).toBeDefined();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Preview a real invitation" })
+        .every(
+          (link) =>
+            link.getAttribute("href") === "/templates/little-blessings/preview" &&
+            link.getAttribute("target") === "_blank" &&
+            link.getAttribute("rel") === "noreferrer",
+        ),
+    ).toBe(true);
+    expect(screen.queryByRole("link", { name: "Pricing" })).toBeNull();
+    expect(screen.queryByText(/purchase one premium publication/i)).toBeNull();
+  });
+
+  it("uses renderer-derived stills and sends every card to its full preview", () => {
+    const { container } = render(createElement(LandingConcept, { templates: templateCatalog }));
+
     expect(
       screen
         .getAllByRole("link", { name: /preview invitation \(opens in a new tab\)/i })
@@ -69,16 +85,22 @@ describe("Invitica marketing landing interactions", () => {
       "/templates/little-blessings/preview",
     ]);
     expect(
-      screen
-        .getAllByRole("link", { name: /preview invitation \(opens in a new tab\)/i })
-        .every(
-          (link) =>
-            link.getAttribute("target") === "_blank" && link.getAttribute("rel") === "noreferrer",
-        ),
-    ).toBe(true);
+      Array.from(container.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')).map(
+        (image) =>
+          image.src.includes("/_next/image")
+            ? new URL(image.src).searchParams.get("url")
+            : image.getAttribute("src"),
+      ),
+    ).toEqual([
+      "/landing/templates/garden-promise.jpg",
+      "/landing/templates/golden-hour.jpg",
+      "/landing/templates/sunday-joy.jpg",
+      "/landing/templates/little-blessings.jpg",
+    ]);
+    expect(container.querySelector("[data-index]")).toBeNull();
   });
 
-  it("opens and closes the mobile navigation", () => {
+  it("opens, follows, and closes the mobile navigation", () => {
     render(createElement(LandingConcept, { templates: templateCatalog }));
 
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
@@ -86,7 +108,9 @@ describe("Invitica marketing landing interactions", () => {
       "true",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
+    fireEvent.click(
+      screen.getByRole("navigation", { name: "Mobile navigation" }).querySelector("a") as Element,
+    );
     expect(screen.getByRole("button", { name: "Open menu" }).getAttribute("aria-expanded")).toBe(
       "false",
     );

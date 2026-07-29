@@ -1,12 +1,11 @@
-"use client";
-
 import type { TemplateCatalogEntry } from "@invitica/template-kit";
+import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 
 import { BrandMark } from "./BrandMark";
 import { ArrowRight, Check } from "./Icons";
 import styles from "./LandingConcept.module.css";
+import { LandingNavigation } from "./LandingNavigation";
 
 interface LandingConceptProps {
   authenticated?: boolean;
@@ -15,289 +14,229 @@ interface LandingConceptProps {
   templates: readonly TemplateCatalogEntry[];
 }
 
+const templateStills: Readonly<Record<string, string>> = {
+  "garden-promise": "/landing/templates/garden-promise.jpg",
+  "golden-hour": "/landing/templates/golden-hour.jpg",
+  "sunday-joy": "/landing/templates/sunday-joy.jpg",
+  "little-blessings": "/landing/templates/little-blessings.jpg",
+};
+
+const featuredPreviewHref = "/templates/little-blessings/preview";
+
 export function LandingConcept({
   authenticated = false,
   betaLocked = false,
   templates,
 }: LandingConceptProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  function closeMenu() {
-    setMenuOpen(false);
-  }
-
   return (
     <div className={styles.page}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
 
-      <header className={styles.header}>
-        <Link aria-label="Invitica home" className={styles.brand} href="/">
-          <BrandMark />
-        </Link>
-
-        <nav aria-label="Main navigation" className={styles.desktopNav}>
-          <a href="#templates">Templates</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
-        </nav>
-
-        <div className={styles.headerActions}>
-          {authenticated ? (
-            <Link className={styles.headerCta} href="/dashboard">
-              Home
-            </Link>
-          ) : betaLocked ? (
-            <Link className={styles.headerCta} href="/login">
-              Log in
-            </Link>
-          ) : (
-            <>
-              <Link className={styles.loginLink} href="/login">
-                Log in
-              </Link>
-              <Link className={styles.headerCta} href="/register">
-                Create account
-              </Link>
-            </>
-          )}
-        </div>
-
-        <button
-          aria-controls="mobile-navigation"
-          aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          className={styles.menuButton}
-          onClick={() => setMenuOpen((current) => !current)}
-          type="button"
-        >
-          {menuOpen ? "Close" : "Menu"}
-        </button>
-      </header>
-
-      <nav
-        aria-label="Mobile navigation"
-        className={styles.mobileNav}
-        data-open={menuOpen}
-        id="mobile-navigation"
-      >
-        <Link href="#templates" onClick={closeMenu}>
-          Templates
-        </Link>
-        <Link href="#how-it-works" onClick={closeMenu}>
-          How it works
-        </Link>
-        <Link href="#features" onClick={closeMenu}>
-          Features
-        </Link>
-        <Link href="#pricing" onClick={closeMenu}>
-          Pricing
-        </Link>
-        <Link href="#faq" onClick={closeMenu}>
-          FAQ
-        </Link>
-        {authenticated ? (
-          <Link className={styles.mobileCta} href="/dashboard" onClick={closeMenu}>
-            Home
-          </Link>
-        ) : betaLocked ? (
-          <Link className={styles.mobileCta} href="/login" onClick={closeMenu}>
-            Log in
-          </Link>
-        ) : (
-          <>
-            <Link href="/login" onClick={closeMenu}>
-              Log in
-            </Link>
-            <Link className={styles.mobileCta} href="/register" onClick={closeMenu}>
-              Create account
-            </Link>
-          </>
-        )}
-      </nav>
+      <LandingNavigation authenticated={authenticated} betaLocked={betaLocked} />
 
       <main id="main-content">
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Digital invitations for meaningful celebrations</p>
-            <h1>Make your invitation feel as special as the event.</h1>
+            <p className={styles.eyebrow}>Invitation websites, made in the Philippines</p>
+            <h1>An invitation they will remember opening.</h1>
             <p className={styles.heroDescription}>
-              Create a beautiful invitation website, share it with one link, and collect guest
-              responses—all from your phone or computer.
+              Bring your story, event details, and guest response into one considered, mobile-first
+              experience.
             </p>
             <div className={styles.heroActions}>
-              <a className={styles.primaryButton} href="#templates">
-                Browse templates <ArrowRight />
-              </a>
-              <a className={styles.secondaryButton} href="#how-it-works">
-                See how it works
+              <Link
+                className={styles.primaryButton}
+                href={featuredPreviewHref}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Preview a real invitation <ArrowRight />
+              </Link>
+              <a className={styles.textLink} href="#templates">
+                Explore four designs
               </a>
             </div>
-            <p className={styles.heroNote}>Start for free · Guests do not need an account</p>
-          </div>
-        </section>
-
-        <section aria-label="Invitica benefits" className={styles.quickBenefits}>
-          <p>
-            <Check /> Easy to create on mobile
-          </p>
-          <p>
-            <Check /> One link for every guest
-          </p>
-          <p>
-            <Check /> RSVP and event details together
-          </p>
-        </section>
-
-        <section className={styles.section} id="how-it-works">
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionLabel}>How it works</p>
-            <h2>From idea to invitation in three clear steps.</h2>
-            <p>
-              Invitica keeps the process simple while giving your event a polished guest experience.
-            </p>
+            <ul aria-label="Invitica highlights" className={styles.heroProof}>
+              <li>
+                <Check /> No app for guests
+              </li>
+              <li>
+                <Check /> Designed for phones
+              </li>
+              <li>
+                <Check /> One shareable link
+              </li>
+            </ul>
           </div>
 
-          <ol className={styles.steps}>
-            <li>
-              <span>1</span>
-              <h3>Choose a template</h3>
-              <p>Browse designs created for weddings, debuts, birthdays, and other milestones.</p>
-            </li>
-            <li>
-              <span>2</span>
-              <h3>Add your details</h3>
-              <p>Update your story, schedule, venue, photos, colors, and optional music.</p>
-            </li>
-            <li>
-              <span>3</span>
-              <h3>Publish and share</h3>
-              <p>Send one private link and collect guest responses without requiring accounts.</p>
-            </li>
-          </ol>
+          <Link
+            aria-label="Open the Little Blessings invitation preview in a new tab"
+            className={styles.heroPreview}
+            href={featuredPreviewHref}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span className={styles.previewKicker}>A real guest view</span>
+            <span className={styles.heroImageFrame}>
+              <Image
+                alt="A blush pink Little Blessings invitation closed with a ribbon and personalised guest card"
+                height="1280"
+                preload
+                sizes="(max-width: 720px) 78vw, 22rem"
+                src="/landing/templates/little-blessings.jpg"
+                width="720"
+              />
+            </span>
+            <span className={styles.previewCaption}>
+              <span>
+                <small>Little Blessings</small>
+                Baptism
+              </span>
+              <span className={styles.previewAction}>
+                Open preview <ArrowRight />
+              </span>
+            </span>
+          </Link>
         </section>
 
         <section className={styles.templateSection} id="templates">
-          <div className={styles.templateHeading}>
-            <div>
-              <p className={styles.sectionLabel}>Popular templates</p>
-              <h2>Start with a design made for the occasion.</h2>
-            </div>
-            <p>Open a complete guest preview, then choose a design when you are ready.</p>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionLabel}>The invitation collection</p>
+            <h2>Begin with the feeling.</h2>
+            <p>
+              Each image below is captured from the same renderer guests see. Open any design to
+              experience the complete invitation.
+            </p>
           </div>
 
           <div className={styles.templateGrid}>
-            {templates.map((template, index) => (
-              <article className={styles.templateCard} key={template.name}>
-                <div aria-hidden="true" className={styles.templateArtwork} data-index={index}>
-                  <small>{template.occasion}</small>
-                  <strong>{template.previewTitle}</strong>
-                  <span>{template.date}</span>
-                </div>
-                <div className={styles.templateDetails}>
-                  <div>
-                    <p>
-                      {template.occasion} · {template.tier}
-                    </p>
-                    <h3>{template.name}</h3>
-                  </div>
+            {templates.map((template) => {
+              const still = templateStills[template.id];
+              if (!still) {
+                return null;
+              }
+
+              return (
+                <article className={styles.templateCard} key={template.id}>
                   <Link
                     aria-label={`${template.name} preview invitation (opens in a new tab)`}
+                    className={styles.templateLink}
                     href={`/templates/${template.id}/preview`}
                     rel="noreferrer"
                     target="_blank"
                   >
-                    Preview invitation
+                    <span className={styles.templateImageFrame}>
+                      <Image
+                        alt=""
+                        height="1280"
+                        loading="lazy"
+                        sizes="(max-width: 720px) calc(50vw - 1rem), (max-width: 980px) calc(50vw - 2rem), 25vw"
+                        src={still}
+                        width="720"
+                      />
+                    </span>
+                    <span className={styles.templateDetails}>
+                      <span>
+                        <small>{template.occasion}</small>
+                        <strong>{template.name}</strong>
+                      </span>
+                      <span className={styles.templateAction}>
+                        Preview <ArrowRight />
+                      </span>
+                    </span>
                   </Link>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </section>
 
-        <section className={styles.featureSection} id="features">
-          <div className={styles.featureIntro}>
-            <p className={styles.sectionLabel}>A better experience for everyone</p>
-            <h2>Simple for you. Thoughtful for your guests.</h2>
+        <section className={styles.processSection} id="how-it-works">
+          <div className={styles.processIntro}>
+            <p className={styles.sectionLabel}>From first look to shared link</p>
+            <h2>A simple path to something personal.</h2>
           </div>
 
-          <div className={styles.featureColumns}>
-            <article>
-              <p>For creators</p>
-              <h3>Everything important stays easy to manage.</h3>
-              <ul>
-                <li>
-                  <Check /> Edit from phone or computer
-                </li>
-                <li>
-                  <Check /> Preview every screen size
-                </li>
-                <li>
-                  <Check /> Keep event details and responses together
-                </li>
-              </ul>
-            </article>
-            <article>
-              <p>For guests</p>
-              <h3>Open, understand, and respond without friction.</h3>
-              <ul>
-                <li>
-                  <Check /> No account or app download
-                </li>
-                <li>
-                  <Check /> Clear schedule, venue, and map
-                </li>
-                <li>
-                  <Check /> Accessible motion and music controls
-                </li>
-              </ul>
-            </article>
-          </div>
+          <ol className={styles.steps}>
+            <li>
+              <span className={styles.stepNumber}>01</span>
+              <div>
+                <h3>Choose a direction</h3>
+                <p>Open the full previews and find the design that feels right for your event.</p>
+              </div>
+            </li>
+            <li>
+              <span className={styles.stepNumber}>02</span>
+              <div>
+                <h3>Make it yours</h3>
+                <p>
+                  Personalise the names, story, schedule, place, photographs, and guest details.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span className={styles.stepNumber}>03</span>
+              <div>
+                <h3>Publish and share</h3>
+                <p>Send one invitation link that guests can open and respond to without an app.</p>
+              </div>
+            </li>
+          </ol>
         </section>
 
-        <section className={styles.pricing} id="pricing">
-          <div>
-            <p className={styles.sectionLabel}>Simple publishing</p>
-            <h2>Start designing for free.</h2>
-            <p>
-              Explore templates and build your invitation before paying. Choose a free design or
-              purchase one premium publication when you are ready to share.
-            </p>
+        <section className={styles.detailSection} id="details">
+          <div className={styles.detailStatement}>
+            <p className={styles.sectionLabel}>One thoughtful place</p>
+            <h2>More than a date and a pin on the map.</h2>
           </div>
-          <a className={styles.primaryButton} href="#templates">
-            Browse templates <ArrowRight />
-          </a>
+
+          <div className={styles.detailList}>
+            <article>
+              <span>Story</span>
+              <h3>Set the tone before the celebration begins.</h3>
+              <p>Pair considered typography with your message and photographs.</p>
+            </article>
+            <article>
+              <span>Details</span>
+              <h3>Make the day easy to understand.</h3>
+              <p>Keep the schedule, venue, map, and important notes together.</p>
+            </article>
+            <article>
+              <span>Response</span>
+              <h3>Give guests a clear next step.</h3>
+              <p>Let invited guests respond from the invitation without creating an account.</p>
+            </article>
+          </div>
         </section>
 
         <section className={styles.faq} id="faq">
           <div className={styles.faqHeading}>
-            <p className={styles.sectionLabel}>Frequently asked questions</p>
-            <h2>What would you like to know?</h2>
+            <p className={styles.sectionLabel}>Good to know</p>
+            <h2>Questions before you open one?</h2>
           </div>
           <div className={styles.accordion}>
             <details>
               <summary>Do guests need an Invitica account?</summary>
-              <p>No. Guests can open the invitation and respond from the shared link.</p>
+              <p>No. Guests can open the invitation and respond from their invitation link.</p>
             </details>
             <details>
               <summary>Can I create and edit on my phone?</summary>
-              <p>Yes. Invitica is designed for complete mobile and desktop creator workflows.</p>
+              <p>Yes. The creator flow is designed for both phone and desktop use.</p>
             </details>
             <details>
-              <summary>Can I change the invitation after publishing?</summary>
+              <summary>Can I update an invitation after publishing?</summary>
               <p>
-                You will be able to publish an updated version without changing the link you already
-                shared.
+                Yes. You can edit and publish an updated version while keeping the active invitation
+                link.
               </p>
             </details>
             <details>
-              <summary>Can guests turn off music or animation?</summary>
+              <summary>Are these template images mockups?</summary>
               <p>
-                Yes. Music waits for guest interaction, and visible controls and reduced-motion
-                behavior are built in.
+                No. They are generated from Invitica's shared invitation renderer and show the
+                closed invitation guests receive.
               </p>
             </details>
           </div>
@@ -305,27 +244,32 @@ export function LandingConcept({
 
         <section className={styles.finalCta}>
           <div>
-            <p className={styles.sectionLabel}>Create your first invitation</p>
-            <h2>Give your guests a beautiful place to begin.</h2>
+            <p className={styles.sectionLabel}>See it as a guest</p>
+            <h2>The best place to begin is with the invitation itself.</h2>
           </div>
-          <a className={styles.primaryButton} href="#templates">
-            Browse templates <ArrowRight />
-          </a>
+          <Link
+            className={styles.inverseButton}
+            href={featuredPreviewHref}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Preview a real invitation <ArrowRight />
+          </Link>
         </section>
       </main>
 
       <footer className={styles.footer}>
-        <div>
+        <div className={styles.footerBrand}>
           <BrandMark />
           <p>Premium digital invitations for meaningful gatherings.</p>
         </div>
         <nav aria-label="Footer navigation">
           <a href="#templates">Templates</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#details">What is included</a>
           <a href="#faq">FAQ</a>
         </nav>
-        <p>© 2026 Invitica · Made in the Philippines</p>
+        <p className={styles.copyright}>© 2026 Invitica · Made in the Philippines</p>
       </footer>
     </div>
   );

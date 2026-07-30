@@ -159,4 +159,52 @@ describe("full template preview", () => {
     // The directions link stays alongside the map rather than being replaced by it.
     expect(invitation.querySelectorAll('a[href="https://maps.google.com/"]')).toHaveLength(2);
   });
+
+  /**
+   * The same contract for the other two occasion families. Each is asserted against its own showcase
+   * document rather than a copied section list, so the preview cannot silently stop showing part of
+   * the template. Placeholder counts are stated literally, because the point of the number is that a
+   * creator sees one slot per photograph the template offers.
+   */
+  it.each([
+    // Golden Hour has no gift section: one debutante portrait plus six album frames.
+    ["golden-hour", { placeholders: 7 }],
+    // Sunday Joy trades two album frames for a shorter scroll and adds a picture to each of its
+    // three gift ideas: portrait, four album frames, three gifts.
+    ["sunday-joy", { placeholders: 8 }],
+  ])("shows every %s section, its image placeholders, and the venue map", (templateId, expected) => {
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "template-preview-test-key");
+    render(
+      <TemplateLivePreview
+        authenticated={false}
+        creationRequestId="71000000-0000-4000-8000-000000000002"
+        returningFromLogin={false}
+        templateId={templateId}
+        usedBefore={false}
+      />,
+    );
+
+    const invitation = document.querySelector(`[data-template="${templateId}"]`);
+    if (!invitation) throw new Error(`Expected the ${templateId} renderer`);
+
+    const showcase = resolveTemplateById(templateId).defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+    expect(invitation.querySelector('[data-section-type="rsvp"]')).not.toBeNull();
+
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(
+      expected.placeholders,
+    );
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+
+    // Queried through the DOM rather than by role: the invitation body is inert until a guest opens
+    // the envelope, which keeps it out of the accessibility tree that `getAllByRole` searches.
+    const mapToggles = [...invitation.querySelectorAll(".im-toggle")];
+    expect(mapToggles).toHaveLength(1);
+    expect(mapToggles[0]?.textContent).toBe("Show map");
+    expect(invitation.querySelectorAll('a[href="https://maps.google.com/"]')).toHaveLength(1);
+  });
 });

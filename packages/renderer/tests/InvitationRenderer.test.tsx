@@ -310,6 +310,66 @@ describe("InvitationRenderer", () => {
     }
   });
 
+  /**
+   * "Portrait pending creator upload" is written for a creator looking at an empty slot. On a
+   * published invitation whose creator simply never added a photograph, a guest using a screen
+   * reader would otherwise hear it read out as part of the invitation. The gallery and gift slots
+   * were already silent; the hero one was not.
+   */
+  it("keeps every unfilled media slot out of the accessibility tree", () => {
+    for (const manifest of templateRegistry.filter(
+      (candidate) =>
+        candidate.version === 2 &&
+        ["garden-promise", "golden-hour", "sunday-joy"].includes(candidate.listing.id),
+    )) {
+      const Renderer = resolveTemplateRenderer(manifest.rendererKey);
+      const html = renderToStaticMarkup(
+        <Renderer
+          audience="personalized"
+          document={manifest.defaultDocument}
+          mode="published"
+          reducedMotion
+        />,
+      );
+
+      const placeholders = [...html.matchAll(/<div([^>]*)class="ot-media-placeholder/g)];
+      expect([manifest.listing.id, placeholders.length]).toEqual([
+        manifest.listing.id,
+        manifest.defaultDocument.assets.length,
+      ]);
+      for (const match of placeholders) {
+        expect([manifest.listing.id, (match[1] ?? "").includes('aria-hidden="true"')]).toEqual([
+          manifest.listing.id,
+          true,
+        ]);
+      }
+    }
+  });
+
+  /**
+   * The hero medallion is a 24%-opacity watermark sitting directly behind the eyebrow and title. A
+   * numeral there reads as a grey artifact rather than an ornament, so the glyph is set only on the
+   * envelope cover and in the footer, where the medallion is small and fully opaque.
+   */
+  it("sets the debut numeral only where the medallion is not behind live type", () => {
+    const goldenHour = templateRegistry.find(
+      (candidate) => candidate.listing.id === "golden-hour" && candidate.version === 2,
+    );
+    if (!goldenHour) throw new Error("Golden Hour v2 fixture is required");
+
+    const html = renderToStaticMarkup(
+      <GoldenHourRendererV2
+        audience="personalized"
+        document={goldenHour.defaultDocument}
+        mode="published"
+        reducedMotion
+      />,
+    );
+
+    expect(html).toContain('data-context="cover" data-motif="golden-hour"><b>XVIII</b>');
+    expect(html).not.toContain('data-context="hero" data-motif="golden-hour"><b>');
+  });
+
   it("keeps the personal-link RSVP boundary in every expanded occasion renderer", () => {
     for (const manifest of templateRegistry.filter(
       (candidate) =>

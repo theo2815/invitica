@@ -96,6 +96,26 @@ describe("occasion template text contrast", () => {
     );
   });
 
+  /**
+   * Golden Hour's cards and its hero portrait mount sit on a mix of paper and page background rather
+   * than on the raw surface, and its album placeholders sit straight on the page background. Both
+   * carry muted ink, so neither is covered by the surface tiers above.
+   */
+  it("keeps the muted ink readable on Golden Hour's card mix and page background", () => {
+    const { background, ink, surface } = palette("golden-hour");
+    // background: color-mix(in srgb, var(--ie-paper) 72%, var(--ie-background))
+    const card = colorMix(surface, background, 0.72);
+
+    for (const share of [0.72, 0.74, 0.76]) {
+      expect(contrastRatio(colorMix(ink, card, share), card)).toBeGreaterThanOrEqual(
+        AA_NORMAL_TEXT,
+      );
+      expect(contrastRatio(colorMix(ink, background, share), background)).toBeGreaterThanOrEqual(
+        AA_NORMAL_TEXT,
+      );
+    }
+  });
+
   it("keeps the Garden Promise RSVP deadline readable on its tinted band", () => {
     const { accent, ink, surface } = palette("garden-promise");
     // .ot-rsvp background: color-mix(in srgb, var(--ie-ribbon) 13%, var(--ie-paper))
@@ -131,7 +151,21 @@ describe("Garden Promise v2 stylesheet", () => {
   it("gates the stored section presets behind reduced motion and view-timeline support", () => {
     expect(html).toContain("@supports (animation-timeline: view())");
     expect(html).toContain("@media (prefers-reduced-motion: no-preference)");
-    expect(html).toContain("animation-range: cover 0% cover 20%");
+    expect(html).toContain("animation-range: cover 0% cover var(--ot-reveal-range)");
+    // Garden Promise keeps the reviewed 20% pace. It is also the default, so a family that declares
+    // no override reveals at this rate rather than over its whole entrance.
+    expect(html).toContain(".ot-root { --ot-reveal-range: 20%; }");
+  });
+
+  /**
+   * A `var()` inside a keyframe takes the animation off the compositor, and these run on scroll on
+   * mid-range phones. Only the range — which is not an animated property — carries the token.
+   */
+  it("keeps the reveal transforms literal so they stay compositable", () => {
+    expect(html).toContain("transform: translateY(1.25rem)");
+    expect(html).toContain("transform: scale(0.975)");
+    expect(html).not.toContain("translateY(var(");
+    expect(html).not.toContain("scale(var(");
   });
 
   it("draws the specimen as one inline sprig kept out of the accessibility tree", () => {

@@ -264,6 +264,30 @@ describe("templates page", () => {
     expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
   });
 
+  it.each([
+    ["golden-hour", "Golden Hour", 7],
+    ["sunday-joy", "Sunday Joy", 8],
+  ])("previews every %s section and image slot, like the full route", (templateId, templateName, placeholders) => {
+    const { container } = render(
+      <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: `Quick preview ${templateName}` }));
+
+    const invitation = container.querySelector('[data-testid="template-preview-stage"]');
+    if (!invitation) throw new Error(`Expected the ${templateId} renderer in the modal`);
+
+    const showcase = resolveTemplateById(templateId).defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(placeholders);
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+  });
+
   it("handles no matches, loading, and unexpected errors", () => {
     const { unmount } = render(
       <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,

@@ -90,7 +90,10 @@ function TemplateMotif({
 }) {
   return (
     <span aria-hidden="true" className="ot-motif" data-context={context} data-motif={variant}>
-      {variant === "golden-hour" ? <b>XVIII</b> : null}
+      {/* The numeral is set only where the medallion is small and fully opaque. Behind hero type the
+          medallion sits at 24%, and a text-shaped mark at that opacity reads as a grey artifact the
+          eye keeps trying to resolve. The hero watermark is the diamond geometry alone. */}
+      {variant === "golden-hour" && context !== "hero" ? <b>XVIII</b> : null}
       {variant === "garden-promise" ? (
         <GardenSprig />
       ) : (
@@ -382,7 +385,7 @@ function renderSection(
                 sizes={HERO_IMAGE_SIZES}
               />
             ) : (
-              <div className="ot-media-placeholder ot-hero-placeholder">
+              <div aria-hidden="true" className="ot-media-placeholder ot-hero-placeholder">
                 Portrait pending creator upload
               </div>
             )
@@ -819,6 +822,13 @@ ${poweredByInviticaStyles}
   place-items: center;
   text-align: center;
 }
+/* An album slot reserves the space a photograph will actually take. At album width the shared 10rem
+   minimum is a 2.4:1 bar that reads as a divider between captions rather than a missing picture. All
+   three occasions share the proportion; only a slot that spans both columns overrides it. */
+.ot-gallery-grid .ot-media-placeholder {
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+}
 .ot-message { text-align: center; }
 .ot-message-body {
   width: min(100%, 40rem);
@@ -1076,6 +1086,43 @@ ${poweredByInviticaStyles}
 .ot-root button:focus-visible {
   outline: 3px solid var(--ie-ribbon);
   outline-offset: 0.2rem;
+}
+
+/* Every occasion honors the section presets its invitation document already stores. Enhancement
+   only: without view timelines, with reduced motion, or for the "fade-in", "none", and
+   "stagger-children" presets, every section renders in its end state.
+
+   These reveals move but never fade. A scroll-linked opacity ramp is a state the guest can stop
+   inside, and on the Garden Promise palette a section at 86% opacity drops the message body to
+   4.12:1 — below AA. Transform-only keeps every character at full contrast on every frame, so
+   "fade-in" has nothing safe to animate and stays inert.
+
+   Amplitude is shared; each occasion sets its own pace through --ot-reveal-range, which is how long
+   a section takes to arrive as it enters. The keyframe values stay literal so the transforms remain
+   compositable on a mid-range phone; only the range, which is not an animated property, is a token. */
+.ot-root { --ot-reveal-range: 20%; }
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .ot-root[data-motion-enabled="true"] .ot-section[data-animation="fade-up"],
+    .ot-root[data-motion-enabled="true"] .ot-section[data-animation="scale-in"] {
+      animation-fill-mode: both;
+      animation-timing-function: linear;
+      animation-timeline: view();
+      animation-range: cover 0% cover var(--ot-reveal-range);
+    }
+    .ot-root[data-motion-enabled="true"] .ot-section[data-animation="fade-up"] {
+      animation-name: ot-rise;
+    }
+    .ot-root[data-motion-enabled="true"] .ot-section[data-animation="scale-in"] {
+      animation-name: ot-settle;
+    }
+  }
+}
+@keyframes ot-rise {
+  from { transform: translateY(1.25rem); }
+}
+@keyframes ot-settle {
+  from { transform: scale(0.975); }
 }
 
 /* Garden Promise — pressed garden folio.
@@ -1340,38 +1387,6 @@ ${poweredByInviticaStyles}
   padding: 1.25rem;
   border: 1px solid color-mix(in srgb, var(--ie-ribbon) 42%, transparent);
 }
-/* Garden Promise honors the section presets the invitation document already stores. Enhancement
-   only: without view timelines, with reduced motion, or for the "fade-in", "none", and
-   "stagger-children" presets, every section renders in its end state.
-
-   These reveals move but never fade. A scroll-linked opacity ramp is a state the guest can stop
-   inside, and on this palette a section at 86% opacity drops the message body to 4.12:1 — below AA.
-   Transform-only keeps every character at full contrast on every frame, so "fade-in" has nothing
-   safe to animate and stays inert. */
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="fade-up"],
-    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="scale-in"] {
-      animation-fill-mode: both;
-      animation-timing-function: linear;
-      animation-timeline: view();
-      animation-range: cover 0% cover 20%;
-    }
-    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="fade-up"] {
-      animation-name: ot-rise;
-    }
-    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="scale-in"] {
-      animation-name: ot-settle;
-    }
-  }
-}
-@keyframes ot-rise {
-  from { transform: translateY(1.25rem); }
-}
-@keyframes ot-settle {
-  from { transform: scale(0.975); }
-}
-
 /* The signature moment: once the envelope clears, the specimen settles onto the sheet and its
    shadow blooms then tightens, as though it were just pressed. It runs once, on one decorative
    element, and never touches text. The resting state is the element's default, so if the animation
@@ -1401,9 +1416,15 @@ ${poweredByInviticaStyles}
 
 /* Golden Hour — midnight ballroom program. */
 .ot-root[data-template="golden-hour"] {
+  /* Deliberate pace: sections arrive over 30% of their entrance, the slowest of the three. */
+  --ot-reveal-range: 30%;
   background:
     linear-gradient(135deg, transparent 48%, rgb(211 173 96 / 7%) 49% 51%, transparent 52%),
     var(--ie-background);
+  /* The rays repeat on a fixed tile. Sized to the background box they spanned the whole document —
+     8,339px on a phone — so the band became one stretched smear across the entourage and program
+     rather than deco geometry. */
+  background-size: 24rem 24rem;
 }
 .ot-root[data-template="golden-hour"] .ot-content {
   color: var(--ie-ink);
@@ -1440,6 +1461,23 @@ ${poweredByInviticaStyles}
   position: absolute;
   width: min(68cqi, 31rem);
   opacity: 0.24;
+}
+/* The debutante's portrait is the program's frontispiece: a plate above her name, in the same brass
+   double rule the reply card uses. The medallion stays behind it as a watermark. Only the empty slot
+   is held to portrait proportion; a real photograph keeps its own aspect ratio inside the same
+   mount, so nothing is cropped. */
+.ot-root[data-template="golden-hour"] .ot-hero-photo,
+.ot-root[data-template="golden-hour"] .ot-hero-placeholder {
+  width: min(100%, 14rem);
+  padding: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 55%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--ie-ribbon) 30%, transparent);
+  outline-offset: 0.35rem;
+  background: color-mix(in srgb, var(--ie-paper) 72%, var(--ie-background));
+}
+.ot-root[data-template="golden-hour"] .ot-hero-placeholder {
+  min-height: 0;
+  aspect-ratio: 4 / 5;
 }
 .ot-root[data-template="golden-hour"] .ot-motif[data-motif="golden-hour"] {
   border: 1px solid var(--ie-ribbon);
@@ -1502,6 +1540,8 @@ ${poweredByInviticaStyles}
 
 /* Sunday Joy — sunlit cut-paper party book. */
 .ot-root[data-template="sunday-joy"] {
+  /* Quick pace: cards snap into place over 14% of their entrance, the fastest of the three. */
+  --ot-reveal-range: 14%;
   background:
     radial-gradient(circle at 8% 12%, rgb(121 185 212 / 24%) 0 4rem, transparent 4.1rem),
     radial-gradient(circle at 94% 30%, rgb(221 101 76 / 18%) 0 5rem, transparent 5.1rem),
@@ -1530,11 +1570,46 @@ ${poweredByInviticaStyles}
   grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.5fr);
   text-align: left;
 }
-.ot-root[data-template="sunday-joy"] .ot-hero-copy { grid-column: 1; grid-row: 1; }
+.ot-root[data-template="sunday-joy"] .ot-hero-copy {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
 .ot-root[data-template="sunday-joy"] .ot-hero > .ot-motif {
   grid-column: 2;
   grid-row: 1;
   width: min(100%, 16rem);
+  justify-self: center;
+}
+/* The birthday photograph is a snapshot taped into the party book: a thick cut-paper mount under the
+   pinwheel, tipped off-square like the section cards around it. Only the empty slot is held to
+   portrait proportion; a real photograph keeps its own aspect ratio inside the same mount.
+
+   The mount carries more ink than the section cards use. On a card the coral offset shadow draws the
+   edge; on an 11rem mount the border is the whole cut-paper edge, and the cards' 14% does not read
+   against #fffaf0 at that size. */
+.ot-root[data-template="sunday-joy"] .ot-hero-photo,
+.ot-root[data-template="sunday-joy"] .ot-hero-placeholder {
+  grid-column: 2;
+  grid-row: 2;
+  width: min(100%, 11rem);
+  padding: 0.5rem;
+  border: 2px solid color-mix(in srgb, var(--ie-ink) 24%, transparent);
+  border-radius: 0.7rem;
+  background: var(--ie-paper);
+  box-shadow: 0.35rem 0.4rem 0 color-mix(in srgb, var(--ie-ribbon) 18%, transparent);
+  transform: rotate(-2deg);
+  align-self: start;
+  justify-self: center;
+}
+.ot-root[data-template="sunday-joy"] .ot-hero-placeholder {
+  min-height: 0;
+  aspect-ratio: 4 / 5;
+}
+/* The feature plate spans both columns, so it takes a landscape crop rather than running to half a
+   screen of empty mount at the shared album proportion. */
+.ot-root[data-template="sunday-joy"] .ot-gallery-grid figure:nth-child(3n + 1) .ot-media-placeholder {
+  aspect-ratio: 16 / 9;
 }
 .ot-root[data-template="sunday-joy"] .ot-motif[data-motif="sunday-joy"] {
   border: 1rem solid #f6c94c;
@@ -1606,7 +1681,9 @@ ${poweredByInviticaStyles}
   .ot-root[data-template="garden-promise"] .ot-hero > .ot-motif { width: 5.5rem; }
   .ot-root[data-template="garden-promise"] .ot-hero-copy { grid-row: 2; }
   .ot-root[data-template="garden-promise"] .ot-hero-photo,
-  .ot-root[data-template="garden-promise"] .ot-hero-placeholder {
+  .ot-root[data-template="garden-promise"] .ot-hero-placeholder,
+  .ot-root[data-template="sunday-joy"] .ot-hero-photo,
+  .ot-root[data-template="sunday-joy"] .ot-hero-placeholder {
     grid-column: 1;
     grid-row: 3;
     margin-top: 0.5rem;
@@ -1619,6 +1696,24 @@ ${poweredByInviticaStyles}
     columns: 1;
     column-rule: 0;
   }
+  /* The hero's own padding is clamp(5rem, 12cqi, 8rem) at higher specificity than the .ot-section
+     rule above, so a 390px phone kept 80px on every side and set a fifteen-character title in a
+     230px column. A debutante's full name is longer than that. */
+  .ot-root[data-template="golden-hour"] .ot-hero { padding: 4.5rem 1.5rem; }
+  /* Three stacked groups of eighteen names ran 1,753px, a fifth of the phone page. The cards keep
+     their brass borders and take a two-column name list instead. Vertical rhythm moves from the
+     li + li margin to per-item padding so both columns start on the same baseline, and the cards
+     gain the inline padding the wider single-column list never needed. */
+  .ot-root[data-template="golden-hour"] .ot-participant-grid article { padding-inline: 1.25rem; }
+  .ot-root[data-template="golden-hour"] .ot-participant-grid ul {
+    columns: 2;
+    column-gap: 1rem;
+  }
+  .ot-root[data-template="golden-hour"] .ot-participant-grid li {
+    padding-block: 0.15rem;
+    break-inside: avoid;
+  }
+  .ot-root[data-template="golden-hour"] .ot-participant-grid li + li { margin-top: 0; }
   .ot-root[data-template="golden-hour"] .ot-message { display: block; text-align: center; }
   .ot-root[data-template="golden-hour"] .ot-message-body { margin: 1.5rem auto 0; }
   .ot-root[data-template="golden-hour"] .ot-signature {
@@ -1633,6 +1728,10 @@ ${poweredByInviticaStyles}
   }
   .ot-root[data-template="sunday-joy"] .ot-gallery-grid figure:nth-child(3n + 1) {
     grid-column: auto;
+  }
+  /* One column, so no plate spans anything: the feature crop returns to the album shape. */
+  .ot-root[data-template="sunday-joy"] .ot-gallery-grid figure:nth-child(3n + 1) .ot-media-placeholder {
+    aspect-ratio: 4 / 3;
   }
 }
 @media (prefers-reduced-motion: reduce) {

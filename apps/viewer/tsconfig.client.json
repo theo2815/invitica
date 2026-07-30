@@ -7,5 +7,10 @@
     "rootDir": ".",
     "types": ["react", "react-dom"]
   },
-  "include": ["src/client.tsx", "src/published-renderer.ts", "src/styles.d.ts"]
+  "include": [
+    "src/client.tsx",
+    "src/published-renderer-client.ts",
+    "src/published-renderer-contract.ts",
+    "src/styles.d.ts"
+  ]
 }

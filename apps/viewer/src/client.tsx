@@ -8,6 +8,7 @@ import { hydrateRoot } from "react-dom/client";
 import { publicIdentifierFromInvitationPath } from "./invitation-path";
 import { MAP_TILE_KEY_META } from "./map-tile-key";
 import { PersonalizedPublication } from "./personalized-publication";
+import { loadPublishedRenderer } from "./published-renderer-client";
 import { recordPublicationView } from "./view-tracking";
 
 function readMapTileKey(): string {
@@ -15,7 +16,7 @@ function readMapTileKey(): string {
   return meta?.content ?? "";
 }
 
-function hydratePublication(): void {
+async function hydratePublication(): Promise<void> {
   const root = document.getElementById("viewer-root");
   const data = document.getElementById("publication-artifact");
 
@@ -26,16 +27,22 @@ function hydratePublication(): void {
   try {
     const parsed: unknown = JSON.parse(data.textContent);
     const artifact = parsePublicationArtifact(parsed);
+    const publicIdentifier = publicIdentifierFromInvitationPath(window.location.pathname);
+    if (publicIdentifier) void recordPublicationView(publicIdentifier);
+
+    const renderer = await loadPublishedRenderer(artifact);
 
     hydrateRoot(
       root,
-      <PersonalizedPublication artifact={artifact} mapTileKey={readMapTileKey()} />,
+      <PersonalizedPublication
+        artifact={artifact}
+        mapTileKey={readMapTileKey()}
+        renderer={renderer}
+      />,
     );
-    const publicIdentifier = publicIdentifierFromInvitationPath(window.location.pathname);
-    if (publicIdentifier) void recordPublicationView(publicIdentifier);
   } catch {
     console.error(JSON.stringify({ event: "viewer_hydration_failed" }));
   }
 }
 
-hydratePublication();
+void hydratePublication();

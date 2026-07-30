@@ -13,8 +13,10 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 - `workspace_id`, backed by active workspace membership, is the creator ownership boundary.
 - Untrusted invitation documents are parsed by the shared TypeScript schema before persistence or
   publication; SQL adds narrow structural and business-rule checks at mutation boundaries.
-- Authenticated browser roles do not receive generic document, publication, RSVP, or private-link
-  mutation access. Narrow RPCs derive identity from `auth.uid()` and re-check ownership.
+- Authenticated browser roles do not receive unbounded table or whole-document mutation access.
+  Narrow RPCs derive identity from `auth.uid()` and re-check ownership. The generic
+  `update_invitation_sections` RPC accepts only stable-ID patches allowed by an exact
+  template-version policy.
 - Privileged functions pin an empty `search_path` and grant only the roles that need the operation.
 - Raw personalized-link tokens are never stored in PostgreSQL. Hashing and separately keyed recovery
   ciphertext have distinct purposes, and revocation destroys recoverable material.

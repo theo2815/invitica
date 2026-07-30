@@ -7,18 +7,27 @@ import {
   guestLinkTokenSchema,
   type PublicationArtifact,
 } from "@invitica/invitation-schema";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { InvitationRendererProps } from "@invitica/renderer";
+import {
+  type ComponentType,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import { publicIdentifierFromInvitationPath } from "./invitation-path";
 import { createSnapshotImageResolver } from "./published-media";
-import { resolvePublishedRenderer } from "./published-renderer";
 import { RsvpForm } from "./rsvp-form";
 
 interface PersonalizedPublicationProps {
   artifact: PublicationArtifact;
   /** Per-deployment MapTiler key read from the served page, never from the snapshot (ADR-006). */
   mapTileKey?: string;
+  renderer: ComponentType<InvitationRendererProps>;
 }
 
 interface GuestCapability {
@@ -51,13 +60,17 @@ async function requestGuestContext(
   return result.success ? result.data : null;
 }
 
-export function PersonalizedPublication({ artifact, mapTileKey }: PersonalizedPublicationProps) {
+export function PersonalizedPublication({
+  artifact,
+  mapTileKey,
+  renderer,
+}: PersonalizedPublicationProps) {
   const [capability, setCapability] = useState<GuestCapability>();
   const [context, setContext] = useState<GuestContextResponse>();
   const [loadState, setLoadState] = useState<GuestContextLoadState>("idle");
   const activeController = useRef<AbortController | null>(null);
   const requestSequence = useRef(0);
-  const Renderer = resolvePublishedRenderer(artifact);
+  const Renderer = renderer;
   const resolveImage = useMemo(
     () => createSnapshotImageResolver(artifact.snapshot.assets),
     [artifact],

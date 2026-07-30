@@ -80,7 +80,7 @@ test("renders, opens, and passes blocking WCAG A/AA checks", async ({ page }) =>
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached();
   await expect(page.getByRole("heading", { name: "Alexandria & Maximiliano" })).toBeVisible();
   await expect(page.getByText("Hiraya Garden Pavilion")).toBeVisible();
-  await expect(page.getByText("Kindly reply by December 17, 2026")).toBeVisible();
+  await expect(page.getByText("Kindly reply by December 17, 2026")).toHaveCount(0);
 
   const openedAudit = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
   expect(blockingViolations(openedAudit.violations)).toEqual([]);

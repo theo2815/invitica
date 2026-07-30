@@ -160,6 +160,25 @@ This gate applies even to a seemingly small visual change. It does not apply to 
 - Do not invent a replacement design language when the skill or established design system already answers the question.
 - For motion work, preserve keyboard access, reduced-motion behavior, readable fallback states, and mid-range mobile performance.
 
+## Project-Only Writing Skill Gate
+
+Everything an agent authors for Invitica is written in **English only**. This is a hard rule with no exception for headings, product copy, alt text, commit messages, code comments, or asides in chat. It constrains authored text, not stored data: creator and guest names, venue names, dress codes, and RSVP messages arrive in whatever language the user typed, and the product must store and render them faithfully.
+
+These rules apply to every reply in every session, without reading any other file:
+
+- Answer first. Do not open with a restatement that adds nothing, a compliment, or a plan to answer.
+- Cut filler, hedges that carry no information, and closing paragraphs that repeat the body.
+- Vary sentence length. Do not let every sentence arrive at the same length and shape.
+- Prefer the plain verb — `is`, `has`, `uses` — over `serves as`, `boasts`, `leverages`.
+- Keep every claim concrete and traceable. Never inflate significance the evidence does not support.
+- Required structures in this rulebook are not filler. Keep them.
+
+Before writing or editing any Second Brain note, repository document, product-facing copy, pull request body, or prose deliverable longer than a few sentences, read this project skill in full:
+
+`%USERPROFILE%\Documents\Obsidian Vault\Invitica Vault\Agent Skills\invitica-writing\SKILL.md`
+
+The gate does not apply to code, test names, machine-readable output, or a one-line factual reply. If the skill is missing, empty, or unreadable, say so and apply the always-on rules above.
+
 ## Engineering Discipline — Apply Before Coding (MANDATORY)
 
 These rules govern **how** any agent writes code in this monorepo. They are not optional, and they apply **before the first line of code is written** — not as an after-the-fact review. Before implementing anything non-trivial, an agent MUST have satisfied points 1–5 below. **Tradeoff:** These guidelines bias toward caution over speed. For genuinely trivial tasks (typo, single-line edit, lookup), use judgment. If these conflict with a module-specific `AGENTS.md`, follow the stricter rule.

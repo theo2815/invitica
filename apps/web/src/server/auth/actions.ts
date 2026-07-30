@@ -1,12 +1,19 @@
 "use server";
 
+import { isLegalAcceptanceEnabled } from "@invitica/renderer/legal-documents";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createClient } from "../../lib/supabase/server";
+import {
+  buildLegalAcceptancePath,
+  getPostAuthLegalRedirect,
+  recordCurrentTermsAcceptance,
+  setPendingTermsAcceptance,
+} from "../legal/acceptance";
+import { legalAcceptanceCookieSecretIsConfigured } from "../legal/pending-acceptance";
 import { publicAuthLocked } from "./beta-gate";
 import { getSafeNextPath, getSiteOrigin } from "./redirects";
-import { ensurePersonalWorkspace } from "./session";
 import type { AuthActionState } from "./types";
 import {
   validateEmailLogin,
@@ -43,14 +50,19 @@ export async function signInWithEmail(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(result.data);
+  const { data, error } = await supabase.auth.signInWithPassword(result.data);
 
-  if (error) {
+  if (error || !data.user) {
     return { error: "The email or password is incorrect." };
   }
 
-  const workspace = await ensurePersonalWorkspace();
-  if (workspace.error) {
+  const acceptanceRedirect = await getPostAuthLegalRedirect(supabase, data.user.id, nextPath);
+  if (acceptanceRedirect) {
+    redirect(acceptanceRedirect);
+  }
+
+  const { error: workspaceError } = await supabase.rpc("ensure_personal_workspace");
+  if (workspaceError) {
     return { error: "Your account is signed in, but its workspace could not be prepared." };
   }
 
@@ -68,10 +80,18 @@ export async function signUpWithEmail(
 
   const nextValue = formData.get("next");
   const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
-  const result = validateEmailRegistration(formData);
+  const result = validateEmailRegistration(formData, {
+    requireTermsAcceptance: isLegalAcceptanceEnabled(),
+  });
 
   if (!result.ok) {
     return { error: null, fieldErrors: result.fieldErrors };
+  }
+
+  if (isLegalAcceptanceEnabled() && !legalAcceptanceCookieSecretIsConfigured()) {
+    return {
+      error: "Account creation is temporarily unavailable while legal acceptance is configured.",
+    };
   }
 
   const supabase = await createClient();
@@ -90,12 +110,22 @@ export async function signUpWithEmail(
   }
 
   if (data.session) {
-    const workspace = await ensurePersonalWorkspace();
-    if (workspace.error) {
+    if (isLegalAcceptanceEnabled() && data.user) {
+      const acceptance = await recordCurrentTermsAcceptance(supabase, data.user.id);
+      if (acceptance.error) {
+        redirect(buildLegalAcceptancePath(nextPath));
+      }
+    }
+
+    const { error: workspaceError } = await supabase.rpc("ensure_personal_workspace");
+    if (workspaceError) {
       return { error: "Your account was created, but its workspace could not be prepared." };
     }
+
     redirect(nextPath);
   }
+
+  await setPendingTermsAcceptance();
 
   redirect("/register/check-email");
 }

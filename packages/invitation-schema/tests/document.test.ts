@@ -6,7 +6,9 @@ import {
   giftsSectionSchema,
   invitationDocumentV1Schema,
   parseInvitationDocument,
+  participantsSectionSchema,
   safeParseInvitationDocument,
+  scheduleSectionSchema,
   UnsupportedInvitationSchemaVersionError,
 } from "../src/index.js";
 import { invitationFixture } from "../src/testing.js";
@@ -262,6 +264,110 @@ describe("invitation document schema", () => {
         ...base,
         type: "gifts",
         props: { items: [...giftItems, { name: "One gift too many" }] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts ten participant groups and sixteen schedule entries, then rejects one more", () => {
+    const base = {
+      id: "47000000-0000-4000-8000-000000000097",
+      visible: true,
+      animationPreset: "none",
+    };
+    const participantGroups = Array.from({ length: 10 }, (_, index) => ({
+      label: `Wedding party group ${index + 1}`,
+      names: [`Fictional participant ${index + 1}`],
+    }));
+    const scheduleItems = Array.from({ length: 16 }, (_, index) => ({
+      timeLabel: `${index + 1}:00 PM`,
+      title: `Program item ${index + 1}`,
+    }));
+
+    expect(
+      participantsSectionSchema.safeParse({
+        ...base,
+        type: "participants",
+        props: { groups: participantGroups },
+      }).success,
+    ).toBe(true);
+    expect(
+      participantsSectionSchema.safeParse({
+        ...base,
+        type: "participants",
+        props: {
+          groups: [
+            ...participantGroups,
+            { label: "One group too many", names: ["Fictional participant"] },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      scheduleSectionSchema.safeParse({
+        ...base,
+        type: "schedule",
+        props: { items: scheduleItems },
+      }).success,
+    ).toBe(true);
+    expect(
+      scheduleSectionSchema.safeParse({
+        ...base,
+        type: "schedule",
+        props: {
+          items: [...scheduleItems, { timeLabel: "Later", title: "One program item too many" }],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts ten participant groups and sixteen schedule entries, then rejects one more", () => {
+    const base = {
+      id: "47000000-0000-4000-8000-000000000097",
+      visible: true,
+      animationPreset: "none",
+    };
+    const participantGroups = Array.from({ length: 10 }, (_, index) => ({
+      label: `Wedding party group ${index + 1}`,
+      names: [`Fictional participant ${index + 1}`],
+    }));
+    const scheduleItems = Array.from({ length: 16 }, (_, index) => ({
+      timeLabel: `${index + 1}:00 PM`,
+      title: `Program item ${index + 1}`,
+    }));
+
+    expect(
+      participantsSectionSchema.safeParse({
+        ...base,
+        type: "participants",
+        props: { groups: participantGroups },
+      }).success,
+    ).toBe(true);
+    expect(
+      participantsSectionSchema.safeParse({
+        ...base,
+        type: "participants",
+        props: {
+          groups: [
+            ...participantGroups,
+            { label: "One group too many", names: ["Fictional participant"] },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      scheduleSectionSchema.safeParse({
+        ...base,
+        type: "schedule",
+        props: { items: scheduleItems },
+      }).success,
+    ).toBe(true);
+    expect(
+      scheduleSectionSchema.safeParse({
+        ...base,
+        type: "schedule",
+        props: {
+          items: [...scheduleItems, { timeLabel: "Later", title: "One program item too many" }],
+        },
       }).success,
     ).toBe(false);
   });

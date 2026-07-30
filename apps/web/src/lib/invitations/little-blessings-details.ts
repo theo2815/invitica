@@ -18,25 +18,27 @@ import {
 import { z } from "zod";
 
 /**
- * The editable Little Blessings surface, shared by the creator editor and the
- * save path. Pure document logic only: this module holds no server access, so
- * the editor can validate and preview an edit in the browser using exactly the
- * contract the server and migration `0016` will enforce.
+ * The editable section-document surface shared by the creator editor and save
+ * path. This module is pure document logic, so every template using the editor
+ * validates and previews against the same contract the server and database
+ * enforce.
  */
 
 /**
- * Sections a creator may never hide. The hero carries the celebrant's name,
- * date, and portrait and is the source for the envelope cover plate; without
- * Where and when the invitation cannot do its job.
+ * Sections a creator may never hide. The hero carries the invitation's primary
+ * identity and event details tell guests where and when to arrive.
  */
-export const LITTLE_BLESSINGS_REQUIRED_SECTIONS = ["hero", "event-details"] as const;
+export const SECTION_DOCUMENT_REQUIRED_SECTIONS = ["hero", "event-details"] as const;
+export const LITTLE_BLESSINGS_REQUIRED_SECTIONS = SECTION_DOCUMENT_REQUIRED_SECTIONS;
 
-export class LittleBlessingsSectionError extends Error {
+export class SectionDocumentSectionError extends Error {
   constructor() {
     super("This invitation does not contain that section.");
-    this.name = "LittleBlessingsSectionError";
+    this.name = "SectionDocumentSectionError";
   }
 }
+
+export { SectionDocumentSectionError as LittleBlessingsSectionError };
 
 /**
  * A cleared optional field arrives as an empty string from a text input. That
@@ -75,7 +77,7 @@ function requiredSection<Props extends z.ZodTypeAny>(props: Props) {
  * complete strict props object. Prop shapes are the document contract's own, so
  * the editor can never drift from what a published invitation may contain.
  */
-export const littleBlessingsDetailsSchema = z.preprocess(
+export const sectionDocumentDetailsSchema = z.preprocess(
   withoutBlankFields,
   z.strictObject({
     attire: editableSection(attireSectionSchema.shape.props),
@@ -92,7 +94,9 @@ export const littleBlessingsDetailsSchema = z.preprocess(
   }),
 );
 
-export type LittleBlessingsDetails = z.infer<typeof littleBlessingsDetailsSchema>;
+export const littleBlessingsDetailsSchema = sectionDocumentDetailsSchema;
+export type SectionDocumentDetails = z.infer<typeof sectionDocumentDetailsSchema>;
+export type LittleBlessingsDetails = SectionDocumentDetails;
 
 function referencedImageIds(sections: readonly InvitationSection[]): string[] {
   const ids: string[] = [];
@@ -125,16 +129,16 @@ function referencedImageIds(sections: readonly InvitationSection[]): string[] {
  * document order. Migration `0016` derives it the same way from the same
  * sections, so the creator's preview and the stored document agree.
  */
-export function applyLittleBlessingsDetails(
+export function applySectionDocumentDetails(
   document: InvitationDocument,
-  details: LittleBlessingsDetails,
+  details: SectionDocumentDetails,
 ): InvitationDocument {
   const entries: Record<string, { props: unknown; visible: boolean } | undefined> = details;
   const presentTypes = new Set<string>(document.sections.map((section) => section.type));
 
   for (const type of Object.keys(entries)) {
     if (!presentTypes.has(type)) {
-      throw new LittleBlessingsSectionError();
+      throw new SectionDocumentSectionError();
     }
   }
 
@@ -152,3 +156,5 @@ export function applyLittleBlessingsDetails(
 
   return parseInvitationDocument({ ...document, assets, sections });
 }
+
+export const applyLittleBlessingsDetails = applySectionDocumentDetails;

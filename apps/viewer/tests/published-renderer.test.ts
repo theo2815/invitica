@@ -7,6 +7,7 @@ import {
   IncompatiblePublicationRendererError,
   resolvePublishedRenderer,
 } from "../src/published-renderer";
+import { loadPublishedRenderer } from "../src/published-renderer-client";
 
 const littleBlessingsV2 = resolveTemplateById("little-blessings");
 
@@ -39,6 +40,26 @@ describe("published renderer resolution", () => {
 
   it("rejects a snapshot that combines the v2 key with v1 renderer semantics", () => {
     expect(() => resolvePublishedRenderer(v2Artifact(1))).toThrow(
+      IncompatiblePublicationRendererError,
+    );
+  });
+
+  it("lazy-loads the immutable renderer pin for client hydration", async () => {
+    await expect(loadPublishedRenderer(v2Artifact())).resolves.toBe(LittleBlessingsRendererV2);
+  });
+
+  it("rejects an incompatible renderer version before client hydration", async () => {
+    await expect(loadPublishedRenderer(v2Artifact(1))).rejects.toThrow(
+      IncompatiblePublicationRendererError,
+    );
+  });
+
+  it("lazy-loads the immutable renderer pin for client hydration", async () => {
+    await expect(loadPublishedRenderer(v2Artifact())).resolves.toBe(LittleBlessingsRendererV2);
+  });
+
+  it("rejects an incompatible renderer version before client hydration", async () => {
+    await expect(loadPublishedRenderer(v2Artifact(1))).rejects.toThrow(
       IncompatiblePublicationRendererError,
     );
   });

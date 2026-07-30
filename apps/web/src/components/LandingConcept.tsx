@@ -1,11 +1,12 @@
 import type { TemplateCatalogEntry } from "@invitica/template-kit";
-import Image from "next/image";
 import Link from "next/link";
 
 import { BrandMark } from "./BrandMark";
 import { ArrowRight, Check } from "./Icons";
 import styles from "./LandingConcept.module.css";
 import { LandingNavigation } from "./LandingNavigation";
+import { TemplateStill } from "./templates/TemplateStill";
+import { templateStillSource } from "./templates/template-stills";
 
 interface LandingConceptProps {
   authenticated?: boolean;
@@ -13,13 +14,6 @@ interface LandingConceptProps {
   betaLocked?: boolean;
   templates: readonly TemplateCatalogEntry[];
 }
-
-const templateStills: Readonly<Record<string, string>> = {
-  "garden-promise": "/landing/templates/garden-promise.jpg",
-  "golden-hour": "/landing/templates/golden-hour.jpg",
-  "sunday-joy": "/landing/templates/sunday-joy.jpg",
-  "little-blessings": "/landing/templates/little-blessings.jpg",
-};
 
 const featuredPreviewHref = "/templates/little-blessings/preview";
 
@@ -80,13 +74,11 @@ export function LandingConcept({
           >
             <span className={styles.previewKicker}>A real guest view</span>
             <span className={styles.heroImageFrame}>
-              <Image
+              <TemplateStill
                 alt="A blush pink Little Blessings invitation closed with a ribbon and personalised guest card"
-                height="1280"
                 preload
                 sizes="(max-width: 720px) 78vw, 22rem"
-                src="/landing/templates/little-blessings.jpg"
-                width="720"
+                templateId="little-blessings"
               />
             </span>
             <span className={styles.previewCaption}>
@@ -113,8 +105,7 @@ export function LandingConcept({
 
           <div className={styles.templateGrid}>
             {templates.map((template) => {
-              const still = templateStills[template.id];
-              if (!still) {
+              if (!templateStillSource(template.id)) {
                 return null;
               }
 
@@ -128,13 +119,10 @@ export function LandingConcept({
                     target="_blank"
                   >
                     <span className={styles.templateImageFrame}>
-                      <Image
+                      <TemplateStill
                         alt=""
-                        height="1280"
-                        loading="lazy"
                         sizes="(max-width: 720px) calc(50vw - 1rem), (max-width: 980px) calc(50vw - 2rem), 25vw"
-                        src={still}
-                        width="720"
+                        templateId={template.id}
                       />
                     </span>
                     <span className={styles.templateDetails}>
@@ -268,6 +256,8 @@ export function LandingConcept({
           <a href="#how-it-works">How it works</a>
           <a href="#details">What is included</a>
           <a href="#faq">FAQ</a>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
         </nav>
         <p className={styles.copyright}>© 2026 Invitica · Made in the Philippines</p>
       </footer>

@@ -1,0 +1,332 @@
+.page {
+  --paper: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --ink: #29231f;
+  --ink-soft: #6d655e;
+  --line: #d5cbbd;
+  --wine: #7a3442;
+  --focus: #2457c5;
+  min-height: 100dvh;
+  padding-left: max(clamp(1rem, 4vw, 3.5rem), env(safe-area-inset-left));
+  padding-right: max(clamp(1rem, 4vw, 3.5rem), env(safe-area-inset-right));
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.page a:focus-visible {
+  outline-color: var(--focus);
+}
+
+.header,
+.footer {
+  display: flex;
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.header {
+  align-items: center;
+  justify-content: space-between;
+  min-height: calc(5rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand svg {
+  color: var(--wine);
+}
+
+.header nav,
+.footer nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header nav a,
+.footer nav a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 720;
+  text-underline-offset: 0.2em;
+}
+
+.header nav a:hover,
+.footer nav a:hover {
+  color: var(--wine);
+}
+
+.main {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.document {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 42rem);
+  gap: clamp(2.5rem, 7vw, 6rem);
+  justify-content: center;
+  padding-block: clamp(3rem, 8vw, 7rem);
+}
+
+.documentHeader,
+.blockers,
+.contentLayout,
+.sources {
+  grid-column: 1 / -1;
+}
+
+.documentHeader {
+  max-width: 50rem;
+}
+
+.eyebrow,
+.blockerLabel,
+.contents > p {
+  margin: 0;
+  color: var(--wine);
+  font-size: 0.69rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.documentHeader h1 {
+  max-width: 44rem;
+  margin: 0.9rem 0 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(3.25rem, 9vw, 6.7rem);
+  font-weight: 510;
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+}
+
+.status {
+  width: fit-content;
+  margin: 1.5rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--wine);
+  color: var(--wine);
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.version {
+  margin: 0.8rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.lede {
+  max-width: 46rem;
+  margin: 1.3rem 0 0;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 2vw, 1.12rem);
+  line-height: 1.75;
+}
+
+.blockers {
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 1px solid var(--line);
+  border-left: 0.35rem solid var(--wine);
+  background: var(--surface);
+}
+
+.blockers h2,
+.sources h2 {
+  margin: 0.65rem 0 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  font-weight: 520;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.blockers ul,
+.sections ul,
+.sources ul {
+  padding-left: 1.25rem;
+}
+
+.blockers li,
+.sections li,
+.sources li {
+  margin-top: 0.65rem;
+  line-height: 1.65;
+}
+
+.contents {
+  position: sticky;
+  top: 1.5rem;
+  align-self: start;
+  padding-top: 0.25rem;
+}
+
+.contentLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 42rem);
+  gap: clamp(2.5rem, 7vw, 6rem);
+  justify-content: center;
+}
+
+.contents ol {
+  display: grid;
+  gap: 0.25rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contentsLink {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.contentsLink:hover {
+  color: var(--wine);
+}
+
+.sections {
+  min-width: 0;
+}
+
+.sections section {
+  scroll-margin-top: 1.5rem;
+  padding-block: 0 2.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.sections section + section {
+  padding-top: 2.5rem;
+}
+
+.sections h2 {
+  margin: 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.55rem);
+  font-weight: 520;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.sections p,
+.sections li,
+.sources p,
+.sources li,
+.blockers li {
+  color: var(--ink-soft);
+  font-size: 0.91rem;
+}
+
+.sections p {
+  margin: 1rem 0 0;
+  line-height: 1.75;
+}
+
+.reviewNote {
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--wine);
+  background: color-mix(in srgb, var(--surface-muted) 64%, transparent);
+}
+
+.reviewNote strong {
+  color: var(--wine);
+}
+
+.sources {
+  padding-top: 1rem;
+}
+
+.sources p {
+  max-width: 44rem;
+  line-height: 1.65;
+}
+
+.sourceLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--wine);
+  font-weight: 720;
+  text-underline-offset: 0.2em;
+}
+
+.sourceLink span {
+  margin-left: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.footer {
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-block: 2rem calc(2rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+
+.footer p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 760px) {
+  .header,
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .header {
+    gap: 0.4rem;
+    padding-block: calc(1rem + env(safe-area-inset-top)) 1rem;
+  }
+
+  .document {
+    display: block;
+  }
+
+  .contentLayout {
+    display: block;
+  }
+
+  .contents {
+    position: static;
+    margin-block: 2.5rem 3rem;
+  }
+
+  .footer {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .header nav,
+  .footer nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

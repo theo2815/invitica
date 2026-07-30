@@ -17,8 +17,8 @@ import {
 } from "../src/index.js";
 
 describe("template registry", () => {
-  it("registers five immutable schema-valid template versions", () => {
-    expect(templateRegistry).toHaveLength(5);
+  it("registers eight immutable schema-valid template versions", () => {
+    expect(templateRegistry).toHaveLength(8);
     expect(Object.isFrozen(templateRegistry)).toBe(true);
 
     for (const manifest of templateRegistry) {
@@ -29,15 +29,18 @@ describe("template registry", () => {
 
     expect(resolveTemplateById("garden-promise")).toMatchObject({
       qualityStatus: "production",
-      rendererKey: "garden-promise-v1",
+      rendererKey: "garden-promise-v2",
+      version: 2,
     });
     expect(
-      templateRegistry
-        .filter((manifest) => manifest.listing.id !== "garden-promise")
-        .map((manifest) => [manifest.rendererKey, manifest.qualityStatus]),
+      templateRegistry.map((manifest) => [manifest.rendererKey, manifest.qualityStatus]),
     ).toEqual([
+      ["garden-promise-v1", "production"],
+      ["garden-promise-v2", "production"],
       ["standard-v1", "fixture"],
+      ["golden-hour-v2", "production"],
       ["standard-v1", "fixture"],
+      ["sunday-joy-v2", "production"],
       ["little-blessings-v1", "production"],
       ["little-blessings-v2", "production"],
     ]);
@@ -61,7 +64,10 @@ describe("template registry", () => {
     ).toEqual([
       // A wedding celebrates two people, so the neutral form is correct rather than a fallback.
       ["garden-promise", "they"],
+      ["garden-promise", "they"],
       ["golden-hour", "she"],
+      ["golden-hour", "she"],
+      ["sunday-joy", "she"],
       ["sunday-joy", "she"],
       ["little-blessings", "she"],
       ["little-blessings", "she"],
@@ -73,6 +79,25 @@ describe("template registry", () => {
         celebrantPronoun: "it",
       }),
     ).toThrow();
+  });
+
+  it("pins each template version to an explicit editor contract", () => {
+    expect(
+      templateRegistry.map((manifest) => [
+        manifest.listing.id,
+        manifest.version,
+        manifest.editorKey,
+      ]),
+    ).toEqual([
+      ["garden-promise", 1, "focused-event-v1"],
+      ["garden-promise", 2, "section-document-v1"],
+      ["golden-hour", 1, "focused-event-v1"],
+      ["golden-hour", 2, "section-document-v1"],
+      ["sunday-joy", 1, "focused-event-v1"],
+      ["sunday-joy", 2, "section-document-v1"],
+      ["little-blessings", 1, "section-document-v1"],
+      ["little-blessings", 2, "section-document-v1"],
+    ]);
   });
 
   it("resolves stable template and version identifiers and rejects unknown values", () => {
@@ -112,8 +137,12 @@ describe("template registry", () => {
     expect(templateCatalog.find((template) => template.id === "golden-hour")?.sections).toEqual([
       "Opening",
       "Event details",
-      "Venue",
       "Message",
+      "Countdown",
+      "People in the program",
+      "Schedule",
+      "Attire",
+      "Guest notes",
       "RSVP",
     ]);
     expect(
@@ -123,12 +152,12 @@ describe("template registry", () => {
       "Event details",
       "Message",
       "Countdown",
-      "Parents and godparents",
-      "Order of the day",
-      "What to wear",
+      "People in the program",
+      "Schedule",
+      "Attire",
       "Gallery",
-      "A gentle note",
-      "Gift ideas",
+      "Guest notes",
+      "Gifts",
       "RSVP",
     ]);
   });
@@ -233,6 +262,22 @@ describe("template registry", () => {
     expect(templateCatalog.filter((template) => template.id === "little-blessings")).toHaveLength(
       1,
     );
+  });
+
+  it("keeps structurally different successors new-drafts-only", () => {
+    const structuralSuccessors = [
+      ["40000000-0000-4000-8000-000000000001", "40000000-0000-4000-8000-000000000006"],
+      ["40000000-0000-4000-8000-000000000002", "40000000-0000-4000-8000-000000000007"],
+      ["40000000-0000-4000-8000-000000000003", "40000000-0000-4000-8000-000000000008"],
+    ] as const;
+
+    for (const [sourceId, targetId] of structuralSuccessors) {
+      const source = resolveTemplateVersion(sourceId);
+      expect(resolveTemplateUpgrade(sourceId)).toBeNull();
+      expect(() =>
+        migrateTemplateDocument(structuredClone(templateStarterDocument(source)), targetId),
+      ).toThrow(InvalidTemplateUpgradeError);
+    }
   });
 
   it("migrates only the version pin and preserves every creator-owned field", () => {

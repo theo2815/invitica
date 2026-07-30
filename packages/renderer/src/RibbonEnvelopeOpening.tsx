@@ -73,6 +73,7 @@ interface RibbonEnvelopeOpeningProps {
   mode: InvitationRendererProps["mode"];
   onOpeningStateChange?: ((state: InvitationOpeningState) => void) | undefined;
   openingReplayKey?: number | undefined;
+  pace?: "slow" | "standard";
   recipient: string;
   recipientLead: string;
   reducedMotion?: boolean;
@@ -96,6 +97,7 @@ export function RibbonEnvelopeOpening({
   mode,
   onOpeningStateChange,
   openingReplayKey = 0,
+  pace,
   recipient,
   recipientLead,
   reducedMotion = false,
@@ -117,9 +119,8 @@ export function RibbonEnvelopeOpening({
   const shouldLockPage = contentIsGated && mode === "published";
   const gardenPromise = variant === "garden-promise";
   const littleBlessings = variant === "little-blessings";
-  // Little Blessings shares Garden Promise's slower, more cinematic opening timing and its Skip
-  // control, while keeping its own visual classes (it is not styled with the gp- overrides).
-  const slowOpening = gardenPromise || littleBlessings;
+  // Existing families keep their timing; a new version may use the shorter accepted window.
+  const slowOpening = pace ? pace === "slow" : gardenPromise || littleBlessings;
   const cinematicTakeover =
     gardenPromise || variant === "golden-hour" || littleBlessings || variant === "sunday-joy";
   const contentIsVisuallyGated =
@@ -217,15 +218,33 @@ export function RibbonEnvelopeOpening({
   useEffect(() => {
     if (openingState !== "opened" || !activatedRef.current) return;
 
-    const timer = window.setTimeout(
-      () => {
-        const focusTarget = contentRef.current?.querySelector<HTMLElement>(
-          "[data-envelope-focus-target]",
-        );
-        focusTarget?.focus({ preventScroll: true });
-      },
-      shouldReduceMotion ? 50 : 0,
-    );
+    // WebKit can expose `opened` before a formerly inert subtree accepts focus under load. Retry
+    // only while focus remains outside the invitation, and stop if the guest moves into it.
+    let attempts = 0;
+    let timer = 0;
+    const maxAttempts = shouldReduceMotion ? 40 : 4;
+    const focusContent = () => {
+      const content = contentRef.current;
+      const focusTarget = content?.querySelector<HTMLElement>("[data-envelope-focus-target]");
+
+      if (content && focusTarget) {
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement !== document.body && content.contains(activeElement)) {
+          return;
+        }
+
+        content.inert = false;
+        focusTarget.focus({ preventScroll: true });
+        if (document.activeElement === focusTarget) return;
+      }
+
+      if (attempts >= maxAttempts) return;
+
+      attempts += 1;
+      timer = window.setTimeout(focusContent, 100);
+    };
+
+    timer = window.setTimeout(focusContent, 0);
     return () => window.clearTimeout(timer);
   }, [openingState, shouldReduceMotion]);
 

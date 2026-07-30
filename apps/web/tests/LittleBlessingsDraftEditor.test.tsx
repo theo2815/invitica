@@ -3,13 +3,13 @@ import { resolveTemplateById } from "@invitica/template-kit";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LittleBlessingsDraftEditor } from "../src/components/invitations/LittleBlessingsDraftEditor";
-import { saveLittleBlessingsAction } from "../src/server/invitations/actions";
+import { SectionDocumentDraftEditor } from "../src/components/invitations/LittleBlessingsDraftEditor";
+import { saveSectionDocumentAction } from "../src/server/invitations/actions";
 
 vi.mock("../src/server/invitations/actions", () => ({
   loadInvitationPublicationStatusAction: vi.fn(),
   publishInvitationAction: vi.fn(),
-  saveLittleBlessingsAction: vi.fn(),
+  saveSectionDocumentAction: vi.fn(),
 }));
 
 vi.mock("../src/server/media/actions", () => ({
@@ -39,7 +39,7 @@ let root: HTMLElement;
 
 function renderEditor() {
   const result = render(
-    <LittleBlessingsDraftEditor
+    <SectionDocumentDraftEditor
       initialAssets={[]}
       initialDocument={document}
       initialRevision={1}
@@ -98,11 +98,11 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  vi.mocked(saveLittleBlessingsAction).mockReset();
+  vi.mocked(saveSectionDocumentAction).mockReset();
 });
 
 function lastSavedDetails() {
-  const [call] = vi.mocked(saveLittleBlessingsAction).mock.calls;
+  const [call] = vi.mocked(saveSectionDocumentAction).mock.calls;
   if (!call) throw new Error("The save action was never called");
   return (call[0] as { details: Record<string, { props: never; visible: boolean }> }).details;
 }
@@ -119,7 +119,7 @@ describe("Little Blessings editor", () => {
   });
 
   it("updates the shared renderer preview and saves after the idle delay", async () => {
-    vi.mocked(saveLittleBlessingsAction).mockResolvedValue({ revision: 2, status: "saved" });
+    vi.mocked(saveSectionDocumentAction).mockResolvedValue({ revision: 2, status: "saved" });
     renderEditor();
 
     fireEvent.change(screen.getByLabelText(/The celebrant's name/), {
@@ -128,13 +128,13 @@ describe("Little Blessings editor", () => {
 
     expect(previewHeroName()).toBe("Amara Joy");
     expect(screen.getByText("Unsaved changes")).toBeDefined();
-    expect(saveLittleBlessingsAction).not.toHaveBeenCalled();
+    expect(saveSectionDocumentAction).not.toHaveBeenCalled();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });
 
-    expect(saveLittleBlessingsAction).toHaveBeenCalledWith(
+    expect(saveSectionDocumentAction).toHaveBeenCalledWith(
       expect.objectContaining({ expectedRevision: 1, invitationId }),
     );
     expect(lastSavedDetails().hero?.props).toMatchObject({ title: "Amara Joy" });
@@ -154,7 +154,7 @@ describe("Little Blessings editor", () => {
   });
 
   it("hides an optional section without losing its content", async () => {
-    vi.mocked(saveLittleBlessingsAction).mockResolvedValue({ revision: 2, status: "saved" });
+    vi.mocked(saveSectionDocumentAction).mockResolvedValue({ revision: 2, status: "saved" });
     renderEditor();
 
     expect(preview().textContent).toContain("Until the celebration");
@@ -174,7 +174,7 @@ describe("Little Blessings editor", () => {
   });
 
   it("waits for a photograph before a new invitation's album can be shown", async () => {
-    vi.mocked(saveLittleBlessingsAction).mockResolvedValue({ revision: 2, status: "saved" });
+    vi.mocked(saveSectionDocumentAction).mockResolvedValue({ revision: 2, status: "saved" });
     const starter = littleBlessings.starterDocument;
 
     if (!starter) {
@@ -182,7 +182,7 @@ describe("Little Blessings editor", () => {
     }
 
     const result = render(
-      <LittleBlessingsDraftEditor
+      <SectionDocumentDraftEditor
         initialAssets={[]}
         initialDocument={parseInvitationDocument(structuredClone(starter))}
         initialRevision={1}
@@ -288,13 +288,13 @@ describe("Little Blessings editor", () => {
       await vi.advanceTimersByTimeAsync(1_600);
     });
 
-    expect(saveLittleBlessingsAction).not.toHaveBeenCalled();
+    expect(saveSectionDocumentAction).not.toHaveBeenCalled();
     expect(screen.getByText(/Some required details are still empty/)).toBeDefined();
     expect(screen.getByRole("alert").textContent).toContain("Add this before");
   });
 
   it("keeps local text visible and offers recovery after a revision conflict", async () => {
-    vi.mocked(saveLittleBlessingsAction).mockResolvedValue({
+    vi.mocked(saveSectionDocumentAction).mockResolvedValue({
       message: "This draft changed in another session.",
       status: "conflict",
     });
@@ -348,7 +348,7 @@ describe("Little Blessings editor", () => {
   });
 
   it("carries an unusually long Philippine name through to the preview", async () => {
-    vi.mocked(saveLittleBlessingsAction).mockResolvedValue({ revision: 2, status: "saved" });
+    vi.mocked(saveSectionDocumentAction).mockResolvedValue({ revision: 2, status: "saved" });
     const longName = "María de los Ángeles Beatriz Santos-Villanueva de la Cruz";
     renderEditor();
 
@@ -362,5 +362,67 @@ describe("Little Blessings editor", () => {
 
     expect(previewHeroName()).toBe(longName);
     expect(screen.getByText("Revision 2")).toBeDefined();
+  });
+});
+
+describe("expanded occasion editor profiles", () => {
+  it.each([
+    {
+      editorHeading: "Plan the whole wedding day.",
+      firstSection: "The couple",
+      heroLabel: "The couple's names",
+      lastSection: "Reply to the couple",
+      participantSection: "Wedding party",
+      sectionCount: 11,
+      templateId: "garden-promise",
+    },
+    {
+      editorHeading: "Shape her eighteenth-birthday program.",
+      firstSection: "The debutante",
+      heroLabel: "The debutante's name",
+      lastSection: "Reserve your evening",
+      participantSection: "Her eighteen",
+      sectionCount: 10,
+      templateId: "golden-hour",
+    },
+    {
+      editorHeading: "Plan a joyful children's party.",
+      firstSection: "The birthday child",
+      heroLabel: "The birthday child's name",
+      lastSection: "Join the party",
+      participantSection: null,
+      sectionCount: 10,
+      templateId: "sunday-joy",
+    },
+  ] as const)("adapts the section document to $templateId", ({
+    editorHeading,
+    firstSection,
+    heroLabel,
+    lastSection,
+    participantSection,
+    sectionCount,
+    templateId,
+  }) => {
+    const template = resolveTemplateById(templateId);
+    const result = render(
+      <SectionDocumentDraftEditor
+        initialAssets={[]}
+        initialDocument={parseInvitationDocument(structuredClone(template.defaultDocument))}
+        initialRevision={1}
+        invitationId={invitationId}
+        rendererKey={template.rendererKey}
+      />,
+    );
+    root = result.container;
+
+    expect(screen.getByRole("heading", { name: editorHeading })).toBeDefined();
+    expect(screen.getByLabelText(new RegExp(heroLabel))).toBeDefined();
+    expect(sectionNames()).toHaveLength(sectionCount);
+    expect(sectionNames()[0]).toContain(firstSection);
+    expect(sectionNames().at(-1)).toContain(lastSection);
+    expect(
+      sectionNames().some((name) => name.includes(participantSection ?? "Party helpers")),
+    ).toBe(participantSection !== null);
+    expect(screen.queryByText("Little Blessings editor")).toBeNull();
   });
 });

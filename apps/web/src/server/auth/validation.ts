@@ -7,6 +7,7 @@ interface EmailCredentials {
 
 interface RegistrationCredentials extends EmailCredentials {
   fullName: string;
+  termsAccepted: boolean;
 }
 
 interface RecoveryCode {
@@ -59,11 +60,13 @@ export function validateEmailLogin(formData: FormData): ValidationResult<EmailCr
 
 export function validateEmailRegistration(
   formData: FormData,
+  options: { requireTermsAcceptance?: boolean } = {},
 ): ValidationResult<RegistrationCredentials> {
   const fullName = readString(formData, "fullName").replace(/\s+/g, " ");
   const email = readString(formData, "email");
   const password = readPassword(formData, "password");
   const confirmPassword = readPassword(formData, "confirmPassword");
+  const termsAccepted = formData.get("termsAccepted") === "yes";
   const fieldErrors: AuthFieldErrors = {};
 
   if (!fullName) {
@@ -90,11 +93,28 @@ export function validateEmailRegistration(
     fieldErrors.confirmPassword = "Your passwords do not match.";
   }
 
+  if (options.requireTermsAcceptance && !termsAccepted) {
+    fieldErrors.termsAccepted = "Agree to the current Terms of Service to continue.";
+  }
+
   if (hasErrors(fieldErrors)) {
     return { fieldErrors, ok: false };
   }
 
-  return { data: { email, fullName, password }, ok: true };
+  return { data: { email, fullName, password, termsAccepted }, ok: true };
+}
+
+export function validateTermsAcceptance(
+  formData: FormData,
+): ValidationResult<{ termsAccepted: true }> {
+  if (formData.get("termsAccepted") !== "yes") {
+    return {
+      fieldErrors: { termsAccepted: "Agree to the current Terms of Service to continue." },
+      ok: false,
+    };
+  }
+
+  return { data: { termsAccepted: true }, ok: true };
 }
 
 export function validateRecoveryEmail(formData: FormData): ValidationResult<RecoveryEmail> {

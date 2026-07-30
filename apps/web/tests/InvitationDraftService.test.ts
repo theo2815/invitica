@@ -1,5 +1,5 @@
 import type { InvitationDocument } from "@invitica/invitation-schema";
-import { resolveTemplateById } from "@invitica/template-kit";
+import { resolveTemplateById, resolveTemplateVersion } from "@invitica/template-kit";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -16,7 +16,7 @@ import {
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const workspaceId = "72000000-0000-4000-8000-000000000001";
-const gardenPromise = resolveTemplateById("garden-promise");
+const gardenPromise = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 const gardenPromiseFields = {
   dateLabel: "February 14, 2027",
   mapUrl: "https://maps.example.test/garden",
@@ -92,7 +92,7 @@ describe("initial invitation draft creation", () => {
 
   it("rejects fixture templates before persistence", async () => {
     const rpc = vi.fn();
-    const fixture = resolveTemplateById("golden-hour");
+    const fixture = resolveTemplateVersion("40000000-0000-4000-8000-000000000002");
 
     await expect(
       createInitialInvitationDraft({ rpc } as never, {
@@ -253,17 +253,47 @@ describe("constrained Garden Promise saving", () => {
       }),
     ).resolves.toBe(2);
 
-    expect(rpc).toHaveBeenCalledWith("update_garden_promise_details", {
-      p_date_label: "February 14, 2027",
+    const hero = gardenPromise.defaultDocument.sections.find((section) => section.type === "hero");
+    const venue = gardenPromise.defaultDocument.sections.find(
+      (section) => section.type === "venue",
+    );
+    const rsvp = gardenPromise.defaultDocument.sections.find((section) => section.type === "rsvp");
+    if (!hero || !venue || !rsvp) throw new Error("Expected Garden Promise editor sections");
+
+    expect(rpc).toHaveBeenCalledWith("update_invitation_sections", {
       p_expected_revision: 1,
       p_invitation_id: invitationId,
-      p_map_url: "https://maps.example.test/garden",
-      p_rsvp_deadline: "2027-02-01",
-      p_rsvp_message: "Please reply by February 1.",
-      p_subtitle: "Celebrate with us",
-      p_title: "Lira & Mateo",
-      p_venue_address: "123 Garden Road, Tagaytay",
-      p_venue_name: "The Glass Garden",
+      p_section_updates: [
+        {
+          id: hero.id,
+          props: {
+            ...hero.props,
+            dateLabel: "February 14, 2027",
+            subtitle: "Celebrate with us",
+            title: "Lira & Mateo",
+          },
+          visible: hero.visible,
+        },
+        {
+          id: venue.id,
+          props: {
+            ...venue.props,
+            address: "123 Garden Road, Tagaytay",
+            mapUrl: "https://maps.example.test/garden",
+            venueName: "The Glass Garden",
+          },
+          visible: venue.visible,
+        },
+        {
+          id: rsvp.id,
+          props: {
+            ...rsvp.props,
+            deadline: "2027-02-01T23:59:59+08:00",
+            message: "Please reply by February 1.",
+          },
+          visible: rsvp.visible,
+        },
+      ],
     });
   });
 

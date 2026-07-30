@@ -7,9 +7,13 @@ import { z } from "zod";
 export const templateRendererKeySchema = z.enum([
   "standard-v1",
   "garden-promise-v1",
+  "garden-promise-v2",
+  "golden-hour-v2",
   "little-blessings-v1",
   "little-blessings-v2",
+  "sunday-joy-v2",
 ]);
+export const templateEditorKeySchema = z.enum(["focused-event-v1", "section-document-v1"]);
 export const templateQualityStatusSchema = z.enum(["production", "fixture"]);
 export const templateOccasionSchema = z.enum([
   "Wedding",
@@ -63,6 +67,7 @@ export const templateManifestSchema = z
   .strictObject({
     listing: templateListingSchema,
     celebrantPronoun: celebrantPronounSchema,
+    editorKey: templateEditorKeySchema,
     templateVersionId: z.string().uuid(),
     supersedesTemplateVersionId: z.string().uuid().optional(),
     version: z.number().int().positive(),
@@ -133,5 +138,6 @@ export function templateStarterDocument(manifest: TemplateManifest) {
 }
 
 export type TemplateRendererKey = z.infer<typeof templateRendererKeySchema>;
+export type TemplateEditorKey = z.infer<typeof templateEditorKeySchema>;
 export type TemplateListing = z.infer<typeof templateListingSchema>;
 export type TemplateManifest = z.infer<typeof templateManifestSchema>;

@@ -51,7 +51,7 @@ describe("full template preview", () => {
     );
   });
 
-  it("keeps fixture previews truthful and unavailable for creation", () => {
+  it("offers the upgraded Golden Hour template for creation", () => {
     vi.useFakeTimers();
     render(
       <TemplateLivePreview
@@ -74,9 +74,9 @@ describe("full template preview", () => {
         "Golden Hour",
       ),
     ).toBeDefined();
-    expect(screen.getByRole("button", { name: "Preview only" }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    expect(
+      screen.getByRole("link", { name: "Log in to use this template" }).getAttribute("href"),
+    ).toBe("/login?next=%2Ftemplates%2Fgolden-hour%2Fpreview%3Fintent%3Duse");
   });
 
   it("reuses the friendly repeat-template decision for authenticated creators", () => {
@@ -92,7 +92,10 @@ describe("full template preview", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip opening" }));
+    act(() => vi.advanceTimersByTime(620));
+    act(() => vi.advanceTimersByTime(700));
+    act(() => vi.advanceTimersByTime(760));
+    act(() => vi.advanceTimersByTime(0));
     expect(screen.getByRole("status").textContent).toContain("You’re signed in");
 
     fireEvent.click(screen.getByRole("button", { name: "Use this template" }));

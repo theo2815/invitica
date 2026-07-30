@@ -12,6 +12,7 @@ export const goldenHourTemplate = {
   },
   // A debut is traditionally a young woman's eighteenth birthday.
   celebrantPronoun: "she",
+  editorKey: "focused-event-v1",
   templateVersionId: "40000000-0000-4000-8000-000000000002",
   version: 1,
   qualityStatus: "fixture",

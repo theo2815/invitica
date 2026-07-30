@@ -1,7 +1,6 @@
 .root {
   display: inline-flex;
   align-items: center;
-  gap: 0.42em;
   line-height: 1;
   vertical-align: middle;
 }
@@ -14,11 +13,8 @@
 }
 
 .wordmark {
-  color: inherit;
-  font-family: "Fraunces Variable", Georgia, serif;
-  font-size: 1em;
-  font-variation-settings: "opsz" 32;
-  font-weight: 610;
-  letter-spacing: -0.045em;
-  line-height: 0.92;
+  display: block;
+  width: auto;
+  height: 1.5em;
+  flex: 0 0 auto;
 }

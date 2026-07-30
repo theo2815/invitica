@@ -1,41 +1,41 @@
 import { z } from "zod";
 
 import {
-  applyLittleBlessingsDetails,
-  LittleBlessingsSectionError,
-  littleBlessingsDetailsSchema,
+  applySectionDocumentDetails,
+  SectionDocumentSectionError,
+  sectionDocumentDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
 import type { createClient } from "../../lib/supabase/server";
 import {
   InvitationDraftConflictError,
   InvitationDraftPersistenceError,
   loadInvitationDraft,
+  saveInvitationSectionsDraft,
   TemplateUnavailableError,
 } from "./drafts";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
-export const saveLittleBlessingsInputSchema = z.strictObject({
-  details: littleBlessingsDetailsSchema,
+export const saveSectionDocumentInputSchema = z.strictObject({
+  details: sectionDocumentDetailsSchema,
   expectedRevision: z.number().int().positive(),
   invitationId: z.string().uuid(),
 });
 
 /**
- * Persists a Little Blessings edit through the bounded `0016` RPC. The document
- * is rebuilt and re-parsed first, so an edit that would produce an invalid
- * invitation is rejected before anything is written; the database repeats the
- * ownership, revision, template, visibility, and bounds checks independently.
+ * Persists an edit for a template registered to `section-document-v1`. The
+ * document is rebuilt and re-parsed before the database repeats ownership,
+ * revision, template-policy, visibility, and bounds checks.
  */
-export async function saveLittleBlessingsDraft(supabase: SupabaseServerClient, input: unknown) {
-  const parsed = saveLittleBlessingsInputSchema.parse(input);
+export async function saveSectionDocumentDraft(supabase: SupabaseServerClient, input: unknown) {
+  const parsed = saveSectionDocumentInputSchema.parse(input);
   const draft = await loadInvitationDraft(supabase, parsed.invitationId);
 
   if (!draft) {
     throw new InvitationDraftPersistenceError();
   }
 
-  if (draft.manifest.listing.id !== "little-blessings") {
+  if (draft.manifest.editorKey !== "section-document-v1") {
     throw new TemplateUnavailableError();
   }
 
@@ -43,38 +43,28 @@ export async function saveLittleBlessingsDraft(supabase: SupabaseServerClient, i
     throw new InvitationDraftConflictError();
   }
 
+  let updatedDocument: ReturnType<typeof applySectionDocumentDetails>;
   try {
-    applyLittleBlessingsDetails(draft.document, parsed.details);
+    updatedDocument = applySectionDocumentDetails(draft.document, parsed.details);
   } catch (error: unknown) {
-    if (error instanceof LittleBlessingsSectionError) {
+    if (error instanceof SectionDocumentSectionError) {
       throw new InvitationDraftPersistenceError();
     }
     throw error;
   }
 
-  const { data, error } = await supabase.rpc("update_little_blessings_details", {
-    p_details: parsed.details,
-    p_expected_revision: parsed.expectedRevision,
-    p_invitation_id: parsed.invitationId,
-  });
+  const updatedTypes = new Set(Object.keys(parsed.details));
+  const sectionUpdates = updatedDocument.sections
+    .filter((section) => updatedTypes.has(section.type))
+    .map(({ id, props, visible }) => ({ id, props, visible }));
 
-  if (error?.code === "40001") {
-    throw new InvitationDraftConflictError();
-  }
-
-  if (error) {
-    // The PostgreSQL code and message are the only things that separate a missing
-    // migration from an RLS denial from a bound violation. Discarding them made
-    // every save failure look identical from the server logs.
-    console.error("[Invitation editor] update_little_blessings_details failed", {
-      code: error.code,
-      details: error.details || undefined,
-      hint: error.hint || undefined,
-      invitationId: parsed.invitationId,
-      message: error.message,
-    });
+  if (sectionUpdates.length !== updatedTypes.size) {
     throw new InvitationDraftPersistenceError();
   }
 
-  return z.coerce.number().int().positive().parse(data);
+  return saveInvitationSectionsDraft(supabase, {
+    expectedRevision: parsed.expectedRevision,
+    invitationId: parsed.invitationId,
+    sectionUpdates,
+  });
 }

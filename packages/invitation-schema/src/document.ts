@@ -127,7 +127,7 @@ export const participantsSectionSchema = z.strictObject({
   type: z.literal("participants"),
   props: z.strictObject({
     heading: z.string().trim().max(120).optional(),
-    groups: z.array(participantGroupSchema).min(1).max(4),
+    groups: z.array(participantGroupSchema).min(1).max(10),
   }),
 });
 
@@ -142,7 +142,7 @@ export const scheduleSectionSchema = z.strictObject({
   type: z.literal("schedule"),
   props: z.strictObject({
     heading: z.string().trim().max(120).optional(),
-    items: z.array(scheduleItemSchema).min(1).max(12),
+    items: z.array(scheduleItemSchema).min(1).max(16),
   }),
 });
 

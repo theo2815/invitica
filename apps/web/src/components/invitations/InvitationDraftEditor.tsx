@@ -2,7 +2,6 @@
 
 import type { InvitationDocument } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
-import type { TemplateManifest } from "@invitica/template-kit";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 
@@ -11,7 +10,8 @@ import type { InvitationPublicationStatus } from "../../server/invitations/publi
 import { CalendarPicker, formatLongCalendarDate, parseCalendarDate } from "../forms/CalendarPicker";
 import styles from "./InvitationDraftEditor.module.css";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
-import { type AvailableTemplateUpgrade, TemplateUpgradePanel } from "./TemplateUpgradePanel";
+import type { InvitationEditorProps } from "./invitation-editor-contract";
+import { TemplateUpgradePanel } from "./TemplateUpgradePanel";
 import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
 
 type HeroSection = Extract<InvitationDocument["sections"][number], { type: "hero" }>;
@@ -41,15 +41,6 @@ const gardenPromiseFieldsSchema = z.strictObject({
   venueAddress: z.string().max(2_000),
   venueName: z.string().max(2_000),
 });
-
-interface InvitationDraftEditorProps {
-  initialDocument: InvitationDocument;
-  initialPublication?: InvitationPublicationStatus;
-  initialRevision: number;
-  invitationId: string;
-  rendererKey: TemplateManifest["rendererKey"];
-  templateUpgrade?: AvailableTemplateUpgrade | null;
-}
 
 const idlePublication: InvitationPublicationStatus = {
   errorCode: null,
@@ -179,7 +170,7 @@ export function InvitationDraftEditor({
   invitationId,
   rendererKey,
   templateUpgrade = null,
-}: InvitationDraftEditorProps) {
+}: InvitationEditorProps) {
   const initialHero = findHero(initialDocument);
   const initialVenue = findVenue(initialDocument);
   const initialRsvp = findRsvp(initialDocument);

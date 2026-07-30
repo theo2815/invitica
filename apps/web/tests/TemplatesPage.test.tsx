@@ -1,5 +1,9 @@
 import { GardenPromiseRenderer, InvitationRenderer } from "@invitica/renderer";
-import { resolveTemplateById, templateCatalog } from "@invitica/template-kit";
+import {
+  resolveTemplateById,
+  resolveTemplateVersion,
+  templateCatalog,
+} from "@invitica/template-kit";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -57,6 +61,30 @@ describe("templates page", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeDefined();
     expect(screen.getAllByRole("article")).toHaveLength(4);
+  });
+
+  it("uses the distinct renderer-derived still for every template card", () => {
+    render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
+
+    const sources = templateCatalog.map((template) => {
+      const image = screen
+        .getByRole("button", { name: `Quick preview ${template.name}` })
+        .querySelector<HTMLImageElement>("img");
+
+      expect(image?.getAttribute("alt")).toBe("");
+      if (!image) throw new Error(`Missing still for ${template.id}`);
+
+      return image.src.includes("/_next/image")
+        ? new URL(image.src).searchParams.get("url")
+        : image.getAttribute("src");
+    });
+
+    expect(sources).toEqual([
+      "/landing/templates/garden-promise.jpg",
+      "/landing/templates/golden-hour.jpg",
+      "/landing/templates/sunday-joy.jpg",
+      "/landing/templates/little-blessings.jpg",
+    ]);
   });
 
   it("shows the workspace failure instead of a template collection", async () => {
@@ -118,17 +146,14 @@ describe("templates page", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("enables creation only for the production templates with stable request keys", () => {
+  it("enables creation for every production template with stable request keys", () => {
     render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
 
     const creationButtons = screen.getAllByRole("button", { name: "Use this template" });
-    const previewOnlyButtons = screen.getAllByRole("button", { name: "Preview only" });
+    const previewOnlyButtons = screen.queryAllByRole("button", { name: "Preview only" });
 
-    // Garden Promise and Little Blessings are real; the two standard-renderer
-    // concepts are still fixtures.
-    expect(creationButtons).toHaveLength(2);
-    expect(previewOnlyButtons).toHaveLength(2);
-    expect(previewOnlyButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
+    expect(creationButtons).toHaveLength(4);
+    expect(previewOnlyButtons).toHaveLength(0);
     expect(
       creationButtons.map(
         (button) =>
@@ -136,15 +161,16 @@ describe("templates page", () => {
             'input[name="invitationId"]',
           )?.value,
       ),
-    ).toEqual([creationRequestIds["garden-promise"], creationRequestIds["little-blessings"]]);
+    ).toEqual([
+      creationRequestIds["garden-promise"],
+      creationRequestIds["golden-hour"],
+      creationRequestIds["sunday-joy"],
+      creationRequestIds["little-blessings"],
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Quick preview Golden Hour" }));
-    expect(
-      screen.getByText("Interactive concept preview — production creation is unavailable."),
-    ).toBeDefined();
-    expect(
-      screen.getAllByRole("button", { name: "Preview only" }).at(-1)?.hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.getByText("Production renderer")).toBeDefined();
+    expect(screen.getAllByRole("button", { name: "Use this template" }).at(-1)).toBeDefined();
   });
 
   it("asks before reusing a template and offers the existing invitation library", () => {
@@ -272,7 +298,7 @@ describe("standard template cinematic takeover", () => {
 });
 
 describe("Garden Promise invitation interaction", () => {
-  const gardenPromise = resolveTemplateById("garden-promise");
+  const gardenPromise = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 
   afterEach(() => {
     vi.useRealTimers();

@@ -116,7 +116,8 @@ describe("public guest viewer", () => {
     expect(html).toContain("Mara &amp; Joaquin");
     expect(html).toContain("Preparing invitation…");
     expect(html).toContain('aria-disabled="true"');
-    expect(html).toContain("Use your personalized invitation link to respond");
+    expect(html).not.toContain("Use your personalized invitation link to respond");
+    expect(html).not.toContain("Kindly reply by December 17, 2026");
     expect(html).toContain('data-render-mode="published"');
     expect(html).toContain('id="publication-artifact"');
     expect(html).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');

@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 
 import type { AuthActionState, AuthFieldErrors, AuthFieldName } from "../../server/auth/types";
 import { validateEmailLogin, validateEmailRegistration } from "../../server/auth/validation";
+import { TermsAcceptanceField } from "../legal/TermsAcceptanceField";
 import { FieldError, PasswordField, PendingButton } from "./AuthFormFields";
 import styles from "./AuthPage.module.css";
 import { AuthShell } from "./AuthShell";
@@ -21,6 +22,7 @@ interface AuthPageProps {
   googleAction: (formData: FormData) => Promise<void>;
   initialError?: string | undefined;
   initialNotice?: string | undefined;
+  legalAcceptanceRequired?: boolean;
   mode: AuthMode;
   nextPath?: string | undefined;
 }
@@ -99,7 +101,7 @@ function GoogleButton() {
 function focusFirstError(fieldErrors: AuthFieldErrors, mode: AuthMode) {
   const order: AuthFieldName[] =
     mode === "register"
-      ? ["fullName", "email", "password", "confirmPassword"]
+      ? ["fullName", "email", "password", "confirmPassword", "termsAccepted"]
       : ["email", "password"];
   const firstInvalid = order.find((name) => fieldErrors[name]);
 
@@ -110,7 +112,9 @@ function focusFirstError(fieldErrors: AuthFieldErrors, mode: AuthMode) {
           ? "full-name"
           : firstInvalid === "confirmPassword"
             ? "confirm-password"
-            : `${mode}-${firstInvalid}`,
+            : firstInvalid === "termsAccepted"
+              ? "register-terms-accepted"
+              : `${mode}-${firstInvalid}`,
       )
       ?.focus();
   }
@@ -122,6 +126,7 @@ export function AuthPage({
   googleAction,
   initialError,
   initialNotice,
+  legalAcceptanceRequired = false,
   mode,
   nextPath,
 }: AuthPageProps) {
@@ -131,8 +136,12 @@ export function AuthPage({
     notice: initialNotice ?? null,
   });
   const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [values, setValues] = useState<AuthValues>(initialValues);
   const fieldErrors = { ...state.fieldErrors, ...clientErrors };
+  if (termsAccepted) {
+    delete fieldErrors.termsAccepted;
+  }
   const headingId = `${mode}-heading`;
   const errorId = `${mode}-form-error`;
   const alternateHref = nextPath
@@ -154,7 +163,9 @@ export function AuthPage({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const result =
       mode === "register"
-        ? validateEmailRegistration(new FormData(event.currentTarget))
+        ? validateEmailRegistration(new FormData(event.currentTarget), {
+            requireTermsAcceptance: legalAcceptanceRequired,
+          })
         : validateEmailLogin(new FormData(event.currentTarget));
 
     if (!result.ok) {
@@ -181,6 +192,20 @@ export function AuthPage({
     >
       {betaLocked ? null : (
         <>
+          {legalAcceptanceRequired ? (
+            <p className={styles.googleLegalNotice}>
+              Google sign-in returns you to Invitica. If this account has not accepted the current
+              documents, you will review them before entering the creator studio. Read the{" "}
+              <Link href="/terms" rel="noreferrer" target="_blank">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" rel="noreferrer" target="_blank">
+                Privacy Notice
+              </Link>
+              .
+            </p>
+          ) : null}
           <form action={googleAction} aria-label="Continue with Google">
             {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
             <GoogleButton />
@@ -257,15 +282,34 @@ export function AuthPage({
         />
 
         {mode === "register" ? (
-          <PasswordField
-            autoComplete="new-password"
-            error={fieldErrors.confirmPassword}
-            id="confirm-password"
-            label="Confirm password"
-            name="confirmPassword"
-            onChange={(value) => updateValue("confirmPassword", value)}
-            value={values.confirmPassword}
-          />
+          <>
+            <PasswordField
+              autoComplete="new-password"
+              error={fieldErrors.confirmPassword}
+              id="confirm-password"
+              label="Confirm password"
+              name="confirmPassword"
+              onChange={(value) => updateValue("confirmPassword", value)}
+              value={values.confirmPassword}
+            />
+            {legalAcceptanceRequired ? (
+              <TermsAcceptanceField
+                checked={termsAccepted}
+                error={fieldErrors.termsAccepted}
+                id="register-terms-accepted"
+                onChange={(checked) => {
+                  setTermsAccepted(checked);
+                  if (checked) {
+                    setClientErrors((current) => {
+                      const next = { ...current };
+                      delete next.termsAccepted;
+                      return next;
+                    });
+                  }
+                }}
+              />
+            ) : null}
+          </>
         ) : null}
 
         {state.error ? (

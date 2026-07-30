@@ -9,6 +9,7 @@ import { getMapTileKey } from "../../lib/map-tile-key";
 import { Select } from "../forms/Select";
 import { ArrowRight, SlidersHorizontal } from "../Icons";
 import styles from "./TemplateCatalog.module.css";
+import { TemplateStill } from "./TemplateStill";
 import { UseTemplateForm } from "./UseTemplateForm";
 
 type Device = "desktop" | "mobile";
@@ -319,9 +320,11 @@ export function TemplateCatalog({
                 onClick={() => openPreview(template)}
                 type="button"
               >
-                <span>{template.occasion}</span>
-                <strong>{template.previewTitle}</strong>
-                <small>{template.date}</small>
+                <TemplateStill
+                  alt=""
+                  sizes="(max-width: 520px) calc(50vw - 1rem), (max-width: 900px) calc(50vw - 2rem), 24vw"
+                  templateId={template.id}
+                />
                 <span className={styles.quickPreviewLabel}>Quick preview</span>
               </button>
               <div className={styles.cardDetails}>

@@ -69,10 +69,10 @@ describe("invitation publication requests", () => {
     expect(result.snapshot).toMatchObject({
       snapshotVersion: 1,
       invitationSchemaVersion: 1,
-      rendererKey: "garden-promise-v1",
-      rendererVersion: 1,
+      rendererKey: "garden-promise-v2",
+      rendererVersion: 2,
       templateVersionId: gardenPromise.templateVersionId,
-      templateVersion: 1,
+      templateVersion: 2,
       draftRevision: 4,
       document: gardenPromise.defaultDocument,
       assets: [],

@@ -16,6 +16,7 @@ const landingTemplateIds = [
 
 function fixture(): PublicationArtifact {
   const template = resolveTemplateById("garden-promise");
+  const renderer = resolveTemplateRendererRegistration(template.rendererKey);
   return {
     artifactVersion: 1,
     publicationId,
@@ -36,7 +37,7 @@ function fixture(): PublicationArtifact {
       draftRevision: 7,
       invitationSchemaVersion: template.schemaVersion,
       rendererKey: template.rendererKey,
-      rendererVersion: 1,
+      rendererVersion: renderer.version,
       snapshotVersion: 1,
       templateVersion: template.version,
       templateVersionId: template.templateVersionId,

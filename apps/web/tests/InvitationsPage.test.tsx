@@ -38,6 +38,12 @@ beforeEach(() => {
   vi.mocked(listInvitationPublicationStatuses).mockResolvedValue({});
 });
 
+function imageSource(image: HTMLImageElement) {
+  return image.src.includes("/_next/image")
+    ? new URL(image.src).searchParams.get("url")
+    : image.getAttribute("src");
+}
+
 describe("invitations page", () => {
   it("renders the dedicated invitation library empty state", async () => {
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
@@ -97,11 +103,50 @@ describe("invitations page", () => {
     expect(screen.getByText("1 saved invitation")).toBeDefined();
     expect(screen.getByText("Draft")).toBeDefined();
     expect(screen.getByRole("heading", { level: 3, name: "Mara & Joaquin" })).toBeDefined();
+    const artwork = screen.getByRole("img", { name: "Garden Promise design preview" });
+    const image = artwork.querySelector<HTMLImageElement>("img");
+    expect(image?.getAttribute("alt")).toBe("");
+    if (!image) throw new Error("Missing Garden Promise still");
+    expect(imageSource(image)).toBe("/landing/templates/garden-promise.jpg");
     expect(screen.queryByText("Your first invitation begins here.")).toBeNull();
     expect(screen.getByRole("link", { name: "Continue editing" }).getAttribute("href")).toBe(
       "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
     );
     expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
+  });
+
+  it("uses the Little Blessings still instead of neutral fallback artwork", async () => {
+    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
+      error: null,
+      supabase: {} as never,
+      user: { email: "maria@example.com", user_metadata: {} } as never,
+      workspaceId: "72000000-0000-4000-8000-000000000001",
+    });
+    vi.mocked(listInvitationDrafts).mockResolvedValue([
+      {
+        dateLabel: "April 11, 2027",
+        invitationId: "71000000-0000-4000-8000-000000000002",
+        manifest: {
+          listing: {
+            id: "little-blessings",
+            name: "Little Blessings",
+            occasion: "Christening",
+          },
+        },
+        revision: 3,
+        templateVersionId: "40000000-0000-4000-8000-000000000002",
+        title: "Eliana's Christening",
+        updatedAt: "2026-07-29T04:00:00+00:00",
+      },
+    ] as never);
+
+    render(await InvitationsPage());
+
+    const artwork = screen.getByRole("img", { name: "Little Blessings design preview" });
+    const image = artwork.querySelector<HTMLImageElement>("img");
+    if (!image) throw new Error("Missing Little Blessings still");
+    expect(imageSource(image)).toBe("/landing/templates/little-blessings.jpg");
+    expect(screen.getByText("Little Blessings design")).toBeDefined();
   });
 
   it("labels a delivered current revision as published", async () => {

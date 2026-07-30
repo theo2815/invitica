@@ -38,7 +38,7 @@ const littleBlessingsV1 = resolveTemplateVersion("40000000-0000-4000-8000-000000
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const publicationId = "92000000-0000-4000-8000-000000000001";
-const gardenPromise = resolveTemplateById("garden-promise");
+const gardenPromise = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 const gardenPromiseFields = {
   dateLabel: "February 14, 2027",
   mapUrl: "https://maps.example.test/garden",
@@ -125,7 +125,7 @@ describe("create invitation draft action", () => {
 
   it("keeps renderer fixtures unavailable", async () => {
     const rpc = vi.fn();
-    const fixture = resolveTemplateById("golden-hour");
+    const fixture = resolveTemplateVersion("40000000-0000-4000-8000-000000000002");
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
       error: null,
       supabase: { rpc } as never,

@@ -160,18 +160,23 @@
 
 .cardArtwork {
   position: relative;
-  display: flex;
+  display: block;
   aspect-ratio: 4 / 5;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  padding: 2rem;
+  padding: 0;
   border: 0;
+  background: var(--surface-muted);
   color: inherit;
   font: inherit;
-  text-align: center;
   cursor: pointer;
+}
+
+.cardArtwork img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .cardArtwork:focus-visible {
@@ -181,83 +186,32 @@
 
 .cardArtwork::before {
   position: absolute;
-  inset: 1rem;
-  border: 1px solid currentColor;
-  content: "";
-  opacity: 0.24;
-}
-
-.cardArtwork span,
-.cardArtwork small,
-.cardArtwork strong {
-  position: relative;
   z-index: 1;
+  inset: 0.7rem;
+  border: 1px solid rgb(255 253 248 / 48%);
+  box-shadow: inset 0 0 0 1px rgb(41 35 31 / 7%);
+  content: "";
+  pointer-events: none;
 }
 
 .cardArtwork .quickPreviewLabel {
   position: absolute;
   z-index: 2;
-  right: 1.35rem;
-  bottom: 1.35rem;
-  padding: 0.38rem 0.55rem;
-  border: 1px solid currentColor;
-  background: color-mix(in srgb, currentColor 8%, transparent);
-  font-size: 0.54rem;
-}
-
-.cardArtwork span,
-.cardArtwork small {
-  font-size: 0.58rem;
-  font-weight: 720;
-  letter-spacing: 0.12em;
+  right: 1rem;
+  bottom: 1rem;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  padding: 0.42rem 0.6rem;
+  border: 1px solid rgb(41 35 31 / 16%);
+  border-radius: 0.22rem;
+  background: rgb(255 253 248 / 92%);
+  box-shadow: 0 0.35rem 1rem rgb(41 35 31 / 14%);
+  color: var(--text);
+  font-size: 0.56rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.cardArtwork strong {
-  max-width: 13rem;
-  margin-block: 1.25rem;
-  font-family: var(--display-font);
-  font-size: clamp(2.2rem, 3.7vw, 3.5rem);
-  font-weight: 510;
-  letter-spacing: -0.055em;
-  line-height: 0.96;
-}
-
-.cardArtwork[data-template="garden-promise"] {
-  background: #dfe4d3;
-  color: #48513f;
-}
-
-.cardArtwork[data-template="golden-hour"] {
-  background: #2e2730;
-  color: #e5c67b;
-}
-
-.cardArtwork[data-template="golden-hour"]::after {
-  position: absolute;
-  width: 8rem;
-  height: 8rem;
-  border: 1px solid currentColor;
-  content: "";
-  opacity: 0.25;
-  transform: rotate(45deg);
-}
-
-.cardArtwork[data-template="sunday-joy"] {
-  background: #f2c95f;
-  color: #562e2d;
-}
-
-.cardArtwork[data-template="sunday-joy"]::after {
-  position: absolute;
-  top: -3rem;
-  right: -3rem;
-  width: 9rem;
-  height: 9rem;
-  border: 1.5rem solid #df6a4f;
-  border-radius: 50%;
-  content: "";
-  opacity: 0.7;
 }
 
 .cardDetails {
@@ -313,7 +267,7 @@
 
 .cardPreviewLink {
   display: inline-flex;
-  min-height: 2.65rem;
+  min-height: 2.75rem;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
@@ -743,24 +697,20 @@
 
   .cardArtwork {
     aspect-ratio: 4 / 5;
-    padding: 0.65rem;
+    padding: 0;
   }
 
   .cardArtwork::before {
-    inset: 0.5rem;
+    inset: 0.4rem;
   }
 
-  .cardArtwork span,
-  .cardArtwork small {
+  .cardArtwork .quickPreviewLabel {
+    right: 0.55rem;
+    bottom: 0.55rem;
+    min-height: 1.7rem;
+    padding: 0.3rem 0.4rem;
     font-size: 0.46rem;
-    letter-spacing: 0.08em;
-  }
-
-  .cardArtwork strong {
-    max-width: 100%;
-    margin-block: 0.65rem;
-    font-size: clamp(1.15rem, 6vw, 1.55rem);
-    line-height: 1;
+    letter-spacing: 0.04em;
   }
 
   .cardDetails {

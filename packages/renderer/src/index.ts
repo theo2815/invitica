@@ -8,6 +8,8 @@ export {
   inviticaIconSvg,
 } from "./brand.js";
 export { GardenPromiseRenderer } from "./GardenPromiseRenderer.js";
+export { GardenPromiseRendererV2 } from "./GardenPromiseRendererV2.js";
+export { GoldenHourRendererV2 } from "./GoldenHourRendererV2.js";
 export {
   buildMapTileUrl,
   InteractiveMap,
@@ -45,4 +47,5 @@ export {
   resolveTemplateRendererRegistration,
   UnknownTemplateRendererError,
 } from "./registry.js";
+export { SundayJoyRendererV2 } from "./SundayJoyRendererV2.js";
 export { type CountdownParts, useCountdown } from "./useCountdown.js";

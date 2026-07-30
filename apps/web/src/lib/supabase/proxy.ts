@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSafeNextPath } from "../../server/auth/redirects";
 import { getSupabaseConfig } from "./config";
 
-const protectedPrefixes = ["/dashboard"] as const;
+const protectedPrefixes = ["/dashboard", "/legal/acceptance"] as const;
 const authPaths = new Set(["/login", "/register"]);
 
 export async function updateSession(request: NextRequest) {

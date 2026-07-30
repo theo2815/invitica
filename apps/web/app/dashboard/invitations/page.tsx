@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ArrowRight, Envelope, Plus } from "../../../src/components/Icons";
 import { InvitationDeleteButton } from "../../../src/components/invitations/InvitationDeleteButton";
+import { TemplateStill } from "../../../src/components/templates/TemplateStill";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import { listInvitationDrafts } from "../../../src/server/invitations/drafts";
 import {
@@ -94,15 +95,22 @@ export default async function InvitationsPage() {
                 return (
                   <article className={styles.savedCard} key={draft.invitationId}>
                     <div
-                      aria-label={`${draft.title} invitation artwork`}
+                      aria-label={`${draft.manifest.listing.name} design preview`}
                       className={styles.savedArtwork}
                       data-template={draft.manifest.listing.id}
                       role="img"
                     >
-                      <span>No. {String(index + 1).padStart(2, "0")}</span>
-                      <p>{draft.manifest.listing.occasion}</p>
-                      <strong>{draft.title}</strong>
-                      <small>{draft.dateLabel ?? "Date to be added"}</small>
+                      <TemplateStill
+                        alt=""
+                        sizes="(max-width: 720px) calc(50vw - 1rem), (max-width: 1200px) 33vw, 24rem"
+                        templateId={draft.manifest.listing.id}
+                      />
+                      <span className={styles.savedArtworkIndex}>
+                        No. {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className={styles.savedArtworkLabel}>
+                        {draft.manifest.listing.name} design
+                      </span>
                     </div>
                     <div className={styles.savedDetails}>
                       <div className={styles.savedMeta}>

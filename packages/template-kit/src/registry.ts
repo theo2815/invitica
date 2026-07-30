@@ -4,12 +4,19 @@ import {
   parseInvitationDocument,
 } from "@invitica/invitation-schema";
 
-import { type TemplateManifest, templateManifestSchema } from "./manifest.js";
+import {
+  type TemplateManifest,
+  templateManifestSchema,
+  templateStarterDocument,
+} from "./manifest.js";
 import { sundayJoyTemplate } from "./templates/birthday/sunday-joy/v1.js";
+import { sundayJoyTemplateV2 } from "./templates/birthday/sunday-joy/v2.js";
 import { littleBlessingsTemplate } from "./templates/christening/little-blessings/v1.js";
 import { littleBlessingsTemplateV2 } from "./templates/christening/little-blessings/v2.js";
 import { goldenHourTemplate } from "./templates/debut/golden-hour/v1.js";
+import { goldenHourTemplateV2 } from "./templates/debut/golden-hour/v2.js";
 import { gardenPromiseTemplate } from "./templates/wedding/garden-promise/v1.js";
+import { gardenPromiseTemplateV2 } from "./templates/wedding/garden-promise/v2.js";
 
 export class DuplicateTemplateRegistrationError extends Error {
   constructor(identifier: string) {
@@ -99,8 +106,11 @@ export function createTemplateRegistry(inputs: readonly unknown[]): readonly Tem
 
 export const templateRegistry = createTemplateRegistry([
   gardenPromiseTemplate,
+  gardenPromiseTemplateV2,
   goldenHourTemplate,
+  goldenHourTemplateV2,
   sundayJoyTemplate,
+  sundayJoyTemplateV2,
   littleBlessingsTemplate,
   littleBlessingsTemplateV2,
 ]);
@@ -112,12 +122,12 @@ const sectionLabels: Record<InvitationSection["type"], string> = {
   rsvp: "RSVP",
   countdown: "Countdown",
   "event-details": "Event details",
-  participants: "Parents and godparents",
-  schedule: "Order of the day",
-  attire: "What to wear",
+  participants: "People in the program",
+  schedule: "Schedule",
+  attire: "Attire",
   gallery: "Gallery",
-  guidance: "A gentle note",
-  gifts: "Gift ideas",
+  guidance: "Guest notes",
+  gifts: "Gifts",
 };
 
 export interface TemplateCatalogEntry {
@@ -173,22 +183,42 @@ export function resolveTemplateVersion(templateVersionId: string): TemplateManif
   return manifest;
 }
 
-export function resolveTemplateUpgrade(templateVersionId: string): TemplateManifest | null {
-  resolveTemplateVersion(templateVersionId);
+function supportsPinOnlyUpgrade(source: TemplateManifest, target: TemplateManifest): boolean {
+  const sourceSections = templateStarterDocument(source).sections;
+  const targetSections = templateStarterDocument(target).sections;
+
   return (
+    source.allowedSections.length === target.allowedSections.length &&
+    source.allowedSections.every((type, index) => target.allowedSections[index] === type) &&
+    sourceSections.length === targetSections.length &&
+    sourceSections.every(
+      (section, index) =>
+        targetSections[index]?.id === section.id && targetSections[index]?.type === section.type,
+    )
+  );
+}
+
+export function resolveTemplateUpgrade(templateVersionId: string): TemplateManifest | null {
+  const source = resolveTemplateVersion(templateVersionId);
+  const target =
     templateRegistry.find(
       (candidate) => candidate.supersedesTemplateVersionId === templateVersionId,
-    ) ?? null
-  );
+    ) ?? null;
+
+  return target && supportsPinOnlyUpgrade(source, target) ? target : null;
 }
 
 export function migrateTemplateDocument(
   document: InvitationDocument,
   targetTemplateVersionId: string,
 ): InvitationDocument {
+  const source = resolveTemplateVersion(document.templateVersionId);
   const target = resolveTemplateVersion(targetTemplateVersionId);
 
-  if (target.supersedesTemplateVersionId !== document.templateVersionId) {
+  if (
+    target.supersedesTemplateVersionId !== document.templateVersionId ||
+    !supportsPinOnlyUpgrade(source, target)
+  ) {
     throw new InvalidTemplateUpgradeError();
   }
 

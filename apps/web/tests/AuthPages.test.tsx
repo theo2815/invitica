@@ -8,6 +8,7 @@ import LoginPage from "../app/(auth)/login/page";
 import RegisterCheckEmailPage from "../app/(auth)/register/check-email/page";
 import RegisterPage from "../app/(auth)/register/page";
 import ResetPasswordPage from "../app/(auth)/reset-password/page";
+import { AuthPage } from "../src/components/auth/AuthPage";
 import { signInWithEmail } from "../src/server/auth/actions";
 
 vi.mock("../src/server/auth/actions", () => ({
@@ -106,6 +107,57 @@ describe("Invitica authentication pages", () => {
     expect(screen.getByRole("button", { name: "Hide password" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
+  });
+
+  it("uses email pre-consent and Google post-consent without trapping document links", () => {
+    const emailAction = vi.fn(async () => ({ error: null }));
+    const googleAction = vi.fn(async () => {});
+    const registration = render(
+      <AuthPage
+        emailAction={emailAction}
+        googleAction={googleAction}
+        legalAcceptanceRequired
+        mode="register"
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: /I agree to the current Terms of Service/,
+    }) as HTMLInputElement;
+    const termsLink = screen.getAllByRole("link", { name: /Terms of Service/ }).at(-1);
+    const privacyLink = screen.getAllByRole("link", { name: /Privacy Notice/ }).at(-1);
+    expect(checkbox.checked).toBe(false);
+    expect(termsLink?.closest("label")).toBeNull();
+    expect(privacyLink?.closest("label")).toBeNull();
+    expect(termsLink?.getAttribute("target")).toBe("_blank");
+
+    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Maria Santos" } });
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "maria@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "a-secure-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm password"), {
+      target: { value: "a-secure-password" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Create an account with email" }));
+
+    expect(screen.getByText("Agree to the current Terms of Service to continue.")).toBeDefined();
+    expect(document.activeElement).toBe(checkbox);
+    registration.unmount();
+
+    render(
+      <AuthPage
+        emailAction={emailAction}
+        googleAction={googleAction}
+        legalAcceptanceRequired
+        mode="login"
+      />,
+    );
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByText(/Google sign-in returns you to Invitica/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeDefined();
   });
 
   it("announces an inline error returned by the email action", async () => {

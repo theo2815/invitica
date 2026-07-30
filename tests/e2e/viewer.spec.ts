@@ -31,10 +31,15 @@ async function assertNoHorizontalOverflow(page: Page) {
   expect(widths.scroll).toBeLessThanOrEqual(widths.client);
 }
 
-async function skipOpening(page: Page) {
+async function finishOpening(page: Page) {
   await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
-  await page.getByRole("button", { name: "Skip opening" }).press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached();
+  const skip = page.getByRole("button", { name: "Skip opening" });
+  if ((await skip.count()) > 0) {
+    await skip.press("Enter");
+  }
+  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
+    timeout: 6_000,
+  });
 }
 
 const availableGuestContext = {
@@ -114,7 +119,7 @@ test("keeps personalized capabilities out of request URLs and submits RSVP", asy
   await page.goto(`${origin()}${invitationPath}#g=${personalizedToken}`, {
     waitUntil: "domcontentloaded",
   });
-  await skipOpening(page);
+  await finishOpening(page);
   await page.getByRole("radio", { name: "Joyfully attending" }).check();
   await page.getByRole("spinbutton", { name: "Guests attending" }).fill("2");
   await page
@@ -192,7 +197,7 @@ test("keeps the complete invitation usable at 200 percent text", async ({ page }
   });
   await page.addStyleTag({ content: ":root { font-size: 200% !important; }" });
   await assertNoHorizontalOverflow(page);
-  await skipOpening(page);
+  await finishOpening(page);
 
   const sendResponse = page.getByRole("button", { name: "Send response" });
   await sendResponse.scrollIntoViewIfNeeded();
@@ -204,7 +209,7 @@ test("keeps the complete invitation usable at 200 percent text", async ({ page }
   await assertNoHorizontalOverflow(page);
 });
 
-test("keeps opening and skip controls usable in landscape", async ({ browser }, testInfo) => {
+test("keeps the opening control usable in landscape", async ({ browser }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-android", "One Chromium lane proves landscape");
   const context = await browser.newContext({
     deviceScaleFactor: 2,
@@ -215,15 +220,12 @@ test("keeps opening and skip controls usable in landscape", async ({ browser }, 
   const page = await context.newPage();
   await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
   await assertNoHorizontalOverflow(page);
-  await page.getByRole("button", { name: /Open invitation for/ }).press("Enter");
-  const skip = page.getByRole("button", { name: "Skip opening" });
-  const skipBox = await skip.boundingBox();
-  expect(skipBox).not.toBeNull();
-  expect(skipBox?.height).toBeGreaterThanOrEqual(44);
-  expect(skipBox?.y).toBeGreaterThanOrEqual(0);
-  expect((skipBox?.y ?? 0) + (skipBox?.height ?? 0)).toBeLessThanOrEqual(360);
-  await skip.press("Enter");
-  await expect(page.locator('[data-opening-state="opened"]')).toBeAttached();
+  const opener = page.getByRole("button", { name: /Open invitation for/ });
+  const openerBox = await opener.boundingBox();
+  expect(openerBox).not.toBeNull();
+  expect(openerBox?.height).toBeGreaterThanOrEqual(44);
+  await finishOpening(page);
+  await expect(page.getByRole("button", { name: "Skip opening" })).toHaveCount(0);
   await expect(page.locator("[data-envelope-focus-target]")).toBeFocused();
   await assertNoHorizontalOverflow(page);
   await context.close();
@@ -247,7 +249,7 @@ test("remains usable on a constrained 3G profile", async ({ page }, testInfo) =>
   try {
     await page.goto(`${origin()}${invitationPath}`, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: /Open invitation for/ })).toBeVisible();
-    await skipOpening(page);
+    await finishOpening(page);
     await expect(page.getByText("Hiraya Garden Pavilion")).toBeVisible();
     await assertNoHorizontalOverflow(page);
   } finally {
@@ -327,7 +329,7 @@ test("keeps feedback responsive under slow 4G and mid-range CPU constraints", as
     await expect(page.locator(".gp-recipient-line strong")).toHaveText("The Santos Family", {
       timeout: 15_000,
     });
-    await skipOpening(page);
+    await finishOpening(page);
     await page.getByRole("spinbutton", { name: "Guests attending" }).fill("2");
 
     const submitButton = page.locator('button.rsvp-card__primary[type="submit"]');
@@ -477,7 +479,7 @@ test("recovers when guest context and RSVP go offline", async ({ page }, testInf
     ),
   ).toBeAttached();
 
-  await skipOpening(page);
+  await finishOpening(page);
   await page.context().setOffline(false);
   await page.getByRole("button", { name: "Try online response again" }).press("Enter");
   await expect(page.locator(".gp-recipient-line strong")).toHaveText("The Santos Family");

@@ -2,8 +2,7 @@ import { resolveTemplateUpgrade } from "@invitica/template-kit";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { InvitationDraftEditor } from "../../../../src/components/invitations/InvitationDraftEditor";
-import { LittleBlessingsDraftEditor } from "../../../../src/components/invitations/LittleBlessingsDraftEditor";
+import { resolveInvitationEditorRegistration } from "../../../../src/components/invitations/invitation-editor-registration";
 import { ensurePersonalWorkspace } from "../../../../src/server/auth/session";
 import { loadInvitationDraft } from "../../../../src/server/invitations/drafts";
 import { loadInvitationPublicationStatus } from "../../../../src/server/invitations/publications";
@@ -31,10 +30,8 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
     notFound();
   }
 
-  // Little Blessings edits eleven sections, per-section visibility, and bounded
-  // photo and gift collections, so it has its own editor. Garden Promise keeps
-  // the narrow Opening/Venue/RSVP slice it was built for.
-  const isLittleBlessings = draft.manifest.listing.id === "little-blessings";
+  const editorRegistration = resolveInvitationEditorRegistration(draft.manifest.editorKey);
+  const Editor = editorRegistration.component;
   const upgradeManifest = resolveTemplateUpgrade(draft.manifest.templateVersionId);
   const templateUpgrade = upgradeManifest
     ? {
@@ -44,7 +41,7 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
         templateName: upgradeManifest.listing.name,
       }
     : null;
-  const assets = isLittleBlessings
+  const assets = editorRegistration.loadsImageAssets
     ? await listInvitationImageAssets(supabase, draft.invitationId)
     : [];
 
@@ -71,26 +68,15 @@ export default async function InvitationDraftPage({ params }: InvitationDraftPag
         </div>
       </header>
 
-      {isLittleBlessings ? (
-        <LittleBlessingsDraftEditor
-          initialAssets={assets}
-          initialDocument={draft.document}
-          initialPublication={publication}
-          initialRevision={draft.revision}
-          templateUpgrade={templateUpgrade}
-          invitationId={draft.invitationId}
-          rendererKey={draft.manifest.rendererKey}
-        />
-      ) : (
-        <InvitationDraftEditor
-          initialDocument={draft.document}
-          initialPublication={publication}
-          initialRevision={draft.revision}
-          invitationId={draft.invitationId}
-          templateUpgrade={templateUpgrade}
-          rendererKey={draft.manifest.rendererKey}
-        />
-      )}
+      <Editor
+        initialAssets={assets}
+        initialDocument={draft.document}
+        initialPublication={publication}
+        initialRevision={draft.revision}
+        invitationId={draft.invitationId}
+        rendererKey={draft.manifest.rendererKey}
+        templateUpgrade={templateUpgrade}
+      />
     </>
   );
 }

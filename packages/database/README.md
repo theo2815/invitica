@@ -52,6 +52,9 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 | `0024_invitation_share_messages.sql` | Creator-authored personal and general share messages |
 | `0025_guest_party_pagination.sql` | Owner-only bounded Guest Desk search/filter pagination |
 | `0026_guest_link_batch_recovery.sql` | Ordered batched recovery for visible private-link pages |
+| `0027_terms_acceptance.sql` | Append-only creator Terms acceptance with the presented Privacy Notice version |
+| `0028_template_version_policy.sql` | Database-owned exact template policy, stable-ID section updates, and policy-backed publication |
+| `0029_occasion_template_versions.sql` | Garden Promise, Golden Hour, and Sunday Joy v2 policies plus expanded program bounds |
 
 Migrations are additive and sequential. Do not selectively install a later migration because its
 function body appears to create successfully: PostgreSQL may defer relation resolution until the
@@ -72,7 +75,7 @@ hook. Do not place service-role credentials in browser-visible variables or repo
 ## Tests
 
 Every migration has a numerically matching transaction-wrapped pgTAP file in `tests/`. The current
-26 files declare 542 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
+29 files declare 610 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
 idempotency, concurrency, document preservation, and focused runtime behavior.
 
 Run the suites in numeric order against a disposable database with pgTAP installed, using `psql` or

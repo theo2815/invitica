@@ -1,4 +1,10 @@
-export type AuthFieldName = "confirmPassword" | "email" | "fullName" | "otp" | "password";
+export type AuthFieldName =
+  | "confirmPassword"
+  | "email"
+  | "fullName"
+  | "otp"
+  | "password"
+  | "termsAccepted";
 
 export type AuthFieldErrors = Partial<Record<AuthFieldName, string>>;
 

@@ -1,3 +1,4 @@
+import { isLegalAcceptanceEnabled } from "@invitica/renderer/legal-documents";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -28,6 +29,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
     <AuthPage
       emailAction={signUpWithEmail}
       googleAction={signInWithGoogle}
+      legalAcceptanceRequired={isLegalAcceptanceEnabled()}
       mode="register"
       nextPath={nextPath === "/dashboard" ? undefined : nextPath}
     />

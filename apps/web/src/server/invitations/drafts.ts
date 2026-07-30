@@ -12,6 +12,11 @@ import type { createClient } from "../../lib/supabase/server";
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 const invitationIdSchema = z.string().uuid();
+const invitationSectionUpdateSchema = z.strictObject({
+  id: invitationIdSchema,
+  props: z.record(z.string(), z.unknown()),
+  visible: z.boolean(),
+});
 
 const createDraftInputSchema = z.strictObject({
   invitationId: invitationIdSchema,
@@ -101,6 +106,47 @@ export class InvitationDeletionUnavailableError extends Error {
     super("Only invitations that have never been submitted for publishing can be deleted here.");
     this.name = "InvitationDeletionUnavailableError";
   }
+}
+
+interface SaveInvitationSectionsInput {
+  expectedRevision: number;
+  invitationId: string;
+  sectionUpdates: readonly z.infer<typeof invitationSectionUpdateSchema>[];
+}
+
+export async function saveInvitationSectionsDraft(
+  supabase: SupabaseServerClient,
+  input: SaveInvitationSectionsInput,
+) {
+  const parsed = z
+    .strictObject({
+      expectedRevision: z.number().int().positive(),
+      invitationId: invitationIdSchema,
+      sectionUpdates: z.array(invitationSectionUpdateSchema).min(1).max(30),
+    })
+    .parse(input);
+  const { data, error } = await supabase.rpc("update_invitation_sections", {
+    p_expected_revision: parsed.expectedRevision,
+    p_invitation_id: parsed.invitationId,
+    p_section_updates: parsed.sectionUpdates,
+  });
+
+  if (error?.code === "40001") {
+    throw new InvitationDraftConflictError();
+  }
+
+  if (error) {
+    console.error("[Invitation editor] update_invitation_sections failed", {
+      code: error.code,
+      details: error.details || undefined,
+      hint: error.hint || undefined,
+      invitationId: parsed.invitationId,
+      message: error.message,
+    });
+    throw new InvitationDraftPersistenceError();
+  }
+
+  return z.coerce.number().int().positive().parse(data);
 }
 
 export async function deleteUnpublishedInvitation(
@@ -276,37 +322,19 @@ export async function saveGardenPromiseDraft(supabase: SupabaseServerClient, inp
     throw new InvitationDraftConflictError();
   }
 
-  applyGardenPromiseFields(draft.document, parsed);
+  const updatedDocument = applyGardenPromiseFields(draft.document, parsed);
+  const editableTypes = new Set(["hero", "venue", "rsvp"]);
+  const sectionUpdates = updatedDocument.sections
+    .filter((section) => editableTypes.has(section.type))
+    .map(({ id, props, visible }) => ({ id, props, visible }));
 
-  const { data, error } = await supabase.rpc("update_garden_promise_details", {
-    p_date_label: parsed.dateLabel || null,
-    p_expected_revision: parsed.expectedRevision,
-    p_invitation_id: parsed.invitationId,
-    p_map_url: parsed.mapUrl || null,
-    p_rsvp_deadline: parsed.rsvpDeadline || null,
-    p_rsvp_message: parsed.rsvpMessage || null,
-    p_subtitle: parsed.subtitle || null,
-    p_title: parsed.title,
-    p_venue_address: parsed.venueAddress,
-    p_venue_name: parsed.venueName,
-  });
-
-  if (error?.code === "40001") {
-    throw new InvitationDraftConflictError();
-  }
-
-  if (error) {
-    // See the matching record in `little-blessings.ts`: without the PostgreSQL code
-    // a failed save is indistinguishable from any other cause.
-    console.error("[Invitation editor] update_garden_promise_details failed", {
-      code: error.code,
-      details: error.details || undefined,
-      hint: error.hint || undefined,
-      invitationId: parsed.invitationId,
-      message: error.message,
-    });
+  if (sectionUpdates.length !== editableTypes.size) {
     throw new InvitationDraftPersistenceError();
   }
 
-  return z.coerce.number().int().positive().parse(data);
+  return saveInvitationSectionsDraft(supabase, {
+    expectedRevision: parsed.expectedRevision,
+    invitationId: parsed.invitationId,
+    sectionUpdates,
+  });
 }

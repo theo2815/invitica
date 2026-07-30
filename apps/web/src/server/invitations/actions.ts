@@ -15,7 +15,7 @@ import {
   saveGardenPromiseInputSchema,
   TemplateUnavailableError,
 } from "./drafts";
-import { saveLittleBlessingsDraft, saveLittleBlessingsInputSchema } from "./little-blessings";
+import { saveSectionDocumentDraft, saveSectionDocumentInputSchema } from "./little-blessings";
 import { enqueueInvitationPublication, PublicationEnqueueError } from "./publication-jobs";
 import {
   type InvitationPublicationStatus,
@@ -62,7 +62,7 @@ export type SaveGardenPromiseActionResult =
   | { revision: number; status: "saved" }
   | { message: string; retryable?: boolean; status: "conflict" | "error" };
 
-export type SaveLittleBlessingsActionResult =
+export type SaveSectionDocumentActionResult =
   | { revision: number; status: "saved" }
   | { message: string; retryable?: boolean; status: "conflict" | "error" };
 
@@ -148,7 +148,7 @@ export async function createInvitationDraftAction(
  * anything a creator typed — so a report of "it did not save" can be diagnosed.
  */
 function logSaveFailure(
-  template: "garden-promise" | "little-blessings",
+  template: "garden-promise" | "section-document",
   reason: string,
   invitationId: string | null,
   error?: unknown,
@@ -205,26 +205,26 @@ export async function saveGardenPromiseAction(
   }
 }
 
-export async function saveLittleBlessingsAction(
+export async function saveSectionDocumentAction(
   input: unknown,
-): Promise<SaveLittleBlessingsActionResult> {
-  const parsed = saveLittleBlessingsInputSchema.safeParse(input);
+): Promise<SaveSectionDocumentActionResult> {
+  const parsed = saveSectionDocumentInputSchema.safeParse(input);
 
   if (!parsed.success) {
-    logSaveFailure("little-blessings", "invalid_payload", null);
+    logSaveFailure("section-document", "invalid_payload", null);
     return { message: "Check the highlighted invitation details and try again.", status: "error" };
   }
 
   const { supabase } = await requireConfirmedUser();
 
   try {
-    const revision = await saveLittleBlessingsDraft(supabase, parsed.data);
+    const revision = await saveSectionDocumentDraft(supabase, parsed.data);
     return { revision, status: "saved" };
   } catch (error: unknown) {
     const invitationId = parsed.data.invitationId;
 
     if (error instanceof InvitationDraftConflictError) {
-      logSaveFailure("little-blessings", "revision_conflict", invitationId);
+      logSaveFailure("section-document", "revision_conflict", invitationId);
       return {
         message: "This draft changed in another session. Reload the latest version before saving.",
         status: "conflict",
@@ -232,12 +232,12 @@ export async function saveLittleBlessingsAction(
     }
 
     if (error instanceof TemplateUnavailableError) {
-      logSaveFailure("little-blessings", "template_unavailable", invitationId);
+      logSaveFailure("section-document", "template_unavailable", invitationId);
       return { message: error.message, status: "error" };
     }
 
     if (error instanceof InvitationDraftPersistenceError) {
-      logSaveFailure("little-blessings", "persistence_failed", invitationId);
+      logSaveFailure("section-document", "persistence_failed", invitationId);
       return {
         message: "Your latest changes could not be saved. Try again.",
         retryable: true,
@@ -245,7 +245,7 @@ export async function saveLittleBlessingsAction(
       };
     }
 
-    logSaveFailure("little-blessings", "unexpected", invitationId, error);
+    logSaveFailure("section-document", "unexpected", invitationId, error);
     return {
       message: "This invitation update could not be completed.",
       retryable: true,

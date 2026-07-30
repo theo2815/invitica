@@ -2,18 +2,19 @@
 
 import type { InvitationDocument, InvitationSection } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
-import type { TemplateManifest } from "@invitica/template-kit";
+import type { TemplateRendererKey } from "@invitica/template-kit";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
-  applyLittleBlessingsDetails,
-  littleBlessingsDetailsSchema,
+  applySectionDocumentDetails,
+  sectionDocumentDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
 import { getMapTileKey } from "../../lib/map-tile-key";
-import { saveLittleBlessingsAction } from "../../server/invitations/actions";
+import { saveSectionDocumentAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
 import type { CreatorImageAsset } from "../../server/media/library";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
+import type { InvitationEditorProps } from "./invitation-editor-contract";
 import styles from "./LittleBlessingsDraftEditor.module.css";
 import {
   AddItemButton,
@@ -26,12 +27,14 @@ import {
   TextField,
 } from "./LittleBlessingsEditorFields";
 import { LittleBlessingsImageField } from "./LittleBlessingsImageField";
-import { type AvailableTemplateUpgrade, TemplateUpgradePanel } from "./TemplateUpgradePanel";
+import { TemplateUpgradePanel } from "./TemplateUpgradePanel";
 import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
 import { VenueLocationPicker } from "./VenueLocationPicker";
 
 const MAX_PHOTOS = 8;
 const MAX_GIFTS = 8;
+const MAX_PARTICIPANT_GROUPS = 10;
+const MAX_SCHEDULE_ITEMS = 16;
 
 type SectionKey =
   | "attire"
@@ -47,9 +50,8 @@ type SectionKey =
   | "schedule";
 
 /**
- * The curated Little Blessings order. Creators choose what to show, never where
- * it sits: the reply section is last so an invited guest reads the whole
- * invitation before being asked to decide.
+ * Every section-document template has a curated order. Creators choose what to
+ * show, never where it sits, and RSVP remains last whenever it is present.
  */
 const SECTION_ORDER: readonly SectionKey[] = [
   "hero",
@@ -79,10 +81,111 @@ const SECTION_NAMES: Record<SectionKey, string> = {
   schedule: "Order of the day",
 };
 
+interface SectionDocumentEditorProfile {
+  attireGroupPlaceholder: string;
+  editorEyebrow: string;
+  heading: string;
+  heroTitleLabel: string;
+  participantPlaceholder: string;
+  previewTitle: string;
+  sectionNames: Record<SectionKey, string>;
+  signaturePlaceholder: string;
+}
+
+const LITTLE_BLESSINGS_EDITOR_PROFILE: SectionDocumentEditorProfile = {
+  attireGroupPlaceholder: "Ninong and ninang",
+  editorEyebrow: "Little Blessings editor",
+  heading: "Tell the story of her day.",
+  heroTitleLabel: "The celebrant's name",
+  participantPlaceholder: "Tito",
+  previewTitle: "Little Blessings",
+  sectionNames: SECTION_NAMES,
+  signaturePlaceholder: "With love, her parents",
+};
+
+const EDITOR_PROFILES: Partial<Record<TemplateRendererKey, SectionDocumentEditorProfile>> = {
+  "garden-promise-v2": {
+    attireGroupPlaceholder: "Wedding party",
+    editorEyebrow: "Garden Promise editor",
+    heading: "Plan the whole wedding day.",
+    heroTitleLabel: "The couple's names",
+    participantPlaceholder: "Parents of the bride",
+    previewTitle: "Garden Promise",
+    sectionNames: {
+      ...SECTION_NAMES,
+      attire: "What to wear",
+      countdown: "Until the vows",
+      "event-details": "Ceremony and reception",
+      gallery: "Their story",
+      gifts: "Gifts",
+      guidance: "Guest notes",
+      hero: "The couple",
+      message: "Their invitation",
+      participants: "Wedding party",
+      rsvp: "Reply to the couple",
+      schedule: "Wedding-day schedule",
+    },
+    signaturePlaceholder: "With love, the couple",
+  },
+  "golden-hour-v2": {
+    attireGroupPlaceholder: "Debutante's court",
+    editorEyebrow: "Golden Hour editor",
+    heading: "Shape her eighteenth-birthday program.",
+    heroTitleLabel: "The debutante's name",
+    participantPlaceholder: "18 roses",
+    previewTitle: "Golden Hour",
+    sectionNames: {
+      ...SECTION_NAMES,
+      attire: "What to wear",
+      countdown: "Until the celebration",
+      "event-details": "The evening",
+      gallery: "Eighteen chapters",
+      guidance: "Guest notes",
+      hero: "The debutante",
+      message: "Her invitation",
+      participants: "Her eighteen",
+      rsvp: "Reserve your evening",
+      schedule: "Program",
+    },
+    signaturePlaceholder: "With love, her family",
+  },
+  "sunday-joy-v2": {
+    attireGroupPlaceholder: "Children and grown-ups",
+    editorEyebrow: "Sunday Joy editor",
+    heading: "Plan a joyful children's party.",
+    heroTitleLabel: "The birthday child's name",
+    participantPlaceholder: "Party helpers",
+    previewTitle: "Sunday Joy",
+    sectionNames: {
+      ...SECTION_NAMES,
+      attire: "What to wear and bring",
+      countdown: "Until the party",
+      "event-details": "Party place and time",
+      gallery: "Favorite moments",
+      gifts: "Gifts",
+      guidance: "Notes for grown-ups",
+      hero: "The birthday child",
+      message: "Party invitation",
+      participants: "Party helpers",
+      rsvp: "Join the party",
+      schedule: "Party activities",
+    },
+    signaturePlaceholder: "With love, the family",
+  },
+};
+
+function resolveEditorProfile(rendererKey: TemplateRendererKey): SectionDocumentEditorProfile {
+  return EDITOR_PROFILES[rendererKey] ?? LITTLE_BLESSINGS_EDITOR_PROFILE;
+}
+
+function isSectionKey(type: InvitationSection["type"]): type is SectionKey {
+  return SECTION_ORDER.includes(type as SectionKey);
+}
+
 const LOCKED_SECTIONS: Partial<Record<SectionKey, string>> = {
   "event-details":
     "Guests always need the date, time, and place, so this section cannot be hidden.",
-  hero: "This carries the celebrant's name, date, and portrait, and is what the closed envelope shows, so it cannot be hidden.",
+  hero: "This carries the invitation's main name, date, and portrait, and is what the closed envelope shows, so it cannot be hidden.",
 };
 
 /**
@@ -94,8 +197,7 @@ const LOCKED_SECTIONS: Partial<Record<SectionKey, string>> = {
 const EMPTY_GALLERY_REASON = "Add a photograph and this album can be shown to your guests.";
 
 const SECTION_NOTES: Partial<Record<SectionKey, string>> = {
-  message:
-    "The parents' names live in this section. Hiding it also hides who is signing the invitation.",
+  message: "Hiding this section also hides the invitation's signature.",
   rsvp: "Only guests who open their own personal link ever see this. Guests using the general link never see a reply section.",
 };
 
@@ -157,16 +259,6 @@ interface EditorState {
   rsvp: { deadline: string; heading: string; message: string };
   schedule: { heading: string; items: { description: string; timeLabel: string; title: string }[] };
   visible: Record<SectionKey, boolean>;
-}
-
-interface LittleBlessingsDraftEditorProps {
-  initialAssets: readonly CreatorImageAsset[];
-  initialDocument: InvitationDocument;
-  initialPublication?: InvitationPublicationStatus;
-  initialRevision: number;
-  invitationId: string;
-  rendererKey: TemplateManifest["rendererKey"];
-  templateUpgrade?: AvailableTemplateUpgrade | null;
 }
 
 const idlePublication: InvitationPublicationStatus = {
@@ -456,15 +548,15 @@ const saveStatusLabel: Record<DraftSaveStatus, string> = {
   unsaved: "Unsaved changes",
 };
 
-export function LittleBlessingsDraftEditor({
-  initialAssets,
+export function SectionDocumentDraftEditor({
+  initialAssets = [],
   initialDocument,
   initialPublication = idlePublication,
   initialRevision,
   invitationId,
   rendererKey,
   templateUpgrade = null,
-}: LittleBlessingsDraftEditorProps) {
+}: InvitationEditorProps) {
   const Renderer = resolveTemplateRenderer(rendererKey);
   const mapTileKey = getMapTileKey();
   const [assets, setAssets] = useState<readonly CreatorImageAsset[]>(initialAssets);
@@ -478,12 +570,18 @@ export function LittleBlessingsDraftEditor({
   const [state, setState] = useState<EditorState>(() => buildInitialState(initialDocument));
 
   const details = useMemo(() => toDetails(initialDocument, state), [initialDocument, state]);
-  const parsed = useMemo(() => littleBlessingsDetailsSchema.safeParse(details), [details]);
+  const parsed = useMemo(() => sectionDocumentDetailsSchema.safeParse(details), [details]);
+  const editorProfile = resolveEditorProfile(rendererKey);
+  const sectionOrder = useMemo(
+    () => initialDocument.sections.map((section) => section.type).filter(isSectionKey),
+    [initialDocument],
+  );
+
   const signature = useMemo(() => JSON.stringify(details), [details]);
 
   const save = useCallback(
     ({ expectedRevision, payload }: { expectedRevision: number; payload: unknown }) =>
-      saveLittleBlessingsAction({ details: payload, expectedRevision, invitationId }),
+      saveSectionDocumentAction({ details: payload, expectedRevision, invitationId }),
     [invitationId],
   );
 
@@ -509,7 +607,7 @@ export function LittleBlessingsDraftEditor({
   const previewDocument = useMemo(() => {
     if (parsed.success) {
       try {
-        lastValidDocument.current = applyLittleBlessingsDetails(initialDocument, parsed.data);
+        lastValidDocument.current = applySectionDocumentDetails(initialDocument, parsed.data);
       } catch {
         // Keep the last document that parsed.
       }
@@ -572,7 +670,7 @@ export function LittleBlessingsDraftEditor({
   }
 
   /**
-   * Every Little Blessings collection is `min(1)` in the strict contract, so
+   * Every editable collection is `min(1)` in the strict contract, so
    * deleting the last entry would produce a document the schema rejects.
    * Offering to hide the section keeps the creator's writing and uploads.
    */
@@ -605,8 +703,8 @@ export function LittleBlessingsDraftEditor({
   function restoreRecoveredContent() {
     if (!recoveredContent) return;
     try {
-      const recovered = littleBlessingsDetailsSchema.parse(JSON.parse(recoveredContent));
-      setState(buildInitialState(applyLittleBlessingsDetails(initialDocument, recovered)));
+      const recovered = sectionDocumentDetailsSchema.parse(JSON.parse(recoveredContent));
+      setState(buildInitialState(applySectionDocumentDetails(initialDocument, recovered)));
       autosave.discardRecoveredSnapshot();
       markEdited();
       setRecoveryMessage("Your recovered changes are back. They will save automatically.");
@@ -629,11 +727,11 @@ export function LittleBlessingsDraftEditor({
       : previewDocument;
 
   return (
-    <section aria-labelledby="blessings-editor-heading" className={styles.editor}>
+    <section aria-labelledby="section-document-editor-heading" className={styles.editor}>
       <div className={styles.editorHeading}>
         <div>
-          <p className={styles.eyebrow}>Little Blessings editor</p>
-          <h2 id="blessings-editor-heading">Tell the story of her day.</h2>
+          <p className={styles.eyebrow}>{editorProfile.editorEyebrow}</p>
+          <h2 id="section-document-editor-heading">{editorProfile.heading}</h2>
         </div>
 
         <div aria-live="polite" className={styles.saveStatus} data-status={saveStatus}>
@@ -675,7 +773,7 @@ export function LittleBlessingsDraftEditor({
           </div>
 
           <div className={styles.sectionList}>
-            {SECTION_ORDER.map((key, position) => {
+            {sectionOrder.map((key, position) => {
               const open = openSection === key;
               const emptyGallery = key === "gallery" && state.gallery.images.length === 0;
               const lockedReason =
@@ -683,7 +781,7 @@ export function LittleBlessingsDraftEditor({
               const note = SECTION_NOTES[key];
               const cardProps = {
                 index: position + 1,
-                name: SECTION_NAMES[key],
+                name: editorProfile.sectionNames[key],
                 onToggleOpen: () => setOpenSection(open ? null : key),
                 onToggleVisible: (visible: boolean) => setVisible(key, visible),
                 open,
@@ -718,7 +816,7 @@ export function LittleBlessingsDraftEditor({
                     <TextField
                       id="lb-hero-title"
                       invalid={blank(state.hero.title)}
-                      label="The celebrant's name"
+                      label={editorProfile.heroTitleLabel}
                       maxLength={120}
                       onChange={(value) =>
                         edit((current) => ({ ...current, hero: { ...current.hero, title: value } }))
@@ -815,7 +913,7 @@ export function LittleBlessingsDraftEditor({
                           message: { ...current.message, signatureLead: value },
                         }))
                       }
-                      placeholder="With love, her parents"
+                      placeholder={editorProfile.signaturePlaceholder}
                       requirement="Optional · 80 characters"
                       value={state.message.signatureLead}
                     />
@@ -1201,6 +1299,9 @@ export function LittleBlessingsDraftEditor({
                       value={state.participants.heading}
                     />
                     <div className={styles.collection}>
+                      <p className={styles.collectionLabel}>
+                        Groups <span>Up to {MAX_PARTICIPANT_GROUPS}</span>
+                      </p>
                       {state.participants.groups.map((group, index) => (
                         <CollectionItem
                           canRemove
@@ -1247,7 +1348,7 @@ export function LittleBlessingsDraftEditor({
                                 },
                               }))
                             }
-                            placeholder="Tito"
+                            placeholder={editorProfile.participantPlaceholder}
                             requirement="Required · 120 characters"
                             value={group.label}
                           />
@@ -1280,7 +1381,7 @@ export function LittleBlessingsDraftEditor({
                         </CollectionItem>
                       ))}
                       <AddItemButton
-                        atLimit={state.participants.groups.length >= 4}
+                        atLimit={state.participants.groups.length >= MAX_PARTICIPANT_GROUPS}
                         label="Add another list"
                         onAdd={() =>
                           edit((current) => ({
@@ -1294,7 +1395,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="Ninong and ninang needs at least one list. Hiding the section keeps what you have written."
+                          message="This people section needs at least one group. Hiding it keeps what you have written."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -1320,6 +1421,9 @@ export function LittleBlessingsDraftEditor({
                       value={state.schedule.heading}
                     />
                     <div className={styles.collection}>
+                      <p className={styles.collectionLabel}>
+                        Moments <span>Up to {MAX_SCHEDULE_ITEMS}</span>
+                      </p>
                       {state.schedule.items.map((item, index) => (
                         <CollectionItem
                           canRemove
@@ -1413,7 +1517,7 @@ export function LittleBlessingsDraftEditor({
                         </CollectionItem>
                       ))}
                       <AddItemButton
-                        atLimit={state.schedule.items.length >= 12}
+                        atLimit={state.schedule.items.length >= MAX_SCHEDULE_ITEMS}
                         label="Add a moment"
                         onAdd={() =>
                           edit((current) => ({
@@ -1430,7 +1534,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="The order of the day needs at least one moment. Hiding the section keeps what you have written."
+                          message="This schedule needs at least one moment. Hiding it keeps what you have written."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -1583,7 +1687,7 @@ export function LittleBlessingsDraftEditor({
                                 },
                               }))
                             }
-                            placeholder="Ninong and ninang"
+                            placeholder={editorProfile.attireGroupPlaceholder}
                             requirement="Required · 120 characters"
                             value={group.label}
                           />
@@ -1854,7 +1958,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="Little moments needs at least one photograph. Hiding the section keeps your uploads."
+                          message="This gallery needs at least one photograph. Hiding it keeps your uploads."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -1947,7 +2051,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="A gentle note needs at least one line. Hiding the section keeps what you have written."
+                          message="Guest notes need at least one line. Hiding the section keeps what you have written."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -2102,7 +2206,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="Gift ideas needs at least one idea. Hiding the section keeps your uploads."
+                          message="This gifts section needs at least one idea. Hiding it keeps your uploads."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -2245,7 +2349,7 @@ export function LittleBlessingsDraftEditor({
 
           <p className={styles.autosaveNote}>
             Autosave begins after a short pause. An unlisted invitation is shareable by anyone who
-            has its link, so treat the photographs here as you would any family album.
+            has its link, so treat its photographs as you would any private album.
           </p>
         </aside>
 
@@ -2253,7 +2357,7 @@ export function LittleBlessingsDraftEditor({
           <div className={styles.previewHeading}>
             <div>
               <p className={styles.eyebrow}>Live invitation preview</p>
-              <h3>Little Blessings</h3>
+              <h3>{editorProfile.previewTitle}</h3>
             </div>
             <div className={styles.previewMeta}>
               <span>Shared renderer · Responsive document</span>
@@ -2310,6 +2414,8 @@ export function LittleBlessingsDraftEditor({
     </section>
   );
 }
+
+export const LittleBlessingsDraftEditor = SectionDocumentDraftEditor;
 
 interface GalleryPhotoAdderProps {
   atLimit: boolean;

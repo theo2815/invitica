@@ -4,8 +4,9 @@ import type { InvitationSection } from "@invitica/invitation-schema";
 import type { CSSProperties, ReactElement } from "react";
 
 import type { InvitationRendererProps } from "./InvitationRenderer.js";
-
+import { PrivacyNoticeLink, privacyNoticeLinkStyles } from "./PoweredByInvitica.js";
 import { RibbonEnvelopeOpening, ribbonEnvelopeStyles } from "./RibbonEnvelopeOpening.js";
+import { isSectionVisibleToAudience } from "./sectionVisibility.js";
 
 function BotanicalSprig({ side }: { side: "left" | "right" }) {
   return (
@@ -148,6 +149,7 @@ function renderGardenSection(
 }
 
 export function GardenPromiseRenderer({
+  audience = "general",
   document,
   mode,
   onOpeningStateChange,
@@ -177,7 +179,7 @@ export function GardenPromiseRenderer({
       lang={document.locale}
       style={style}
     >
-      <style>{`${ribbonEnvelopeStyles}\n${gardenPromiseStyles}`}</style>
+      <style>{`${ribbonEnvelopeStyles}\n${privacyNoticeLinkStyles}\n${gardenPromiseStyles}`}</style>
       <RibbonEnvelopeOpening
         includeStyles={false}
         kicker="A promise is waiting"
@@ -199,7 +201,7 @@ export function GardenPromiseRenderer({
       >
         <main className="gp-content" data-envelope-focus-target tabIndex={-1}>
           {document.sections
-            .filter((section) => section.visible)
+            .filter((section) => isSectionVisibleToAudience(section, mode, audience))
             .map((section) =>
               renderGardenSection(section, document.locale, mode, rsvpSlot, document.eventTimezone),
             )}
@@ -207,6 +209,7 @@ export function GardenPromiseRenderer({
         <footer className="gp-footer">
           <BotanicalSprig side="left" />
           <p>With love, always</p>
+          <PrivacyNoticeLink />
         </footer>
       </RibbonEnvelopeOpening>
     </article>
@@ -1186,6 +1189,19 @@ const gardenPromiseStyles = `
   width: 10rem;
   opacity: 0.18;
   transform: scaleX(-1) rotate(-20deg);
+}
+
+.gp-footer .iv-privacy {
+  position: absolute;
+  z-index: 1;
+  bottom: 1.2rem;
+  color: var(--gp-sage-contrast);
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 @container (min-width: 42rem) {

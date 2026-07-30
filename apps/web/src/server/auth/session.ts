@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { createClient } from "../../lib/supabase/server";
+import { getPostAuthLegalRedirect } from "../legal/acceptance";
 
 export async function getOptionalConfirmedUser() {
   const supabase = await createClient();
@@ -44,8 +45,23 @@ const loadConfirmedUser = cache(async () => {
   return { supabase, user };
 });
 
-export async function requireConfirmedUser() {
-  return loadConfirmedUser();
+const loadAcceptedCreator = cache(async () => {
+  const session = await loadConfirmedUser();
+  const acceptanceRedirect = await getPostAuthLegalRedirect(session.supabase, session.user.id);
+
+  if (acceptanceRedirect) {
+    redirect(acceptanceRedirect);
+  }
+
+  return session;
+});
+
+interface ConfirmedUserOptions {
+  allowMissingLegalAcceptance?: boolean;
+}
+
+export async function requireConfirmedUser(options: ConfirmedUserOptions = {}) {
+  return options.allowMissingLegalAcceptance ? loadConfirmedUser() : loadAcceptedCreator();
 }
 
 /**
@@ -61,8 +77,8 @@ export async function requireConfirmedUser() {
  * ownership from `auth.uid()` on its own, and the table reads are covered by
  * workspace-scoped RLS, so this call was a gate standing in front of a gate.
  */
-export async function ensurePersonalWorkspace() {
-  const { supabase, user } = await requireConfirmedUser();
+export async function ensurePersonalWorkspace(options: ConfirmedUserOptions = {}) {
+  const { supabase, user } = await requireConfirmedUser(options);
   const { data: workspaceId, error } = await supabase.rpc("ensure_personal_workspace");
 
   return { error, supabase, user, workspaceId };

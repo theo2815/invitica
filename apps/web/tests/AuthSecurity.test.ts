@@ -6,6 +6,7 @@ import {
   validateEmailRegistration,
   validatePasswordUpdate,
   validateRecoveryCode,
+  validateTermsAcceptance,
 } from "../src/server/auth/validation";
 
 describe("authentication security helpers", () => {
@@ -45,6 +46,26 @@ describe("authentication security helpers", () => {
     expect(validateEmailRegistration(formData)).toEqual({
       fieldErrors: { confirmPassword: "Your passwords do not match." },
       ok: false,
+    });
+  });
+
+  it("requires an explicit Terms value when legal acceptance is enabled", () => {
+    const formData = new FormData();
+    formData.set("fullName", "Maria Santos");
+    formData.set("email", "maria@example.com");
+    formData.set("password", "a-secure-password");
+    formData.set("confirmPassword", "a-secure-password");
+
+    expect(validateEmailRegistration(formData, { requireTermsAcceptance: true })).toEqual({
+      fieldErrors: { termsAccepted: "Agree to the current Terms of Service to continue." },
+      ok: false,
+    });
+    expect(validateTermsAcceptance(formData).ok).toBe(false);
+
+    formData.set("termsAccepted", "yes");
+    expect(validateTermsAcceptance(formData)).toEqual({
+      data: { termsAccepted: true },
+      ok: true,
     });
   });
 

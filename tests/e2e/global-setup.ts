@@ -47,13 +47,29 @@ function contentType(pathname: string): string {
 }
 
 export default async function globalSetup(_config: FullConfig) {
-  const { littleBlessingsHtml, publicationHtml, unavailableHtml } = renderFixture();
+  const { landingTemplateHtml, littleBlessingsHtml, publicationHtml, unavailableHtml } =
+    renderFixture();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
 
     if (request.method === "POST" && url.pathname === "/api/public/view") {
       response.writeHead(204, { "cache-control": "no-store" });
       response.end();
+      return;
+    }
+
+    if (url.pathname.startsWith("/preview/")) {
+      const templateId = url.pathname.slice("/preview/".length);
+      const body = landingTemplateHtml[templateId];
+      response.writeHead(body ? 200 : 404, {
+        "cache-control": body ? "public, max-age=0" : "private, no-store",
+        "content-security-policy":
+          "default-src 'none'; connect-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
+        "content-type": "text/html; charset=utf-8",
+        "referrer-policy": "no-referrer",
+        "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
+      });
+      response.end(body ?? unavailableHtml);
       return;
     }
 

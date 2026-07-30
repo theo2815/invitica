@@ -15,6 +15,18 @@
   color: var(--text);
 }
 
+/*
+  This route renders the invitation full-bleed, so its closed envelope scene fills the viewport on
+  mobile and desktop. The renderer only guarantees that in published mode, and this surface renders
+  in preview mode so the reply section stays visible like it does in the quick-preview modal — which
+  is contained in a frame and must keep its own size. `.ie-opening` covers the occasion families,
+  Little Blessings, and the standard renderer; `.gp-opening` covers legacy Garden Promise v1.
+*/
+.previewPage :global(.ie-opening),
+.previewPage :global(.gp-opening) {
+  min-height: 100svh;
+}
+
 .actionDock {
   --dock-edge: max(1rem, env(safe-area-inset-right));
   position: fixed;

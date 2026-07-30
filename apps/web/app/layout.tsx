@@ -1,4 +1,8 @@
-import "@fontsource-variable/fraunces/index.css";
+// The WONK subset carries the same weight range as the default wght file within 132 bytes across all
+// three unicode ranges, and defaults to WONK 0, so it renders identically everywhere that does not
+// opt in. Garden Promise opts in for display type. Keep this identical to the Viewer import so
+// creator preview and published output resolve the same face.
+import "@fontsource-variable/fraunces/wonk.css";
 import "@fontsource-variable/instrument-sans/index.css";
 import { INVITICA_BRAND_FIELD } from "@invitica/renderer";
 import type { Metadata, Viewport } from "next";

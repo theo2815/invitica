@@ -68,6 +68,40 @@ test("opens every upgraded occasion without horizontal overflow", async ({ page 
   }
 });
 
+/**
+ * The Garden Promise section reveal is transform-only on purpose. A scroll-linked opacity ramp is a
+ * state a guest can stop inside, and a partly faded section drops its body text below AA on this
+ * palette. Every section must therefore read at full opacity before and during scrolling, not only
+ * once its reveal completes.
+ */
+test("reveals Garden Promise sections without ever fading their text", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["chromium-android", "edge-desktop"].includes(testInfo.project.name),
+    "View timelines drive the section reveal, so one mobile and one desktop Chromium engine own it",
+  );
+
+  await page.goto(`${origin()}/preview/garden-promise`, { waitUntil: "domcontentloaded" });
+  await openInvitation(page);
+
+  const sections = page.locator('[data-template="garden-promise"] .ot-section');
+  const total = await sections.count();
+  expect(total).toBeGreaterThan(0);
+
+  const opacities = async () =>
+    sections.evaluateAll((nodes) => nodes.map((node) => Number(getComputedStyle(node).opacity)));
+
+  // Unscrolled: sections below the fold sit at the start of their reveal.
+  for (const opacity of await opacities()) expect(opacity).toBe(1);
+
+  for (let index = 0; index < total; index += 1) {
+    await sections.nth(index).scrollIntoViewIfNeeded();
+    await page.waitForTimeout(120);
+    for (const opacity of await opacities()) expect(opacity).toBe(1);
+  }
+});
+
 test("passes blocking WCAG A and AA checks closed and opened", async ({ page }, testInfo) => {
   test.skip(
     !["chromium-android", "firefox-desktop"].includes(testInfo.project.name),

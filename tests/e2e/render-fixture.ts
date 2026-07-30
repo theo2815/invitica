@@ -1,7 +1,7 @@
 import type { InvitationDocument, PublicationArtifact } from "@invitica/invitation-schema";
 import { publicationMediaObjectKey } from "@invitica/invitation-schema";
 import { resolveTemplateRendererRegistration } from "@invitica/renderer";
-import { resolveTemplateById } from "@invitica/template-kit";
+import { resolveTemplateById, templateStarterDocument } from "@invitica/template-kit";
 
 import { renderPublicationHtml, renderUnavailableHtml } from "../../apps/viewer/src/html";
 
@@ -17,18 +17,22 @@ const landingTemplateIds = [
 function fixture(): PublicationArtifact {
   const template = resolveTemplateById("garden-promise");
   const renderer = resolveTemplateRendererRegistration(template.rendererKey);
+  // A publication comes from a creator's draft, so this builds on the starter. The catalog showcase
+  // carries album slots a creator has not filled in, and every document asset in a publication needs
+  // a matching manifest entry.
+  const document = templateStarterDocument(template);
   return {
     artifactVersion: 1,
     publicationId,
     snapshot: {
       assets: [],
       document: {
-        ...template.defaultDocument,
+        ...document,
         opening: {
-          ...template.defaultDocument.opening,
+          ...document.opening,
           fallbackRecipientText: "The Villanueva, de la Cruz, Santos-Reyes, and Evangelista Family",
         },
-        sections: template.defaultDocument.sections.map((section) =>
+        sections: document.sections.map((section) =>
           section.type === "hero"
             ? { ...section, props: { ...section.props, title: "Alexandria & Maximiliano" } }
             : section,

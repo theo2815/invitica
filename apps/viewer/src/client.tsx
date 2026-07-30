@@ -1,4 +1,6 @@
-import "@fontsource-variable/fraunces/index.css";
+// Keep identical to the web app import so creator preview and published output resolve the same
+// face. See apps/web/app/layout.tsx.
+import "@fontsource-variable/fraunces/wonk.css";
 import "@fontsource-variable/instrument-sans/index.css";
 import "./rsvp-form.css";
 

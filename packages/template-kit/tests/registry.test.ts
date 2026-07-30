@@ -203,10 +203,10 @@ describe("template registry", () => {
   });
 
   it("falls back to the showcase only for templates that ship no media", () => {
-    const gardenPromise = resolveTemplateById("garden-promise");
+    const goldenHour = resolveTemplateById("golden-hour");
 
-    expect(gardenPromise.starterDocument).toBeUndefined();
-    expect(templateStarterDocument(gardenPromise)).toBe(gardenPromise.defaultDocument);
+    expect(goldenHour.starterDocument).toBeUndefined();
+    expect(templateStarterDocument(goldenHour)).toBe(goldenHour.defaultDocument);
 
     // A media-carrying showcase without a starter would be created as a draft
     // referencing media the creator never uploaded.
@@ -216,6 +216,62 @@ describe("template registry", () => {
         starterDocument: undefined,
       }).success,
     ).toBe(false);
+  });
+
+  it("shows every Garden Promise section in the catalog and hides the unfilled ones in a draft", () => {
+    const gardenPromise = resolveTemplateById("garden-promise");
+    const showcase = gardenPromise.defaultDocument;
+    const starter = templateStarterDocument(gardenPromise);
+
+    // The catalog shows the whole template, so a creator judges it before choosing it.
+    expect(showcase.sections.every((section) => section.visible)).toBe(true);
+    expect(
+      showcase.sections.find((section) => section.type === "gallery")?.props.images,
+    ).toHaveLength(4);
+
+    // Every image slot the template offers is represented, so the preview shows a placeholder for
+    // each one rather than only for the album: the couple's portrait, four album frames, and a
+    // picture for every gift idea.
+    const showcaseHero = showcase.sections.find((section) => section.type === "hero");
+    const showcaseGifts = showcase.sections.find((section) => section.type === "gifts");
+
+    expect(showcaseHero?.props.imageAssetId).toBeDefined();
+    expect(showcaseGifts?.props.items).toHaveLength(3);
+    expect(showcaseGifts?.props.items.every((item) => Boolean(item.imageAssetId))).toBe(true);
+    expect(showcase.assets).toHaveLength(8);
+
+    const showcaseEvents = showcase.sections.find((section) => section.type === "event-details")
+      ?.props.events;
+    expect(
+      showcaseEvents?.every(
+        (event) => event.latitude !== undefined && event.longitude !== undefined,
+      ),
+    ).toBe(true);
+
+    // A first draft can only contain what the couple could publish today.
+    expect(starter).toBe(gardenPromise.starterDocument);
+    expect(starter.assets).toEqual([]);
+    expect(starter.sections.map((section) => section.type)).toEqual(
+      showcase.sections.map((section) => section.type),
+    );
+
+    const hero = starter.sections.find((section) => section.type === "hero");
+    const gallery = starter.sections.find((section) => section.type === "gallery");
+    const gifts = starter.sections.find((section) => section.type === "gifts");
+    const starterEvents = starter.sections.find((section) => section.type === "event-details")
+      ?.props.events;
+
+    // None of the showcase's picture slots follow a creator into their first draft.
+    expect(hero?.props.imageAssetId).toBeUndefined();
+    expect(gallery?.visible).toBe(false);
+    expect(gallery?.props.images).toEqual([]);
+    expect(gifts?.visible).toBe(false);
+    expect(gifts?.props.items.every((item) => item.imageAssetId === undefined)).toBe(true);
+    expect(
+      starterEvents?.every(
+        (event) => event.latitude === undefined && event.longitude === undefined,
+      ),
+    ).toBe(true);
   });
 
   it("rejects a starter document that references media", () => {

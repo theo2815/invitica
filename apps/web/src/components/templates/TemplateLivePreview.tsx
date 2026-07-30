@@ -56,10 +56,17 @@ export function TemplateLivePreview({
 
   return (
     <div className={styles.previewPage} data-cta-visible={actionsAvailable}>
+      {/*
+        Preview mode, matching the quick-preview modal exactly. Published mode hides the reply
+        section, because the renderer omits RSVP from every published general link — so the two
+        preview surfaces disagreed about how many sections the template has. The full-viewport
+        closed scene that published mode used to provide is restored in this page's stylesheet,
+        where a page-layout concern belongs.
+      */}
       <Renderer
         document={manifest.defaultDocument}
         mapTileKey={getMapTileKey()}
-        mode="published"
+        mode="preview"
         onOpeningStateChange={setOpeningState}
       />
 

@@ -408,6 +408,9 @@ export function RibbonEnvelopeOpening({
 
 export const ribbonEnvelopeStyles = `
 .ie-root {
+  /* Accent mixed toward the document ink. Raw --ie-ribbon is chosen for rules and the ribbon,
+     and is too light for small text on several template palettes. */
+  --ie-ribbon-text: color-mix(in srgb, var(--ie-ribbon) 70%, var(--ie-ink));
   position: relative;
   container-type: inline-size;
   width: 100%;
@@ -447,7 +450,7 @@ export const ribbonEnvelopeStyles = `
 }
 .ie-opening-kicker {
   margin: 0;
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-size: 0.68rem;
   font-weight: 760;
   letter-spacing: 0.18em;
@@ -550,7 +553,7 @@ export const ribbonEnvelopeStyles = `
 }
 .ie-letter small {
   margin-top: 0.7rem;
-  color: color-mix(in srgb, var(--ie-ink) 66%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 76%, transparent);
   letter-spacing: 0.08em;
 }
 .ie-ribbon {
@@ -660,7 +663,7 @@ export const ribbonEnvelopeStyles = `
   max-width: 28rem;
   margin: 0;
   padding-inline: 1rem;
-  color: color-mix(in srgb, var(--ie-ink) 72%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 76%, transparent);
   font-family: "Fraunces Variable", Georgia, serif;
   font-size: clamp(0.95rem, 3cqi, 1.2rem);
 }
@@ -673,7 +676,7 @@ export const ribbonEnvelopeStyles = `
 }
 .ie-opening-hint {
   margin: 0.7rem 0 0;
-  color: color-mix(in srgb, var(--ie-ribbon) 88%, var(--ie-ink));
+  color: var(--ie-ribbon-text);
   font-size: 0.72rem;
   font-weight: 760;
   letter-spacing: 0.08em;

@@ -63,6 +63,24 @@ function assertNever(value: never): never {
   throw new Error(`Unsupported invitation section: ${JSON.stringify(value)}`);
 }
 
+/**
+ * A pressed sprig: one stem, four alternating leaves, and a closed bud. Drawn as a single inline SVG
+ * rather than rotated CSS boxes so the silhouette reads as a botanical specimen at 8rem on a phone
+ * instead of three stray strokes.
+ */
+function GardenSprig() {
+  return (
+    <svg aria-hidden="true" className="ot-sprig" focusable="false" viewBox="0 0 100 150">
+      <path className="ot-sprig-stem" d="M50 148C49 120 51 96 50 72 49 48 51 30 50 12" />
+      <path d="M50 113c12-2 26-12 34-28-16 0-30 12-34 28Z" />
+      <path d="M50 93c-12-2-26-12-34-28 16 0 30 10 34 28Z" />
+      <path d="M50 69c11-2 23-11 30-22-14 0-26 9-30 22Z" />
+      <path d="M50 49c-10-2-21-9-28-18 13-1 24 7 28 18Z" />
+      <ellipse cx="50" cy="15" rx="5" ry="9" />
+    </svg>
+  );
+}
+
 function TemplateMotif({
   context,
   variant,
@@ -73,9 +91,15 @@ function TemplateMotif({
   return (
     <span aria-hidden="true" className="ot-motif" data-context={context} data-motif={variant}>
       {variant === "golden-hour" ? <b>XVIII</b> : null}
-      <i />
-      <i />
-      <i />
+      {variant === "garden-promise" ? (
+        <GardenSprig />
+      ) : (
+        <>
+          <i />
+          <i />
+          <i />
+        </>
+      )}
     </span>
   );
 }
@@ -689,6 +713,9 @@ ${interactiveMapStyles}
 ${photoPreviewStyles}
 ${poweredByInviticaStyles}
 .ot-root {
+  /* Accent mixed toward the document ink. Raw --ie-ribbon is chosen for rules, the ribbon, and
+     focus outlines, and falls below 4.5:1 as small text on the lighter template palettes. */
+  --ie-ribbon-text: color-mix(in srgb, var(--ie-ribbon) 70%, var(--ie-ink));
   container-type: inline-size;
   width: 100%;
   min-width: 0;
@@ -741,7 +768,7 @@ ${poweredByInviticaStyles}
 .ot-section address { font-style: normal; }
 .ot-kicker {
   margin: 0 0 1rem;
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-size: 0.7rem;
   font-weight: 760;
   letter-spacing: 0.18em;
@@ -768,7 +795,7 @@ ${poweredByInviticaStyles}
 .ot-hero-copy > time {
   display: block;
   margin-top: 1.6rem;
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-size: 0.75rem;
   font-weight: 760;
   letter-spacing: 0.12em;
@@ -787,7 +814,7 @@ ${poweredByInviticaStyles}
   min-height: 10rem;
   padding: 1rem;
   border: 1px dashed color-mix(in srgb, var(--ie-ribbon) 48%, transparent);
-  color: color-mix(in srgb, var(--ie-ink) 66%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 74%, transparent);
   font-size: 0.76rem;
   place-items: center;
   text-align: center;
@@ -831,6 +858,7 @@ ${poweredByInviticaStyles}
 .ot-countdown-grid strong {
   font-family: "Fraunces Variable", Georgia, serif;
   font-size: clamp(1.8rem, 6cqi, 3.6rem);
+  font-variant-numeric: tabular-nums;
   font-weight: 480;
   line-height: 1;
 }
@@ -871,7 +899,7 @@ ${poweredByInviticaStyles}
 }
 .ot-event-grid article > time {
   display: block;
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-weight: 760;
 }
 .ot-event-grid article > h3 { margin-top: 1rem; }
@@ -919,7 +947,7 @@ ${poweredByInviticaStyles}
   text-align: left;
 }
 .ot-schedule li > time {
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-size: 0.75rem;
   font-weight: 760;
   letter-spacing: 0.08em;
@@ -927,7 +955,7 @@ ${poweredByInviticaStyles}
 }
 .ot-schedule li p {
   margin: 0.5rem 0 0;
-  color: color-mix(in srgb, var(--ie-ink) 70%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 74%, transparent);
 }
 .ot-attire { text-align: center; }
 .ot-color-list {
@@ -969,7 +997,7 @@ ${poweredByInviticaStyles}
   margin-top: 0.8rem;
 }
 .ot-gallery-grid figcaption span {
-  color: color-mix(in srgb, var(--ie-ink) 68%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 74%, transparent);
   font-size: 0.88rem;
 }
 .ot-guidance ul {
@@ -983,7 +1011,7 @@ ${poweredByInviticaStyles}
 .ot-gift-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
 .ot-gift-list article { min-width: 0; padding: 1.2rem; text-align: center; }
 .ot-gift-list h3 { margin-top: 0.8rem; }
-.ot-gift-list p { color: color-mix(in srgb, var(--ie-ink) 70%, transparent); }
+.ot-gift-list p { color: color-mix(in srgb, var(--ie-ink) 74%, transparent); }
 .ot-rsvp {
   display: grid;
   justify-items: center;
@@ -992,7 +1020,7 @@ ${poweredByInviticaStyles}
 .ot-rsvp > p { width: min(100%, 32rem); margin: 1.25rem 0 0; }
 .ot-rsvp > time {
   margin-top: 0.8rem;
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-size: 0.75rem;
   font-weight: 760;
   letter-spacing: 0.08em;
@@ -1050,52 +1078,168 @@ ${poweredByInviticaStyles}
   outline-offset: 0.2rem;
 }
 
-/* Garden Promise — pressed garden folio. */
+/* Garden Promise — pressed garden folio.
+
+   The sheet is the concept: laid paper resting on a surface, carrying a mounted specimen and a
+   printed left reading edge. Type is set apart from the other occasions through the Fraunces WONK
+   axis and a quieter heading scale, not through color alone. */
 .ot-root[data-template="garden-promise"] {
   background:
-    linear-gradient(90deg, transparent 0 4%, rgb(104 122 90 / 5%) 4% 4.2%, transparent 4.2%),
+    radial-gradient(120% 55% at 50% 0%, rgb(255 255 255 / 30%), transparent 62%),
     var(--ie-background);
 }
 .ot-root[data-template="garden-promise"] .ot-content {
   border-inline: 1px solid color-mix(in srgb, var(--ie-ribbon) 20%, transparent);
-  background: var(--ie-paper);
-  box-shadow: 0 2rem 6rem rgb(52 64 51 / 9%);
+  /* Handmade paper tone. Three soft washes rather than ruled lines: hard 1px repeats band visibly
+     on a sheet this tall and read as grid paper instead of stock. All are far below text contrast. */
+  background:
+    radial-gradient(
+      62% 26% at 16% 9%,
+      color-mix(in srgb, var(--ie-ink) 3%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      54% 22% at 84% 46%,
+      color-mix(in srgb, var(--ie-ink) 2.5%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      70% 30% at 38% 86%,
+      color-mix(in srgb, var(--ie-ink) 2.5%, transparent),
+      transparent 74%
+    ),
+    var(--ie-paper);
+  /* A tight contact shadow plus the wide ambient one, so the column reads as a sheet with weight. */
+  box-shadow:
+    0 0.1rem 0.4rem rgb(52 64 51 / 10%),
+    0 2rem 6rem rgb(52 64 51 / 13%);
 }
 .ot-root[data-template="garden-promise"] .ot-section + .ot-section {
   border-top: 1px solid color-mix(in srgb, var(--ie-ribbon) 22%, transparent);
 }
+
+/* Type: WONK on display faces, and a heading scale that lets the couple's names lead. */
+.ot-root[data-template="garden-promise"] .ot-section h1,
+.ot-root[data-template="garden-promise"] .ot-section h2,
+.ot-root[data-template="garden-promise"] .ot-section h3,
+.ot-root[data-template="garden-promise"] .ot-message-body,
+.ot-root[data-template="garden-promise"] .ot-signature strong,
+.ot-root[data-template="garden-promise"] .ot-countdown-grid strong {
+  font-variation-settings: "WONK" 1;
+}
+.ot-root[data-template="garden-promise"] .ot-section h1 { font-weight: 430; }
+.ot-root[data-template="garden-promise"] .ot-section h2 {
+  font-size: clamp(1.6rem, 4.3cqi, 2.85rem);
+  font-weight: 430;
+  letter-spacing: -0.022em;
+}
+
+/* A printed left reading edge: a short rule above each flush-left heading. The message, countdown,
+   attire and reply sections stay centered on purpose — they are the moments, not the reference. */
+.ot-root[data-template="garden-promise"] .ot-event-details > h2,
+.ot-root[data-template="garden-promise"] .ot-participants > h2,
+.ot-root[data-template="garden-promise"] .ot-schedule > h2,
+.ot-root[data-template="garden-promise"] .ot-gallery > h2,
+.ot-root[data-template="garden-promise"] .ot-guidance > h2,
+.ot-root[data-template="garden-promise"] .ot-gifts > h2 {
+  position: relative;
+  padding-top: 1.4rem;
+  text-align: left;
+}
+.ot-root[data-template="garden-promise"] .ot-event-details > h2::before,
+.ot-root[data-template="garden-promise"] .ot-participants > h2::before,
+.ot-root[data-template="garden-promise"] .ot-schedule > h2::before,
+.ot-root[data-template="garden-promise"] .ot-gallery > h2::before,
+.ot-root[data-template="garden-promise"] .ot-guidance > h2::before,
+.ot-root[data-template="garden-promise"] .ot-gifts > h2::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2.5rem;
+  border-top: 1px solid var(--ie-ribbon);
+  content: "";
+}
+.ot-root[data-template="garden-promise"] .ot-section-lead { margin-inline: 0; }
+.ot-root[data-template="garden-promise"] .ot-attire .ot-section-lead,
+.ot-root[data-template="garden-promise"] .ot-message .ot-section-lead { margin-inline: auto; }
+
+/* Rhythm: the reference sections sit tighter than the two that carry the occasion. */
+.ot-root[data-template="garden-promise"] .ot-countdown,
+.ot-root[data-template="garden-promise"] .ot-attire,
+.ot-root[data-template="garden-promise"] .ot-guidance {
+  padding-block: clamp(2.75rem, 7cqi, 5rem);
+}
+.ot-root[data-template="garden-promise"] .ot-message,
+.ot-root[data-template="garden-promise"] .ot-rsvp {
+  padding-block: clamp(4.5rem, 13cqi, 9rem);
+}
+
+/* The mounted specimen. */
+.ot-root[data-template="garden-promise"] .ot-motif { color: var(--ie-ribbon); }
+.ot-root[data-template="garden-promise"] .ot-sprig {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: color-mix(in srgb, currentcolor 15%, transparent);
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ot-root[data-template="garden-promise"] .ot-sprig-stem { fill: none; }
+/* On the closed envelope the sprig lies across the flap so its leaves read on both sides of the
+   vertical ribbon. Standing upright it disappeared behind the knot. */
+.ot-root[data-template="garden-promise"] .ot-motif[data-context="cover"] {
+  width: clamp(7rem, 30cqi, 10rem);
+  aspect-ratio: 3 / 2;
+}
+.ot-root[data-template="garden-promise"] .ot-motif[data-context="cover"] .ot-sprig {
+  width: auto;
+  height: 100%;
+  fill: color-mix(in srgb, currentcolor 22%, transparent);
+  stroke-width: 2;
+  transform: rotate(-90deg);
+}
+.ot-root[data-template="garden-promise"] .ot-footer .ot-motif {
+  width: 1.7rem;
+  height: 2.55rem;
+}
 .ot-root[data-template="garden-promise"] .ot-hero {
-  grid-template-columns: minmax(0, 1.2fr) minmax(8rem, 0.8fr);
+  min-height: clamp(30rem, 78cqi, 44rem);
+  grid-template-columns: minmax(0, 1.25fr) minmax(7rem, 0.75fr);
   padding-left: clamp(1.5rem, 11cqi, 7rem);
   text-align: left;
 }
 .ot-root[data-template="garden-promise"] .ot-hero > .ot-motif {
   grid-column: 2;
   grid-row: 1;
-  width: min(100%, 18rem);
+  width: min(100%, 13rem);
+  aspect-ratio: 2 / 3;
   justify-self: center;
 }
-.ot-root[data-template="garden-promise"] .ot-hero-copy { grid-column: 1; grid-row: 1; }
-.ot-root[data-template="garden-promise"] .ot-motif[data-motif="garden-promise"] i {
-  width: 36%;
-  height: 70%;
-  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 60%, transparent);
-  border-radius: 100% 0 100% 0;
-  transform-origin: 50% 100%;
+.ot-root[data-template="garden-promise"] .ot-hero-copy {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
 }
-.ot-root[data-template="garden-promise"] .ot-motif[data-motif="garden-promise"] i:nth-of-type(1) {
-  transform: translate(-44%, 3%) rotate(-38deg);
+/* The couple's portrait is mounted as a plate under the specimen rather than left to auto-flow into
+   a banner beneath the names. Only the empty slot is held to portrait proportion; a real photograph
+   keeps its own aspect ratio inside the same mount, so nothing is cropped. */
+.ot-root[data-template="garden-promise"] .ot-hero-photo,
+.ot-root[data-template="garden-promise"] .ot-hero-placeholder {
+  grid-column: 2;
+  grid-row: 2;
+  width: min(100%, 13rem);
+  padding: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 32%, transparent);
+  background: var(--ie-paper);
+  box-shadow: 0 0.35rem 1.2rem rgb(52 64 51 / 10%);
+  align-self: start;
+  justify-self: center;
 }
-.ot-root[data-template="garden-promise"] .ot-motif[data-motif="garden-promise"] i:nth-of-type(2) {
-  transform: translate(38%, -8%) rotate(35deg) scale(0.82);
-}
-.ot-root[data-template="garden-promise"] .ot-motif[data-motif="garden-promise"] i:nth-of-type(3) {
-  width: 1px;
-  height: 90%;
-  border: 0;
-  border-left: 1px solid var(--ie-ribbon);
-  border-radius: 0;
-  transform: rotate(8deg);
+.ot-root[data-template="garden-promise"] .ot-hero-placeholder {
+  min-height: 0;
+  aspect-ratio: 4 / 5;
 }
 .ot-root[data-template="garden-promise"] .ot-message {
   padding-inline: clamp(2rem, 15cqi, 10rem);
@@ -1107,9 +1251,73 @@ ${poweredByInviticaStyles}
 .ot-root[data-template="garden-promise"] .ot-event-grid article + article {
   border-left: 1px solid color-mix(in srgb, var(--ie-ribbon) 30%, transparent);
 }
-.ot-root[data-template="garden-promise"] .ot-participant-grid article {
-  border-top: 1px solid color-mix(in srgb, var(--ie-ribbon) 28%, transparent);
+/* The entourage reads as a printed roll rather than ten islands: one flowing two-column list with
+   a rule between columns, group labels set as small caps, and no group ever split across a column. */
+.ot-root[data-template="garden-promise"] .ot-participant-grid {
+  display: block;
+  columns: 2;
+  column-gap: clamp(1.5rem, 5cqi, 3.25rem);
+  column-rule: 1px solid color-mix(in srgb, var(--ie-ribbon) 20%, transparent);
 }
+.ot-root[data-template="garden-promise"] .ot-participant-grid article {
+  padding-block: 0 1.4rem;
+  break-inside: avoid;
+  text-align: left;
+}
+.ot-root[data-template="garden-promise"] .ot-participant-grid h3 {
+  color: var(--ie-ribbon-text);
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-variation-settings: normal;
+  font-weight: 760;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.ot-root[data-template="garden-promise"] .ot-participant-grid ul { margin-top: 0.55rem; }
+
+/* Attire swatches read as paint-card chips instead of generic dots. */
+.ot-root[data-template="garden-promise"] .ot-color-list li {
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ot-root[data-template="garden-promise"] .ot-color-list span {
+  width: 2.4rem;
+  height: 3.2rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 26%, transparent);
+  border-radius: 0;
+}
+
+/* Guidance items carry a small leaf mark, so the botanical vocabulary appears in the reference
+   sections and not only on the hero. */
+.ot-root[data-template="garden-promise"] .ot-guidance li {
+  position: relative;
+  padding-left: 1.85rem;
+}
+.ot-root[data-template="garden-promise"] .ot-guidance li::before {
+  position: absolute;
+  top: 1.35rem;
+  left: 0.1rem;
+  width: 0.78rem;
+  height: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 70%, transparent);
+  border-radius: 100% 0 100% 0;
+  background: color-mix(in srgb, var(--ie-ribbon) 18%, transparent);
+  content: "";
+}
+
+/* The countdown becomes one ruled block instead of four floating numerals. */
+.ot-root[data-template="garden-promise"] .ot-countdown-grid {
+  border-block: 1px solid color-mix(in srgb, var(--ie-ribbon) 30%, transparent);
+}
+.ot-root[data-template="garden-promise"] .ot-countdown-grid span + span {
+  border-left: 1px solid color-mix(in srgb, var(--ie-ribbon) 20%, transparent);
+}
+.ot-root[data-template="garden-promise"] .ot-countdown-grid strong { font-weight: 400; }
+
 .ot-root[data-template="garden-promise"] .ot-schedule ol {
   padding-left: 1.5rem;
   border-left: 1px solid var(--ie-ribbon);
@@ -1131,6 +1339,64 @@ ${poweredByInviticaStyles}
 .ot-root[data-template="garden-promise"] .ot-rsvp-slot {
   padding: 1.25rem;
   border: 1px solid color-mix(in srgb, var(--ie-ribbon) 42%, transparent);
+}
+/* Garden Promise honors the section presets the invitation document already stores. Enhancement
+   only: without view timelines, with reduced motion, or for the "fade-in", "none", and
+   "stagger-children" presets, every section renders in its end state.
+
+   These reveals move but never fade. A scroll-linked opacity ramp is a state the guest can stop
+   inside, and on this palette a section at 86% opacity drops the message body to 4.12:1 — below AA.
+   Transform-only keeps every character at full contrast on every frame, so "fade-in" has nothing
+   safe to animate and stays inert. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="fade-up"],
+    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="scale-in"] {
+      animation-fill-mode: both;
+      animation-timing-function: linear;
+      animation-timeline: view();
+      animation-range: cover 0% cover 20%;
+    }
+    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="fade-up"] {
+      animation-name: ot-rise;
+    }
+    .ot-root[data-template="garden-promise"][data-motion-enabled="true"] .ot-section[data-animation="scale-in"] {
+      animation-name: ot-settle;
+    }
+  }
+}
+@keyframes ot-rise {
+  from { transform: translateY(1.25rem); }
+}
+@keyframes ot-settle {
+  from { transform: scale(0.975); }
+}
+
+/* The signature moment: once the envelope clears, the specimen settles onto the sheet and its
+   shadow blooms then tightens, as though it were just pressed. It runs once, on one decorative
+   element, and never touches text. The resting state is the element's default, so if the animation
+   never runs — no support, reduced motion, no hydration — the sprig is simply already in place. */
+@media (prefers-reduced-motion: no-preference) {
+  .ot-root[data-template="garden-promise"]
+    .ie-root[data-motion-enabled="true"][data-opening-state="opened"]
+    .ot-motif[data-context="hero"]
+    .ot-sprig {
+    animation: ot-sprig-settle 720ms cubic-bezier(0.22, 0.72, 0.24, 1) both;
+  }
+}
+@keyframes ot-sprig-settle {
+  0% {
+    transform: translateY(-1.05rem) rotate(-3deg);
+    filter: drop-shadow(0 0.7rem 0.55rem color-mix(in srgb, var(--ie-ink) 20%, transparent));
+  }
+  62% {
+    transform: translateY(0.1rem) rotate(0.5deg);
+    filter: drop-shadow(0 0.12rem 0.18rem color-mix(in srgb, var(--ie-ink) 15%, transparent));
+  }
+  100% {
+    transform: none;
+    filter: drop-shadow(0 0.04rem 0.09rem color-mix(in srgb, var(--ie-ink) 10%, transparent));
+  }
 }
 
 /* Golden Hour — midnight ballroom program. */
@@ -1337,9 +1603,21 @@ ${poweredByInviticaStyles}
   .ot-root[data-template="garden-promise"] .ot-hero-copy > time,
   .ot-root[data-template="sunday-joy"] .ot-hero-copy > p,
   .ot-root[data-template="sunday-joy"] .ot-hero-copy > time { margin-inline: auto; }
+  .ot-root[data-template="garden-promise"] .ot-hero > .ot-motif { width: 5.5rem; }
+  .ot-root[data-template="garden-promise"] .ot-hero-copy { grid-row: 2; }
+  .ot-root[data-template="garden-promise"] .ot-hero-photo,
+  .ot-root[data-template="garden-promise"] .ot-hero-placeholder {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: 0.5rem;
+  }
   .ot-root[data-template="garden-promise"] .ot-event-grid article + article {
     border-top: 0;
     border-left: 0;
+  }
+  .ot-root[data-template="garden-promise"] .ot-participant-grid {
+    columns: 1;
+    column-rule: 0;
   }
   .ot-root[data-template="golden-hour"] .ot-message { display: block; text-align: center; }
   .ot-root[data-template="golden-hour"] .ot-message-body { margin: 1.5rem auto 0; }

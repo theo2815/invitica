@@ -1,4 +1,4 @@
-import { resolveTemplateById } from "@invitica/template-kit";
+import { resolveTemplateById, templateStarterDocument } from "@invitica/template-kit";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -16,6 +16,9 @@ const invitationId = "71000000-0000-4000-8000-000000000001";
 const idempotencyKey = "91000000-0000-4000-8000-000000000001";
 const publicationId = "92000000-0000-4000-8000-000000000001";
 const gardenPromise = resolveTemplateById("garden-promise");
+// A stored draft is created from the starter, not the catalog showcase: the showcase carries album
+// slots for photographs the creator has not uploaded, which publication deliberately rejects.
+const gardenPromiseDraft = templateStarterDocument(gardenPromise);
 
 function createPublicationClient(
   draft: unknown,
@@ -46,7 +49,7 @@ const noopMediaStore = {
   put: async () => {},
 };
 
-function storedDraft(document: unknown = gardenPromise.defaultDocument, revision = 4) {
+function storedDraft(document: unknown = gardenPromiseDraft, revision = 4) {
   return {
     document,
     invitation_id: invitationId,
@@ -74,7 +77,7 @@ describe("invitation publication requests", () => {
       templateVersionId: gardenPromise.templateVersionId,
       templateVersion: 2,
       draftRevision: 4,
-      document: gardenPromise.defaultDocument,
+      document: gardenPromiseDraft,
       assets: [],
     });
     expect(client.rpc).toHaveBeenCalledWith("request_invitation_publication", {
@@ -86,7 +89,7 @@ describe("invitation publication requests", () => {
   });
 
   it("rejects stale revisions before creating a publication request", async () => {
-    const client = createPublicationClient(storedDraft(gardenPromise.defaultDocument, 5));
+    const client = createPublicationClient(storedDraft(gardenPromiseDraft, 5));
 
     await expect(
       requestInvitationPublication(client as never, {
@@ -114,7 +117,7 @@ describe("invitation publication requests", () => {
   it("stops a referenced image with no ready media row before the database request", async () => {
     const client = createPublicationClient(
       storedDraft({
-        ...gardenPromise.defaultDocument,
+        ...gardenPromiseDraft,
         assets: [{ id: "93000000-0000-4000-8000-000000000001", kind: "image" }],
       }),
       { data: publicationId, error: null },
@@ -135,7 +138,7 @@ describe("invitation publication requests", () => {
     const assetId = "93000000-0000-4000-8000-000000000002";
     const client = createPublicationClient(
       storedDraft({
-        ...gardenPromise.defaultDocument,
+        ...gardenPromiseDraft,
         assets: [{ id: assetId, kind: "image" }],
       }),
       { data: publicationId, error: null },

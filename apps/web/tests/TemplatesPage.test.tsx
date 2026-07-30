@@ -237,6 +237,33 @@ describe("templates page", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  /**
+   * The quick preview and the full preview route must show a creator the same template. Both assert
+   * against the showcase document rather than a copied list, so the two cannot drift apart — the
+   * matching assertion lives in `TemplateLivePreview.test.tsx`.
+   */
+  it("previews every Garden Promise section and image slot, like the full route", () => {
+    const { container } = render(
+      <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Quick preview Garden Promise" }));
+
+    // Scoped to the preview stage: the catalog cards also carry `data-template`.
+    const invitation = container.querySelector('[data-testid="template-preview-stage"]');
+    if (!invitation) throw new Error("Expected the Garden Promise renderer in the modal");
+
+    const showcase = resolveTemplateById("garden-promise").defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(8);
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+  });
+
   it("handles no matches, loading, and unexpected errors", () => {
     const { unmount } = render(
       <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,

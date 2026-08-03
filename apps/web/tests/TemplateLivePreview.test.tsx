@@ -66,9 +66,9 @@ describe("full template preview", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
-    act(() => vi.advanceTimersByTime(620));
-    act(() => vi.advanceTimersByTime(700));
-    act(() => vi.advanceTimersByTime(760));
+    act(() => vi.advanceTimersByTime(850));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(900));
     act(() => vi.advanceTimersByTime(0));
 
     expect(
@@ -94,9 +94,9 @@ describe("full template preview", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
-    act(() => vi.advanceTimersByTime(620));
-    act(() => vi.advanceTimersByTime(700));
-    act(() => vi.advanceTimersByTime(760));
+    act(() => vi.advanceTimersByTime(850));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(900));
     act(() => vi.advanceTimersByTime(0));
     expect(screen.getByRole("status").textContent).toContain("You’re signed in");
 

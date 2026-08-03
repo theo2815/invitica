@@ -370,6 +370,25 @@ describe("InvitationRenderer", () => {
     expect(html).not.toContain('data-context="hero" data-motif="golden-hour"><b>');
   });
 
+  it("keeps the Golden Hour page free of repeating diagonal rays", () => {
+    const goldenHour = templateRegistry.find(
+      (candidate) => candidate.listing.id === "golden-hour" && candidate.version === 2,
+    );
+    if (!goldenHour) throw new Error("Golden Hour v2 fixture is required");
+
+    const html = renderToStaticMarkup(
+      <GoldenHourRendererV2
+        audience="personalized"
+        document={goldenHour.defaultDocument}
+        mode="published"
+        reducedMotion
+      />,
+    );
+
+    expect(html).not.toContain("linear-gradient(135deg, transparent 48%");
+    expect(html).not.toContain("background-size: 24rem 24rem");
+  });
+
   it("keeps the personal-link RSVP boundary in every expanded occasion renderer", () => {
     for (const manifest of templateRegistry.filter(
       (candidate) =>

@@ -19,16 +19,31 @@ export type RibbonEnvelopeVariant =
   | "sunday-joy"
   | "warm-editorial";
 
-const standardPhaseDurations: Partial<Record<InvitationOpeningState, number>> = {
-  untying: 620,
-  opening: 700,
-  "letter-revealing": 760,
-};
+export type RibbonEnvelopePace = "deliberate" | "slow" | "standard";
 
-const slowCinematicPhaseDurations: Partial<Record<InvitationOpeningState, number>> = {
-  untying: 900,
-  opening: 1_050,
-  "letter-revealing": 1_400,
+interface OpeningPaceProfile {
+  readonly durations: Partial<Record<InvitationOpeningState, number>>;
+  readonly safetyTimeout: number;
+}
+
+/**
+ * `deliberate` runs 2.65 s, past the 2.2 s the design reference accepts without product sign-off.
+ * The founder approved the longer sequence on 2026-08-01 on the condition that it offers the same
+ * 44 px skip control the `slow` families carry, so any pace other than `standard` shows one.
+ */
+const openingPaces: Record<RibbonEnvelopePace, OpeningPaceProfile> = {
+  deliberate: {
+    durations: { untying: 850, opening: 900, "letter-revealing": 900 },
+    safetyTimeout: 4_100,
+  },
+  slow: {
+    durations: { untying: 900, opening: 1_050, "letter-revealing": 1_400 },
+    safetyTimeout: 5_200,
+  },
+  standard: {
+    durations: { untying: 620, opening: 700, "letter-revealing": 760 },
+    safetyTimeout: 3_200,
+  },
 };
 
 const nextPhase: Partial<Record<InvitationOpeningState, InvitationOpeningState>> = {
@@ -36,9 +51,6 @@ const nextPhase: Partial<Record<InvitationOpeningState, InvitationOpeningState>>
   opening: "letter-revealing",
   "letter-revealing": "opened",
 };
-
-const standardSafetyTimeout = 3_200;
-const slowCinematicSafetyTimeout = 5_200;
 
 function usePrefersReducedMotion(reducedMotion: boolean): boolean {
   const [systemPreference, setSystemPreference] = useState(false);
@@ -66,6 +78,12 @@ interface RibbonEnvelopeOpeningProps {
    * text here must also exist in the invitation content below.
    */
   coverMark?: ReactNode;
+  /**
+   * Optional marks printed on the closed envelope's front pocket, such as an addressed name. The
+   * whole envelope is hidden from assistive technology, so anything here must also exist as text
+   * elsewhere in the opening scene or the invitation below.
+   */
+  frontMark?: ReactNode;
   includeStyles?: boolean;
   kicker: string;
   letterLead: string;
@@ -73,10 +91,16 @@ interface RibbonEnvelopeOpeningProps {
   mode: InvitationRendererProps["mode"];
   onOpeningStateChange?: ((state: InvitationOpeningState) => void) | undefined;
   openingReplayKey?: number | undefined;
-  pace?: "slow" | "standard";
+  pace?: RibbonEnvelopePace;
   recipient: string;
   recipientLead: string;
   reducedMotion?: boolean;
+  /**
+   * Optional family-owned closure replacing the default CSS loops, tails, and centre. Cloth reads
+   * as cloth only through curves the four default boxes cannot describe, so a family may supply an
+   * SVG bow here; a rectilinear closure stays cheaper as plain elements.
+   */
+  ribbonKnot?: ReactNode;
   sceneDecoration?: ReactNode;
   style?: CSSProperties;
   variant: RibbonEnvelopeVariant;
@@ -90,6 +114,7 @@ export function RibbonEnvelopeOpening({
   children,
   className,
   coverMark,
+  frontMark,
   includeStyles = true,
   kicker,
   letterLead,
@@ -101,6 +126,7 @@ export function RibbonEnvelopeOpening({
   recipient,
   recipientLead,
   reducedMotion = false,
+  ribbonKnot,
   sceneDecoration,
   style,
   variant,
@@ -119,8 +145,11 @@ export function RibbonEnvelopeOpening({
   const shouldLockPage = contentIsGated && mode === "published";
   const gardenPromise = variant === "garden-promise";
   const littleBlessings = variant === "little-blessings";
-  // Existing families keep their timing; a new version may use the shorter accepted window.
-  const slowOpening = pace ? pace === "slow" : gardenPromise || littleBlessings;
+  // Existing families keep their timing; a new version may name a different pace.
+  const paceKey: RibbonEnvelopePace =
+    pace ?? (gardenPromise || littleBlessings ? "slow" : "standard");
+  const openingPace = openingPaces[paceKey];
+  const offersSkip = paceKey !== "standard";
   const cinematicTakeover =
     gardenPromise || variant === "golden-hour" || littleBlessings || variant === "sunday-joy";
   const contentIsVisuallyGated =
@@ -143,22 +172,20 @@ export function RibbonEnvelopeOpening({
   }, [openingReplayKey]);
 
   useEffect(() => {
-    const durations = slowOpening ? slowCinematicPhaseDurations : standardPhaseDurations;
-    const duration = durations[openingState];
+    const duration = openingPace.durations[openingState];
     const followingState = nextPhase[openingState];
     if (!duration || !followingState) return;
 
     const timer = window.setTimeout(() => setOpeningState(followingState), duration);
     return () => window.clearTimeout(timer);
-  }, [slowOpening, openingState]);
+  }, [openingPace, openingState]);
 
   useEffect(() => {
     if (!sequenceActive) return;
 
-    const timeout = slowOpening ? slowCinematicSafetyTimeout : standardSafetyTimeout;
-    const timer = window.setTimeout(() => setOpeningState("opened"), timeout);
+    const timer = window.setTimeout(() => setOpeningState("opened"), openingPace.safetyTimeout);
     return () => window.clearTimeout(timer);
-  }, [slowOpening, sequenceActive]);
+  }, [openingPace, sequenceActive]);
 
   useEffect(() => {
     if (shouldReduceMotion && sequenceActive) setOpeningState("opened");
@@ -318,7 +345,7 @@ export function RibbonEnvelopeOpening({
               <small>{letterNote}</small>
             </div>
             <div className={gardenClass("envelope-flap", gardenPromise)}>{coverMark}</div>
-            <div className={gardenClass("envelope-front", gardenPromise)} />
+            <div className={gardenClass("envelope-front", gardenPromise)}>{frontMark}</div>
             <div
               className={`${gardenClass("ribbon", gardenPromise)} ${gardenClass(
                 "ribbon-horizontal",
@@ -332,31 +359,35 @@ export function RibbonEnvelopeOpening({
               )}`}
             />
             <div className={gardenClass("ribbon-knot", gardenPromise)}>
-              <span
-                className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
-                  "ribbon-loop-left",
-                  gardenPromise,
-                )}`}
-              />
-              <span
-                className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
-                  "ribbon-loop-right",
-                  gardenPromise,
-                )}`}
-              />
-              <span
-                className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
-                  "ribbon-tail-left",
-                  gardenPromise,
-                )}`}
-              />
-              <span
-                className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
-                  "ribbon-tail-right",
-                  gardenPromise,
-                )}`}
-              />
-              <i />
+              {ribbonKnot ?? (
+                <>
+                  <span
+                    className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
+                      "ribbon-loop-left",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <span
+                    className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
+                      "ribbon-loop-right",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <span
+                    className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
+                      "ribbon-tail-left",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <span
+                    className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
+                      "ribbon-tail-right",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <i />
+                </>
+              )}
             </div>
           </div>
         </button>
@@ -374,7 +405,7 @@ export function RibbonEnvelopeOpening({
                 ? "Your invitation is open"
                 : "Opening invitation…"}
         </p>
-        {slowOpening && sequenceActive ? (
+        {offersSkip && sequenceActive ? (
           <button
             className={gardenClass("skip-opening", gardenPromise)}
             onClick={skipOpening}

@@ -11,6 +11,12 @@ import type {
   ResolvedRendererImage,
 } from "./InvitationRenderer.js";
 import {
+  OccasionEnvelopeAddress,
+  OccasionEnvelopeClosure,
+  OccasionEnvelopeCoverMark,
+  occasionEnvelopeStyles,
+} from "./OccasionEnvelope.js";
+import {
   largestImageRendition,
   PhotoPreviewDialog,
   type PhotoPreviewItem,
@@ -18,7 +24,11 @@ import {
   photoPreviewStyles,
 } from "./PhotoPreview.js";
 import { PoweredByInvitica, poweredByInviticaStyles } from "./PoweredByInvitica.js";
-import { RibbonEnvelopeOpening, type RibbonEnvelopeVariant } from "./RibbonEnvelopeOpening.js";
+import {
+  RibbonEnvelopeOpening,
+  type RibbonEnvelopeVariant,
+  ribbonEnvelopeStyles,
+} from "./RibbonEnvelopeOpening.js";
 import { isSectionVisibleToAudience } from "./sectionVisibility.js";
 import { useCountdown } from "./useCountdown.js";
 
@@ -673,17 +683,20 @@ export function OccasionTemplateRenderer({
     >
       <style>{occasionTemplateStyles}</style>
       <RibbonEnvelopeOpening
-        coverMark={<TemplateMotif context="cover" variant={variant} />}
+        coverMark={<OccasionEnvelopeCoverMark variant={variant} />}
+        frontMark={<OccasionEnvelopeAddress recipient={recipient} variant={variant} />}
+        includeStyles={false}
         kicker={profile.kicker}
         letterLead={profile.letterLead}
         letterNote={profile.letterNote}
         mode={mode}
         onOpeningStateChange={onOpeningStateChange}
         openingReplayKey={openingReplayKey}
-        pace="standard"
+        pace="deliberate"
         recipient={recipient}
         recipientLead={profile.recipientLead}
         reducedMotion={reducedMotion}
+        ribbonKnot={<OccasionEnvelopeClosure variant={variant} />}
         sceneDecoration={<SceneDecoration variant={variant} />}
         variant={profile.variant}
       >
@@ -711,7 +724,14 @@ export function OccasionTemplateRenderer({
   );
 }
 
+/**
+ * The shared envelope stylesheet is inlined here rather than emitted by `RibbonEnvelopeOpening`
+ * (`includeStyles={false}`) so the occasion envelope rules that follow it win on cascade order as
+ * well as specificity. Garden Promise v1 already loads its own envelope styles the same way.
+ */
 const occasionTemplateStyles = `
+${ribbonEnvelopeStyles}
+${occasionEnvelopeStyles}
 ${interactiveMapStyles}
 ${photoPreviewStyles}
 ${poweredByInviticaStyles}
@@ -1418,13 +1438,7 @@ ${poweredByInviticaStyles}
 .ot-root[data-template="golden-hour"] {
   /* Deliberate pace: sections arrive over 30% of their entrance, the slowest of the three. */
   --ot-reveal-range: 30%;
-  background:
-    linear-gradient(135deg, transparent 48%, rgb(211 173 96 / 7%) 49% 51%, transparent 52%),
-    var(--ie-background);
-  /* The rays repeat on a fixed tile. Sized to the background box they spanned the whole document —
-     8,339px on a phone — so the band became one stretched smear across the entourage and program
-     rather than deco geometry. */
-  background-size: 24rem 24rem;
+  background: var(--ie-background);
 }
 .ot-root[data-template="golden-hour"] .ot-content {
   color: var(--ie-ink);

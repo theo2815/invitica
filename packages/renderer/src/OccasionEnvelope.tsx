@@ -34,10 +34,67 @@ function EnvelopeAddress({
   if (variant === "golden-hour") return null;
 
   return (
-    <span className="oe-address">
-      <i />
-      <strong>{recipient}</strong>
-    </span>
+    <>
+      {variant === "garden-promise" ? <GardenPromisePocketArtwork /> : null}
+      <span className="oe-address">
+        <i />
+        <strong>{recipient}</strong>
+      </span>
+    </>
+  );
+}
+
+/**
+ * Blind-embossed botanical linework mounted inside the flap. The SVG follows the paper layer when
+ * it turns, while the seal remains independent so its break-away motion stays readable.
+ */
+function GardenPromiseFlapArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-gp-flap-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 138 50"
+    >
+      <path className="oe-gp-flap-rule" d="M4 3.5h130L69 46Z" />
+      <path className="oe-gp-flap-vine" d="M13 7c10 1 20 6 29 15" />
+      <path className="oe-gp-flap-vine" d="M125 7c-10 1-20 6-29 15" />
+      <path className="oe-gp-flap-leaf" d="M20 10c4-4 9-4 13-1-4 4-9 5-13 1Z" />
+      <path className="oe-gp-flap-leaf" d="M30 16c5-2 9 0 11 4-5 2-9 0-11-4Z" />
+      <path className="oe-gp-flap-leaf" d="M118 10c-4-4-9-4-13-1 4 4 9 5 13 1Z" />
+      <path className="oe-gp-flap-leaf" d="M108 16c-5-2-9 0-11 4 5 2 9 0 11-4Z" />
+    </svg>
+  );
+}
+
+/**
+ * Sparse deckle fibers and pressed corner sprigs give the pocket depth without redrawing false
+ * diagonal seams across its face.
+ */
+function GardenPromisePocketArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-gp-pocket-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 138 100"
+    >
+      <path
+        className="oe-gp-pocket-fiber"
+        d="M8 80c17-1 28 1 43 0M84 88c19 1 31-1 46 0M16 94c10 0 18 1 27 0"
+      />
+      <path className="oe-gp-pocket-vine" d="M8 96c8-9 15-14 26-19M130 96c-8-9-15-14-26-19" />
+      <path
+        className="oe-gp-pocket-leaf"
+        d="M15 88c0-6 4-10 9-11 0 6-3 10-9 11ZM23 82c2-5 7-7 12-5-2 5-7 7-12 5Z"
+      />
+      <path
+        className="oe-gp-pocket-leaf"
+        d="M123 88c0-6-4-10-9-11 0 6 3 10 9 11ZM115 82c-2-5-7-7-12-5 2 5 7 7 12 5Z"
+      />
+    </svg>
   );
 }
 
@@ -48,12 +105,19 @@ function EnvelopeAddress({
 function GardenPromiseSeal() {
   return (
     <svg aria-hidden="true" className="oe-seal" focusable="false" viewBox="0 0 100 100">
-      <path className="oe-seal-drip" d="M24 68c-8 6-11 17-4 22s18 1 21-9Z" />
-      <circle className="oe-seal-body" cx="50" cy="50" r="39" />
-      <circle className="oe-seal-rim" cx="50" cy="50" r="30" />
+      <path className="oe-seal-drip" d="M25 65c-9 7-12 18-5 24 8 6 19 0 22-11Z" />
+      <path
+        className="oe-seal-body"
+        d="M50 8c8 0 13 5 20 7 8 3 15 2 19 9 4 6 1 13 3 20 2 8 7 14 3 22-3 7-11 8-17 14-5 6-8 13-17 13-7 1-12-5-20-5-8 1-15 5-22 0-6-5-5-13-9-20-4-7-10-11-8-20 2-7 9-11 12-18 4-7 3-15 10-20 6-5 14-2 21-4 7-2 12-7 19-7Z"
+      />
+      <path
+        className="oe-seal-rim"
+        d="M50 19c16 0 30 13 31 29 1 18-12 32-30 33-17 1-31-12-32-29-1-18 13-32 31-33Z"
+      />
+      <path className="oe-seal-highlight" d="M25 42c3-9 11-16 20-18" />
       <path
         className="oe-seal-sprig"
-        d="M50 74V26M50 62c8-2 17-9 22-19-12 0-20 8-22 19Zm0-16c-8-2-17-9-22-19 12 0 20 8 22 19Z"
+        d="M50 75V27M50 63c8-2 17-9 22-19-12 0-20 8-22 19Zm0-16c-8-2-17-9-22-19 12 0 20 8 22 19Zm0 4c6-1 12 2 15 7-7 1-12-1-15-7Z"
       />
       <ellipse className="oe-seal-bud" cx="50" cy="21" rx="4" ry="7" />
     </svg>
@@ -73,11 +137,13 @@ function GardenPromiseClosure() {
         className="oe-loop oe-loop-left oe-fold"
         d="M100 90C79 79 55 76 36 82c21-2 45 3 64 13Z"
       />
+      <path className="oe-loop oe-loop-left oe-ribbon-highlight" d="M93 85C66 68 36 71 22 87" />
       <path className="oe-loop oe-loop-right" d="M100 88c34-30 86-22 89 7s-55 24-89 6Z" />
       <path
         className="oe-loop oe-loop-right oe-fold"
         d="M100 90c21-11 45-14 64-8-21-2-45 3-64 13Z"
       />
+      <path className="oe-loop oe-loop-right oe-ribbon-highlight" d="M107 85c27-17 57-14 71 2" />
       <path
         className="oe-tail oe-tail-left"
         d="M95 100c-6 32-17 60-38 84l-11 13 3-22-17 6c20-27 38-53 49-85Z"
@@ -86,6 +152,8 @@ function GardenPromiseClosure() {
         className="oe-tail oe-tail-right"
         d="M105 100c6 32 17 60 38 84l11 13-3-22 17 6c-20-27-38-53-49-85Z"
       />
+      <path className="oe-tail oe-tail-left oe-ribbon-highlight" d="M85 108c-8 28-20 51-36 67" />
+      <path className="oe-tail oe-tail-right oe-ribbon-highlight" d="M115 108c8 28 20 51 36 67" />
       <rect className="oe-cinch" height="30" rx="7" width="22" x="89" y="81" />
     </svg>
   );
@@ -143,7 +211,12 @@ export function OccasionEnvelopeClosure({ variant }: { variant: OccasionTemplate
 
 /** Mounted on the flap, so it swings away with it. Only Garden Promise seals its flap. */
 export function OccasionEnvelopeCoverMark({ variant }: { variant: OccasionTemplateVariant }) {
-  return variant === "garden-promise" ? <GardenPromiseSeal /> : null;
+  return variant === "garden-promise" ? (
+    <>
+      <GardenPromiseFlapArtwork />
+      <GardenPromiseSeal />
+    </>
+  ) : null;
 }
 
 export function OccasionEnvelopeAddress({
@@ -433,8 +506,37 @@ export const occasionEnvelopeStyles = `
      as one large X across the paper. */
   background:
     radial-gradient(86% 34% at 50% 0%, color-mix(in srgb, var(--ie-ink) 11%, transparent), transparent 74%),
+    linear-gradient(96deg, transparent 0 42%, color-mix(in srgb, var(--ie-ink) 2.5%, transparent) 50%, transparent 58%),
     color-mix(in srgb, var(--ie-paper) 97%, var(--ie-background));
   color: var(--ie-ribbon-text);
+}
+.ot-root[data-template="garden-promise"] .oe-gp-pocket-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ot-root[data-template="garden-promise"] .oe-gp-pocket-fiber {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ink) 9%, transparent);
+  stroke-linecap: round;
+  stroke-width: 0.45;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="garden-promise"] .oe-gp-pocket-vine {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 34%, transparent);
+  stroke-linecap: round;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="garden-promise"] .oe-gp-pocket-leaf {
+  fill: color-mix(in srgb, var(--ie-ribbon) 11%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 28%, transparent);
+  stroke-width: 0.55;
+  vector-effect: non-scaling-stroke;
 }
 .ot-root[data-template="garden-promise"] .ie-envelope-flap {
   clip-path: polygon(0 0, 100% 0, 50% 50%);
@@ -444,13 +546,34 @@ export const occasionEnvelopeStyles = `
     color-mix(in srgb, var(--ie-paper) 99%, var(--ie-ink));
   filter: drop-shadow(0 0.14rem 0.2rem color-mix(in srgb, var(--ie-ink) 16%, transparent));
 }
-/* A blind-embossed rule inset from the flap edges, the way pressed stationery is finished. */
-.ot-root[data-template="garden-promise"] .ie-envelope-flap::before {
+/* SVG replaces the old clipped pseudo-element so the embossed edge and botanical corners share one
+   crisp coordinate system and turn with the flap as one paper layer. */
+.ot-root[data-template="garden-promise"] .oe-gp-flap-art {
   position: absolute;
-  inset: 0;
-  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 26%, transparent);
-  clip-path: polygon(3.5% 3%, 96.5% 3%, 50% 45%);
-  content: "";
+  inset: 0 0 auto;
+  display: block;
+  width: 100%;
+  height: 50%;
+  pointer-events: none;
+}
+.ot-root[data-template="garden-promise"] .oe-gp-flap-rule {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 32%, transparent);
+  stroke-width: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="garden-promise"] .oe-gp-flap-vine {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 38%, transparent);
+  stroke-linecap: round;
+  stroke-width: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="garden-promise"] .oe-gp-flap-leaf {
+  fill: color-mix(in srgb, var(--ie-ribbon) 10%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 32%, transparent);
+  stroke-width: 0.55;
+  vector-effect: non-scaling-stroke;
 }
 .ot-root[data-template="garden-promise"] .ie-letter {
   border-color: color-mix(in srgb, var(--ie-ribbon) 26%, transparent);
@@ -483,6 +606,7 @@ export const occasionEnvelopeStyles = `
 .ot-root[data-template="garden-promise"] .oe-address {
   top: 52%;
   right: 9%;
+  z-index: 1;
   bottom: auto;
   left: 9%;
 }
@@ -493,10 +617,16 @@ export const occasionEnvelopeStyles = `
 .ot-root[data-template="garden-promise"] .oe-seal-drip {
   fill: color-mix(in srgb, var(--ie-ribbon) 80%, var(--ie-ink));
 }
-.ot-root[data-template="garden-promise"] .oe-seal-rim {
+.ot-root[data-template="garden-promise"] .oe-seal-rim,
+.ot-root[data-template="garden-promise"] .oe-seal-highlight {
   fill: none;
   stroke: color-mix(in srgb, var(--ie-paper) 30%, transparent);
+  stroke-linecap: round;
   stroke-width: 2;
+}
+.ot-root[data-template="garden-promise"] .oe-seal-highlight {
+  stroke: color-mix(in srgb, white 42%, transparent);
+  stroke-width: 3;
 }
 .ot-root[data-template="garden-promise"] .oe-seal-sprig {
   fill: color-mix(in srgb, var(--ie-paper) 58%, transparent);
@@ -512,6 +642,13 @@ export const occasionEnvelopeStyles = `
 .ot-root[data-template="garden-promise"] .oe-tail,
 .ot-root[data-template="garden-promise"] .oe-cinch {
   fill: var(--ie-ribbon);
+}
+.ot-root[data-template="garden-promise"] .oe-loop.oe-ribbon-highlight,
+.ot-root[data-template="garden-promise"] .oe-tail.oe-ribbon-highlight {
+  fill: none;
+  stroke: color-mix(in srgb, white 34%, var(--ie-ribbon));
+  stroke-linecap: round;
+  stroke-width: 1.2;
 }
 .ot-root[data-template="garden-promise"] .oe-loop { fill: color-mix(in srgb, var(--ie-ribbon) 94%, white); }
 .ot-root[data-template="garden-promise"] .oe-tail { fill: color-mix(in srgb, var(--ie-ribbon) 92%, var(--ie-ink)); }

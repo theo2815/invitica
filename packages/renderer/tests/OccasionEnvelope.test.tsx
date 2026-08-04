@@ -87,6 +87,28 @@ describe("occasion envelope", () => {
     expect(markup(sundayJoy)).not.toContain("oe-seal");
   });
 
+  it("gives Garden Promise layered SVG stationery artwork without leaking it to other families", () => {
+    const gardenPromise = renderToStaticMarkup(
+      <GardenPromiseRendererV2 document={documentFor("garden-promise")} mode="published" />,
+    );
+    const goldenHour = renderToStaticMarkup(
+      <GoldenHourRendererV2 document={documentFor("golden-hour")} mode="published" />,
+    );
+    const sundayJoy = renderToStaticMarkup(
+      <SundayJoyRendererV2 document={documentFor("sunday-joy")} mode="published" />,
+    );
+
+    expect(markup(gardenPromise)).toContain("oe-gp-flap-art");
+    expect(markup(gardenPromise)).toContain("oe-gp-pocket-art");
+    expect(markup(gardenPromise)).toContain("oe-seal-highlight");
+
+    for (const html of [goldenHour, sundayJoy]) {
+      expect(markup(html)).not.toContain("oe-gp-flap-art");
+      expect(markup(html)).not.toContain("oe-gp-pocket-art");
+      expect(markup(html)).not.toContain("oe-seal-highlight");
+    }
+  });
+
   it("addresses the pocket envelopes and lets the sleeve's card carry the name once", () => {
     const gardenPromise = renderToStaticMarkup(
       <GardenPromiseRendererV2

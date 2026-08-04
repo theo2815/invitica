@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,6 +47,20 @@ function imageSource(image: HTMLImageElement) {
 }
 
 describe("invitations page", () => {
+  it("keeps desktop invitation cards in stable three-column tracks", async () => {
+    const stylesheet = await readFile(
+      resolve(process.cwd(), "app/dashboard/invitations/Invitations.module.css"),
+      "utf8",
+    );
+
+    expect(stylesheet).toContain(`.invitationGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));`);
+    expect(stylesheet).not.toContain(
+      "grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));",
+    );
+  });
+
   it("renders the dedicated invitation library empty state", async () => {
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
       error: null,
@@ -107,7 +123,7 @@ describe("invitations page", () => {
     const image = artwork.querySelector<HTMLImageElement>("img");
     expect(image?.getAttribute("alt")).toBe("");
     if (!image) throw new Error("Missing Garden Promise still");
-    expect(imageSource(image)).toBe("/landing/templates/garden-promise.jpg");
+    expect(imageSource(image)).toBe("/landing/templates/garden-promise-svg-20260804.jpg");
     expect(screen.queryByText("Your first invitation begins here.")).toBeNull();
     expect(screen.getByRole("link", { name: "Continue editing" }).getAttribute("href")).toBe(
       "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
@@ -145,7 +161,7 @@ describe("invitations page", () => {
     const artwork = screen.getByRole("img", { name: "Little Blessings design preview" });
     const image = artwork.querySelector<HTMLImageElement>("img");
     if (!image) throw new Error("Missing Little Blessings still");
-    expect(imageSource(image)).toBe("/landing/templates/little-blessings.jpg");
+    expect(imageSource(image)).toBe("/landing/templates/little-blessings-svg-20260804.jpg");
     expect(screen.getByText("Little Blessings design")).toBeDefined();
   });
 

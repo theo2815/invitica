@@ -23,6 +23,10 @@ describe("full template preview", () => {
       />,
     );
 
+    const previewPage = document.querySelector("[data-preview-scroll-gated]");
+    expect(previewPage).not.toBeNull();
+    expect(previewPage?.getAttribute("data-preview-scroll-gated")).toBe("true");
+
     expect(screen.queryByRole("link", { name: "Log in to use this template" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
     act(() => vi.advanceTimersByTime(900));
@@ -30,6 +34,7 @@ describe("full template preview", () => {
     act(() => vi.advanceTimersByTime(1_400));
     act(() => vi.advanceTimersByTime(0));
 
+    expect(previewPage?.getAttribute("data-preview-scroll-gated")).toBe("false");
     expect(
       within(screen.getByRole("complementary", { name: "Template preview actions" })).getByText(
         "Garden Promise",

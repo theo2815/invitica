@@ -14,6 +14,7 @@ import {
   OccasionEnvelopeAddress,
   OccasionEnvelopeClosure,
   OccasionEnvelopeCoverMark,
+  OccasionEnvelopeLetterMark,
   occasionEnvelopeStyles,
 } from "./OccasionEnvelope.js";
 import {
@@ -687,6 +688,7 @@ export function OccasionTemplateRenderer({
         frontMark={<OccasionEnvelopeAddress recipient={recipient} variant={variant} />}
         includeStyles={false}
         kicker={profile.kicker}
+        letterMark={<OccasionEnvelopeLetterMark variant={variant} />}
         letterLead={profile.letterLead}
         letterNote={profile.letterNote}
         mode={mode}

@@ -70,13 +70,22 @@ test("covers the viewport closed, opens, and passes blocking WCAG checks", async
   expect(closedOpening?.width ?? 0).toBeGreaterThanOrEqual((viewport?.width ?? 0) - 1);
   expect(closedOpening?.height ?? 0).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 1);
 
+  await awaitHydratedEnvelope(page);
+  await page.evaluate(() => window.scrollTo(0, 240));
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  const envelopeBox = await page.locator(".ie-envelope").boundingBox();
+  const keepsakeBowBox = await page.locator(".lb-keepsake-knot").boundingBox();
+  expect(envelopeBox).not.toBeNull();
+  expect(keepsakeBowBox).not.toBeNull();
+  expect((keepsakeBowBox?.width ?? 0) / (envelopeBox?.width ?? 1)).toBeGreaterThan(0.62);
+
   const closedAudit = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
   expect(blockingViolations(closedAudit.violations)).toEqual([]);
 
   const opener = page.getByRole("button", { name: /Open invitation for/ });
   const openerBox = await opener.boundingBox();
   expect(openerBox?.height).toBeGreaterThanOrEqual(44);
-  await awaitHydratedEnvelope(page);
   await opener.press("Enter");
   await expect(page.locator('[data-opening-state="opened"]')).toBeAttached({
     timeout: OPENING_WAIT,

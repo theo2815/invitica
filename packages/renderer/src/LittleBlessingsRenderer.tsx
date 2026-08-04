@@ -106,6 +106,82 @@ function KeepsakeCoverPlate({ dateLabel, title }: { dateLabel?: string; title: s
   );
 }
 
+/** Pearl-thread embroidery mounted below the real cover plate on Little Blessings v2. */
+function LittleBlessingsCoverArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="lb-envelope-cover-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 74 100"
+    >
+      <path className="lb-envelope-cover-frame" d="M10 8h54v84H10Z" />
+      <path
+        className="lb-envelope-cover-scallop"
+        d="M12 12c2-4 4-4 6 0 2-4 4-4 6 0 2-4 4-4 6 0 2-4 4-4 6 0 2-4 4-4 6 0 2-4 4-4 6 0 2-4 4-4 6 0 2-4 4-4 6 0"
+      />
+      <path className="lb-envelope-cover-vine" d="M14 86c9-2 14-9 17-20M60 86c-9-2-14-9-17-20" />
+      <path
+        className="lb-envelope-cover-leaf"
+        d="M19 79c-1-5 2-9 7-10 1 5-2 9-7 10Zm6-8c1-5 5-7 10-5-1 5-5 7-10 5ZM55 79c1-5-2-9-7-10-1 5 2 9 7 10Zm-6-8c-1-5-5-7-10-5 1 5 5 7 10 5Z"
+      />
+      <circle className="lb-envelope-cover-pearl" cx="14" cy="18" r="1.2" />
+      <circle className="lb-envelope-cover-pearl" cx="60" cy="18" r="1.2" />
+    </svg>
+  );
+}
+
+/** Stitched page-edge and corner sprigs printed on the v2 pearl page block. */
+function LittleBlessingsPageArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="lb-envelope-page-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 74 100"
+    >
+      <path className="lb-envelope-page-rule" d="M9 8h56v84H9Z" />
+      <path className="lb-envelope-page-edge" d="M62 12v76M66 14v72M69 17v66" />
+      <path className="lb-envelope-page-vine" d="M12 88c7-4 11-10 13-18M58 88c-7-4-11-10-13-18" />
+      <path
+        className="lb-envelope-page-leaf"
+        d="M16 82c0-5 3-8 7-9 0 5-3 8-7 9Zm42 0c0-5-3-8-7-9 0 5 3 8 7 9Z"
+      />
+    </svg>
+  );
+}
+
+function LittleBlessingsKeepsakeKnot() {
+  return (
+    <svg aria-hidden="true" className="lb-keepsake-knot" focusable="false" viewBox="0 0 200 200">
+      <path
+        className="lb-knot-loop lb-knot-loop-left"
+        d="M99 91C76 62 31 63 20 87c-11 25 33 34 79 13Z"
+      />
+      <path
+        className="lb-knot-loop lb-knot-loop-right"
+        d="M101 91c23-29 68-28 79-4 11 25-33 34-79 13Z"
+      />
+      <path
+        className="lb-knot-tail lb-knot-tail-left"
+        d="M91 104c-9 28-19 51-37 76l-9 12 2-19-15 6c18-24 32-48 43-78Z"
+      />
+      <path
+        className="lb-knot-tail lb-knot-tail-right"
+        d="M109 104c9 28 19 51 37 76l9 12-2-19 15 6c-18-24-32-48-43-78Z"
+      />
+      <path
+        className="lb-knot-highlight"
+        d="M91 86C68 70 41 72 29 87M109 86c23-16 50-14 62 1M81 111c-7 24-18 45-31 61M119 111c7 24 18 45 31 61"
+      />
+      <rect className="lb-knot-cinch" height="32" rx="8" width="28" x="86" y="82" />
+      <path className="lb-knot-stitch" d="M92 91h16M92 103h16" />
+    </svg>
+  );
+}
+
 function LittleBlessingsPetals() {
   return (
     <div aria-hidden="true" className="lb-petals">
@@ -829,9 +905,15 @@ function isVisibleToAudience(
   return !(section.type === "rsvp" && mode === "published" && audience === "general");
 }
 
+type LittleBlessingsRendererProps = InvitationRendererProps & {
+  /** Internal renderer-version boundary. Historical v1 keeps its existing CSS-only envelope. */
+  envelopeArtwork?: "legacy" | "storybook-svg";
+};
+
 export function LittleBlessingsRenderer({
   audience = "general",
   document,
+  envelopeArtwork = "legacy",
   mapTileKey,
   mode,
   onOpeningStateChange,
@@ -840,7 +922,7 @@ export function LittleBlessingsRenderer({
   reducedMotion = false,
   resolveImage,
   rsvpSlot,
-}: InvitationRendererProps) {
+}: LittleBlessingsRendererProps) {
   const recipient = recipientName ?? document.opening.fallbackRecipientText;
   const hero = document.sections.find((section) => section.type === "hero" && section.visible) as
     | Extract<InvitationSection, { type: "hero" }>
@@ -860,6 +942,7 @@ export function LittleBlessingsRenderer({
   return (
     <article
       className="lb-root"
+      data-envelope-artwork={envelopeArtwork}
       data-invitation-schema-version={document.schemaVersion}
       data-motion-enabled={!reducedMotion}
       data-render-mode={mode}
@@ -869,13 +952,17 @@ export function LittleBlessingsRenderer({
       <style>{`${ribbonEnvelopeStyles}\n${interactiveMapStyles}\n${photoPreviewStyles}\n${poweredByInviticaStyles}\n${littleBlessingsStyles}`}</style>
       <RibbonEnvelopeOpening
         coverMark={
-          hero ? (
-            <KeepsakeCoverPlate
-              {...(hero.props.dateLabel ? { dateLabel: hero.props.dateLabel } : {})}
-              title={hero.props.title}
-            />
-          ) : null
+          <>
+            {envelopeArtwork === "storybook-svg" ? <LittleBlessingsCoverArtwork /> : null}
+            {hero ? (
+              <KeepsakeCoverPlate
+                {...(hero.props.dateLabel ? { dateLabel: hero.props.dateLabel } : {})}
+                title={hero.props.title}
+              />
+            ) : null}
+          </>
         }
+        frontMark={envelopeArtwork === "storybook-svg" ? <LittleBlessingsPageArtwork /> : undefined}
         includeStyles={false}
         kicker="A little blessing awaits"
         letterLead="Dear"
@@ -886,6 +973,9 @@ export function LittleBlessingsRenderer({
         recipient={recipient}
         recipientLead="Prepared with love for"
         reducedMotion={reducedMotion}
+        ribbonKnot={
+          envelopeArtwork === "storybook-svg" ? <LittleBlessingsKeepsakeKnot /> : undefined
+        }
         sceneDecoration={<LittleBlessingsPetals />}
         variant="little-blessings"
       >
@@ -1182,6 +1272,75 @@ const littleBlessingsStyles = `
   88%,
   100% { background-position: -35% 0; }
 }
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-art {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-frame,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-scallop,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-vine {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lb-trim) 64%, transparent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-frame {
+  stroke-dasharray: 2.5 3.5;
+  stroke-width: 0.9;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-scallop {
+  stroke: color-mix(in srgb, var(--lb-pearl) 76%, transparent);
+  stroke-width: 1.1;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-vine {
+  stroke-width: 0.8;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-leaf {
+  fill: color-mix(in srgb, var(--lb-pearl) 28%, transparent);
+  stroke: color-mix(in srgb, var(--lb-trim) 54%, transparent);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-cover-pearl {
+  fill: color-mix(in srgb, var(--lb-pearl) 82%, var(--lb-trim));
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-rule,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-edge,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-vine {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lb-trim) 48%, transparent);
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-rule {
+  stroke-dasharray: 2.5 3.5;
+  stroke-width: 0.75;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-edge {
+  stroke: color-mix(in srgb, var(--lb-trim) 28%, transparent);
+  stroke-width: 0.6;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-vine { stroke-width: 0.75; }
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-envelope-page-leaf {
+  fill: color-mix(in srgb, var(--lb-rose) 10%, transparent);
+  stroke: color-mix(in srgb, var(--lb-trim) 42%, transparent);
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
 
 /*
  * The cover plate. Sits in the upper half so the ribbon cross-tie passes below it, and grows
@@ -1232,6 +1391,86 @@ const littleBlessingsStyles = `
   padding-top: 0.34rem;
   border-top: 1px solid var(--lb-hairline);
   justify-self: stretch;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .ie-ribbon-knot {
+  top: 44%;
+  width: 68%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-keepsake-knot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-loop {
+  fill: color-mix(in srgb, var(--lb-rose) 88%, var(--lb-pearl));
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-tail {
+  fill: color-mix(in srgb, var(--lb-rose) 92%, var(--lb-ink));
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-cinch {
+  fill: color-mix(in srgb, var(--lb-rose) 78%, var(--lb-ink));
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-highlight,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-stitch {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lb-pearl) 56%, transparent);
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-stitch {
+  stroke: color-mix(in srgb, var(--lb-ink) 28%, transparent);
+  stroke-dasharray: 3 3;
+  stroke-width: 1.4;
+}
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-loop,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-tail,
+.lb-root[data-envelope-artwork="storybook-svg"] .lb-knot-cinch {
+  transform-box: view-box;
+  transform-origin: 50% 47%;
+  transition: transform 900ms var(--lb-paper-ease);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root[data-opening-state="untying"] .lb-knot-loop-left {
+  transform: rotate(-14deg) translate(-10px, 8px) scale(1.06);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root[data-opening-state="untying"] .lb-knot-loop-right {
+  transform: rotate(10deg) translate(12px, 5px) scale(1.04);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root[data-opening-state="untying"] .lb-knot-tail-left {
+  transform: rotate(10deg) translate(-4px, 5px);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root[data-opening-state="untying"] .lb-knot-tail-right {
+  transform: rotate(-8deg) translate(5px, 4px);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root[data-opening-state="untying"] .lb-knot-cinch {
+  transform: scaleY(0.72) scaleX(1.1);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"])
+  .lb-knot-loop-left {
+  transform: rotate(-42deg) translate(-27px, 31px) scale(0.88);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"])
+  .lb-knot-loop-right {
+  transform: rotate(36deg) translate(29px, 28px) scale(0.9);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"])
+  .lb-knot-tail-left {
+  transform: rotate(23deg) translate(-9px, 20px);
+}
+.lb-root[data-envelope-artwork="storybook-svg"]
+  .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"])
+  .lb-knot-tail-right {
+  transform: rotate(-20deg) translate(10px, 19px);
 }
 .lb-root .ie-root[data-opening-state="opening"] .ie-envelope-flap,
 .lb-root .ie-root[data-opening-state="letter-revealing"] .ie-envelope-flap,

@@ -16,6 +16,20 @@
 }
 
 /*
+  The full-page preview owns its temporary gate. Embedded editor and modal previews remain free to
+  scroll their surrounding creator surface, while no-JavaScript output never receives this
+  hydration-only attribute.
+*/
+.previewPage[data-preview-scroll-gated="true"] {
+  position: fixed;
+  inset: 0;
+  height: 100svh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+/*
   This route renders the invitation full-bleed, so its closed envelope scene fills the viewport on
   mobile and desktop. The renderer only guarantees that in published mode, and this surface renders
   in preview mode so the reply section stays visible like it does in the quick-preview modal — which

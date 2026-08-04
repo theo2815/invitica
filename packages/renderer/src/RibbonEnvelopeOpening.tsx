@@ -85,6 +85,10 @@ interface RibbonEnvelopeOpeningProps {
    */
   frontMark?: ReactNode;
   includeStyles?: boolean;
+  /**
+   * Optional decoration mounted inside the note or exposed card so it follows that layer's reveal.
+   */
+  letterMark?: ReactNode;
   kicker: string;
   letterLead: string;
   letterNote: string;
@@ -117,6 +121,7 @@ export function RibbonEnvelopeOpening({
   frontMark,
   includeStyles = true,
   kicker,
+  letterMark,
   letterLead,
   letterNote,
   mode,
@@ -340,6 +345,7 @@ export function RibbonEnvelopeOpening({
           <div aria-hidden="true" className={gardenClass("envelope", gardenPromise)}>
             <div className={gardenClass("envelope-back", gardenPromise)} />
             <div className={gardenClass("letter", gardenPromise)}>
+              {letterMark}
               <span>{letterLead}</span>
               <strong>{recipient}</strong>
               <small>{letterNote}</small>

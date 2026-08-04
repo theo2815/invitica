@@ -109,6 +109,39 @@ describe("occasion envelope", () => {
     }
   });
 
+  it("gives Golden Hour and Sunday Joy their own layered SVG artwork", () => {
+    const goldenHour = renderToStaticMarkup(
+      <GoldenHourRendererV2 document={documentFor("golden-hour")} mode="published" />,
+    );
+    const sundayJoy = renderToStaticMarkup(
+      <SundayJoyRendererV2 document={documentFor("sunday-joy")} mode="published" />,
+    );
+
+    for (const marker of ["oe-gh-card-art", "oe-gh-sleeve-art", "oe-gh-slide-art"]) {
+      expect(markup(goldenHour)).toContain(marker);
+      expect(markup(sundayJoy)).not.toContain(marker);
+    }
+
+    for (const marker of ["oe-sj-flap-art", "oe-sj-pocket-art", "oe-sj-ribbon-highlight"]) {
+      expect(markup(sundayJoy)).toContain(marker);
+      expect(markup(goldenHour)).not.toContain(marker);
+    }
+  });
+
+  it("adds keepsake SVG artwork only to Little Blessings v2", () => {
+    const legacy = renderToStaticMarkup(
+      <LittleBlessingsRenderer document={documentFor("little-blessings")} mode="published" />,
+    );
+    const current = renderToStaticMarkup(
+      <LittleBlessingsRendererV2 document={documentFor("little-blessings")} mode="published" />,
+    );
+
+    for (const marker of ["lb-envelope-cover-art", "lb-envelope-page-art", "lb-keepsake-knot"]) {
+      expect(markup(current)).toContain(marker);
+      expect(markup(legacy)).not.toContain(marker);
+    }
+  });
+
   it("addresses the pocket envelopes and lets the sleeve's card carry the name once", () => {
     const gardenPromise = renderToStaticMarkup(
       <GardenPromiseRendererV2
@@ -160,9 +193,6 @@ describe("occasion envelope", () => {
       ),
       renderToStaticMarkup(
         <LittleBlessingsRenderer document={documentFor("little-blessings")} mode="published" />,
-      ),
-      renderToStaticMarkup(
-        <LittleBlessingsRendererV2 document={documentFor("little-blessings")} mode="published" />,
       ),
       renderToStaticMarkup(<InvitationRenderer document={invitationFixture} mode="published" />),
     ];

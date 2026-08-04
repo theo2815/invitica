@@ -31,11 +31,12 @@ function EnvelopeAddress({
 }) {
   // Golden Hour is a sleeve, not a pocket envelope: the card's own edge stands above the lip and
   // carries the name, so a second address block on the sleeve would print it twice.
-  if (variant === "golden-hour") return null;
+  if (variant === "golden-hour") return <GoldenHourSleeveArtwork />;
 
   return (
     <>
       {variant === "garden-promise" ? <GardenPromisePocketArtwork /> : null}
+      {variant === "sunday-joy" ? <SundayJoyPocketArtwork /> : null}
       <span className="oe-address">
         <i />
         <strong>{recipient}</strong>
@@ -124,6 +125,62 @@ function GardenPromiseSeal() {
   );
 }
 
+/** Engraved linework printed on the card that rises from Golden Hour's sleeve. */
+function GoldenHourCardArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-gh-card-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 86 100"
+    >
+      <path className="oe-gh-card-rule" d="M5 4h76v92H5ZM9 8h68v84H9Z" />
+      <path className="oe-gh-card-crown" d="M31 9h24M35 6h16M39 3h8M43 3v12" />
+      <path className="oe-gh-card-corner" d="M9 20V9h11M77 20V9H66M9 80v11h11M77 80v11H66" />
+      <path
+        className="oe-gh-card-fan"
+        d="M9 9l10 10M9 9h14M9 9v14M77 9 67 19M77 9H63M77 9v14M9 91l10-10M9 91h14M9 91V77M77 91 67 81M77 91H63M77 91V77"
+      />
+      <path className="oe-gh-card-diamond" d="m43 18 7 7-7 7-7-7 7-7Z" />
+    </svg>
+  );
+}
+
+/** Rectilinear brass engraving set into the sleeve face below the card. */
+function GoldenHourSleeveArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-gh-sleeve-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 70"
+    >
+      <path className="oe-gh-sleeve-rule" d="M7 8h86v55H7ZM11 12h78v47H11Z" />
+      <path
+        className="oe-gh-sleeve-step"
+        d="M7 20h8v-8h8M93 20h-8v-8h-8M7 51h8v8h8M93 51h-8v8h-8"
+      />
+      <path
+        className="oe-gh-sleeve-fan"
+        d="M7 63l13-13M7 63h18M7 63V45M93 63 80 50M93 63H75M93 63V45"
+      />
+      <path className="oe-gh-sleeve-centre" d="M39 56h22M43 52h14M47 48h6" />
+    </svg>
+  );
+}
+
+function GoldenHourSlideArtwork() {
+  return (
+    <svg aria-hidden="true" className="oe-gh-slide-art" focusable="false" viewBox="0 0 100 60">
+      <path d="M5 17h8V8h74v9h8v26h-8v9H13v-9H5Z" />
+      <path className="oe-gh-slide-rule" d="M15 17h70v26H15ZM21 22h58v16H21Z" />
+      <path className="oe-gh-slide-tick" d="M8 30h14M78 30h14M50 10v12M50 38v12" />
+    </svg>
+  );
+}
+
 /**
  * Sage grosgrain tied below the seal. Loops and tails are separate paths so the knot can cinch, the
  * loops can fall open asymmetrically, and the tails can follow with lag — the four default CSS
@@ -166,8 +223,46 @@ function GardenPromiseClosure() {
 function GoldenHourClosure() {
   return (
     <span aria-hidden="true" className="oe-knot oe-gh-knot">
+      <GoldenHourSlideArtwork />
       <b>XVIII</b>
     </span>
+  );
+}
+
+/** Hand-drawn cut-paper marks mounted inside Sunday Joy's rounded flap. */
+function SundayJoyFlapArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-sj-flap-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 114 50"
+    >
+      <path className="oe-sj-flap-stitch" d="M7 7c24 3 36 16 50 34C71 23 84 10 107 7" />
+      <path className="oe-sj-flap-sun" d="M88 12h12M94 6v12M90 8l8 8M98 8l-8 8" />
+      <path className="oe-sj-flap-doodle" d="m19 12 4 4-4 4-4-4 4-4Zm19 8 3 3-3 3-3-3 3-3Z" />
+      <circle className="oe-sj-flap-dot" cx="75" cy="20" r="2" />
+    </svg>
+  );
+}
+
+/** Crayon stitching and confetti printed on Sunday Joy's front pocket. */
+function SundayJoyPocketArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-sj-pocket-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 114 56"
+    >
+      <path className="oe-sj-pocket-stitch" d="M6 7h102v43H6Z" />
+      <path className="oe-sj-pocket-wave" d="M72 38c8-8 16 8 24 0s12 3 14 6" />
+      <path className="oe-sj-pocket-confetti" d="m14 39 7-5M24 45l2-7M99 15l6 4M87 10l-2 7" />
+      <path className="oe-sj-pocket-flag" d="M13 11h10l-5 8Z" />
+      <circle className="oe-sj-pocket-dot" cx="95" cy="46" r="2.5" />
+    </svg>
   );
 }
 
@@ -193,7 +288,12 @@ function SundayJoyClosure() {
         className="oe-tail oe-tail-right"
         d="M106 106c14 22 5 41 26 58l14 17-3-22 18 9c-21-19-11-40-33-65Z"
       />
+      <path className="oe-loop oe-loop-left oe-sj-ribbon-highlight" d="M92 82C66 61 31 65 18 87" />
+      <path className="oe-loop oe-loop-right oe-sj-ribbon-highlight" d="M108 82c26-21 61-17 74 5" />
+      <path className="oe-tail oe-tail-left oe-sj-ribbon-highlight" d="M83 110c-9 19-2 34-22 50" />
+      <path className="oe-tail oe-tail-right oe-sj-ribbon-highlight" d="M117 110c9 19 2 34 22 50" />
       <rect className="oe-cinch" height="34" rx="12" width="34" x="83" y="79" />
+      <path className="oe-sj-knot-stitch" d="M90 91c6-4 14-4 20 0M90 101c6 4 14 4 20 0" />
     </svg>
   );
 }
@@ -209,14 +309,22 @@ export function OccasionEnvelopeClosure({ variant }: { variant: OccasionTemplate
   return <Closure />;
 }
 
-/** Mounted on the flap, so it swings away with it. Only Garden Promise seals its flap. */
+export function OccasionEnvelopeLetterMark({ variant }: { variant: OccasionTemplateVariant }) {
+  return variant === "golden-hour" ? <GoldenHourCardArtwork /> : null;
+}
+
+/** Mounted on the flap so its decorative artwork swings away with the paper. */
 export function OccasionEnvelopeCoverMark({ variant }: { variant: OccasionTemplateVariant }) {
-  return variant === "garden-promise" ? (
-    <>
-      <GardenPromiseFlapArtwork />
-      <GardenPromiseSeal />
-    </>
-  ) : null;
+  if (variant === "garden-promise") {
+    return (
+      <>
+        <GardenPromiseFlapArtwork />
+        <GardenPromiseSeal />
+      </>
+    );
+  }
+
+  return variant === "sunday-joy" ? <SundayJoyFlapArtwork /> : null;
 }
 
 export function OccasionEnvelopeAddress({
@@ -712,6 +820,40 @@ export const occasionEnvelopeStyles = `
   box-shadow: 0 0.22rem 0 -0.01rem color-mix(in srgb, var(--ie-ribbon) 30%, transparent);
   content: "";
 }
+.ot-root[data-template="golden-hour"] .oe-gh-card-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-card-rule,
+.ot-root[data-template="golden-hour"] .oe-gh-card-crown,
+.ot-root[data-template="golden-hour"] .oe-gh-card-corner,
+.ot-root[data-template="golden-hour"] .oe-gh-card-fan,
+.ot-root[data-template="golden-hour"] .oe-gh-card-diamond {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 42%, transparent);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-card-rule { stroke-width: 0.7; }
+.ot-root[data-template="golden-hour"] .oe-gh-card-crown,
+.ot-root[data-template="golden-hour"] .oe-gh-card-corner {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 62%, transparent);
+  stroke-width: 0.85;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-card-fan {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 34%, transparent);
+  stroke-width: 0.65;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-card-diamond {
+  fill: color-mix(in srgb, var(--ie-ribbon) 8%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 72%, transparent);
+  stroke-width: 0.9;
+}
 /* The sleeve. A stepped deco lip with a raised centre notch, brass-ruled along the top edge. */
 .ot-root[data-template="golden-hour"] .ie-envelope-front {
   inset: 30% 0 0;
@@ -729,15 +871,36 @@ export const occasionEnvelopeStyles = `
     inset 0 0 0 1px color-mix(in srgb, var(--ie-ribbon) 26%, transparent);
   color: var(--ie-ribbon);
 }
-/* A deco double rule set into the sleeve face, so the pocket below the band is a panel rather than
-   an empty black field. */
-.ot-root[data-template="golden-hour"] .ie-envelope-front::before {
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-art {
   position: absolute;
-  inset: 12% 9% 7%;
-  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 30%, transparent);
-  outline: 1px solid color-mix(in srgb, var(--ie-ribbon) 15%, transparent);
-  outline-offset: 0.3rem;
-  content: "";
+  inset: 8% 4% 3%;
+  display: block;
+  width: 92%;
+  height: 89%;
+  pointer-events: none;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-rule,
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-step,
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-fan,
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-centre {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 34%, transparent);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-rule { stroke-width: 0.75; }
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-step {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 62%, transparent);
+  stroke-width: 0.95;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-fan {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 44%, transparent);
+  stroke-width: 0.7;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-sleeve-centre {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 70%, transparent);
+  stroke-width: 0.85;
 }
 .ot-root[data-template="golden-hour"] .ie-envelope-flap { display: none; }
 /* The card. Only its top edge stands above the lip, so the lead and the name are set to the top and
@@ -766,17 +929,38 @@ export const occasionEnvelopeStyles = `
   aspect-ratio: 1.5;
 }
 .ot-root[data-template="golden-hour"] .oe-gh-knot {
+  position: relative;
   display: grid;
   width: 100%;
   height: 100%;
-  border: 1px solid color-mix(in srgb, var(--ie-background) 55%, var(--ie-ribbon));
-  background:
-    linear-gradient(158deg, color-mix(in srgb, white 34%, var(--ie-ribbon)), var(--ie-ribbon) 46%, color-mix(in srgb, var(--ie-ink) 26%, var(--ie-ribbon)));
-  clip-path: polygon(0 22%, 9% 0, 91% 0, 100% 22%, 100% 78%, 91% 100%, 9% 100%, 0 78%);
   place-items: center;
   transition: transform 820ms cubic-bezier(0.24, 0.7, 0.26, 1);
 }
+.ot-root[data-template="golden-hour"] .oe-gh-slide-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0.16rem 0.18rem color-mix(in srgb, black 28%, transparent));
+  pointer-events: none;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-slide-art > path:first-child {
+  fill: color-mix(in srgb, var(--ie-ribbon) 88%, white);
+  stroke: color-mix(in srgb, var(--ie-background) 58%, var(--ie-ribbon));
+  stroke-width: 1.5;
+}
+.ot-root[data-template="golden-hour"] .oe-gh-slide-rule,
+.ot-root[data-template="golden-hour"] .oe-gh-slide-tick {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-background) 58%, var(--ie-ink));
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
 .ot-root[data-template="golden-hour"] .oe-gh-knot b {
+  position: relative;
+  z-index: 1;
   color: color-mix(in srgb, var(--ie-background) 88%, var(--ie-ink));
   font-family: "Fraunces Variable", Georgia, serif;
   font-size: clamp(0.6rem, 2.5cqi, 1rem);
@@ -844,6 +1028,38 @@ export const occasionEnvelopeStyles = `
     var(--ie-paper);
   color: color-mix(in srgb, var(--ie-ink) 74%, transparent);
 }
+.ot-root[data-template="sunday-joy"] .oe-sj-pocket-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-pocket-stitch {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ink) 26%, transparent);
+  stroke-dasharray: 2.5 3.5;
+  stroke-linecap: round;
+  stroke-width: 0.85;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-pocket-wave,
+.ot-root[data-template="sunday-joy"] .oe-sj-pocket-confetti {
+  fill: none;
+  stroke: color-mix(in srgb, #79b9d4 72%, var(--ie-ink));
+  stroke-linecap: round;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-pocket-flag {
+  fill: color-mix(in srgb, #f6c94c 64%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ink) 28%, transparent);
+  stroke-width: 0.7;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-pocket-dot {
+  fill: color-mix(in srgb, var(--ie-ribbon) 72%, transparent);
+}
 .ot-root[data-template="sunday-joy"] .ie-envelope-flap {
   clip-path: none;
   height: 50%;
@@ -853,6 +1069,37 @@ export const occasionEnvelopeStyles = `
     linear-gradient(180deg, transparent 58%, color-mix(in srgb, var(--ie-ink) 7%, transparent)),
     var(--ie-paper);
   filter: drop-shadow(0 0.22rem 0.3rem color-mix(in srgb, var(--ie-ink) 16%, transparent));
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-flap-art {
+  position: absolute;
+  inset: 0 2% auto;
+  display: block;
+  width: 96%;
+  height: 50%;
+  pointer-events: none;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-flap-stitch {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ink) 24%, transparent);
+  stroke-dasharray: 2.5 3.5;
+  stroke-linecap: round;
+  stroke-width: 0.85;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-flap-sun,
+.ot-root[data-template="sunday-joy"] .oe-sj-flap-doodle {
+  fill: none;
+  stroke: color-mix(in srgb, #f6c94c 82%, var(--ie-ink));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-flap-doodle {
+  stroke: color-mix(in srgb, #79b9d4 80%, var(--ie-ink));
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-flap-dot {
+  fill: color-mix(in srgb, var(--ie-ribbon) 76%, transparent);
 }
 .ot-root[data-template="sunday-joy"] .ie-letter {
   border-radius: 0.5rem;
@@ -878,10 +1125,24 @@ export const occasionEnvelopeStyles = `
   right: 6%;
   bottom: 8%;
   left: 40%;
+  z-index: 1;
 }
 .ot-root[data-template="sunday-joy"] .oe-loop { fill: color-mix(in srgb, var(--ie-ribbon) 92%, white); }
 .ot-root[data-template="sunday-joy"] .oe-tail { fill: color-mix(in srgb, var(--ie-ribbon) 94%, var(--ie-ink)); }
 .ot-root[data-template="sunday-joy"] .oe-cinch { fill: color-mix(in srgb, var(--ie-ribbon) 82%, var(--ie-ink)); }
+.ot-root[data-template="sunday-joy"] .oe-loop.oe-sj-ribbon-highlight,
+.ot-root[data-template="sunday-joy"] .oe-tail.oe-sj-ribbon-highlight,
+.ot-root[data-template="sunday-joy"] .oe-sj-knot-stitch {
+  fill: none;
+  stroke: color-mix(in srgb, white 48%, transparent);
+  stroke-dasharray: 4 5;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+.ot-root[data-template="sunday-joy"] .oe-sj-knot-stitch {
+  stroke: color-mix(in srgb, var(--ie-ink) 32%, transparent);
+  stroke-width: 1.4;
+}
 /* A shade more overshoot than the other two, and it stops there. Cloth is soft; it is not rubber. */
 .ot-root[data-template="sunday-joy"] .oe-loop,
 .ot-root[data-template="sunday-joy"] .oe-tail {

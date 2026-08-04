@@ -91,7 +91,7 @@
 
 .invitationGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(1rem, 2vw, 1.5rem);
 }
 
@@ -529,6 +529,12 @@
   color: var(--muted);
   font-size: 0.65rem;
   letter-spacing: 0.04em;
+}
+
+@media (max-width: 1120px) {
+  .invitationGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {

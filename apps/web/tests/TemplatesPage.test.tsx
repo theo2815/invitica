@@ -80,10 +80,10 @@ describe("templates page", () => {
     });
 
     expect(sources).toEqual([
-      "/landing/templates/garden-promise.jpg",
-      "/landing/templates/golden-hour.jpg",
-      "/landing/templates/sunday-joy.jpg",
-      "/landing/templates/little-blessings.jpg",
+      "/landing/templates/garden-promise-svg-20260804.jpg",
+      "/landing/templates/golden-hour-svg-20260804.jpg",
+      "/landing/templates/sunday-joy-svg-20260804.jpg",
+      "/landing/templates/little-blessings-svg-20260804.jpg",
     ]);
   });
 

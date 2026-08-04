@@ -8,6 +8,7 @@ import { renderFixture } from "./e2e/render-fixture.generated.mjs";
 const clientRoot = resolve("apps/viewer/dist/client");
 const outputRoot = resolve("apps/web/public/landing/templates");
 const { landingTemplateHtml } = renderFixture();
+const stillRevision = "svg-20260804";
 
 await mkdir(outputRoot, { recursive: true });
 
@@ -137,7 +138,7 @@ try {
     }
 
     await page.screenshot({
-      path: resolve(outputRoot, `${templateId}.jpg`),
+      path: resolve(outputRoot, `${templateId}-${stillRevision}.jpg`),
       quality: 86,
       type: "jpeg",
     });

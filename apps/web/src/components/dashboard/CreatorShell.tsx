@@ -5,6 +5,7 @@ import { BrandMark } from "../BrandMark";
 import { CreatorNavigation, CreatorRouteFocus } from "./CreatorNavigation";
 import styles from "./CreatorShell.module.css";
 import { ProfileMenu } from "./ProfileMenu";
+import { PullToRefresh } from "./PullToRefresh";
 
 interface CreatorShellProps {
   children: ReactNode;
@@ -57,6 +58,7 @@ export function CreatorShell({ children, email, metadata }: CreatorShellProps) {
 
       <CreatorNavigation variant="mobile" />
       <CreatorRouteFocus />
+      <PullToRefresh />
     </div>
   );
 }

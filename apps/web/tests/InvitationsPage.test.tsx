@@ -15,7 +15,11 @@ vi.mock("../src/server/auth/actions", () => ({
 }));
 
 vi.mock("../src/components/invitations/InvitationDeleteButton", () => ({
-  InvitationDeleteButton: () => <button type="button">Delete</button>,
+  InvitationDeleteButton: ({ published }: { published: boolean }) => (
+    <button data-published={published} type="button">
+      Delete
+    </button>
+  ),
 }));
 
 vi.mock("../src/server/auth/session", () => ({
@@ -128,7 +132,9 @@ describe("invitations page", () => {
     expect(screen.getByRole("link", { name: "Continue editing" }).getAttribute("href")).toBe(
       "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
     );
-    expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Delete" }).getAttribute("data-published")).toBe(
+      "false",
+    );
   });
 
   it("uses the Little Blessings still instead of neutral fallback artwork", async () => {
@@ -198,7 +204,11 @@ describe("invitations page", () => {
     render(await InvitationsPage());
 
     expect(screen.getByText("Published")).toBeDefined();
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    // A published invitation is deletable too, and is told so, because its
+    // confirmation has to name the guest link and the replies it will remove.
+    expect(screen.getByRole("button", { name: "Delete" }).getAttribute("data-published")).toBe(
+      "true",
+    );
   });
 
   it("shows the workspace provisioning failure without claiming an empty library", async () => {

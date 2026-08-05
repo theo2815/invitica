@@ -4,13 +4,29 @@ import DashboardError from "../app/dashboard/error";
 import DashboardLoading from "../app/dashboard/loading";
 import { CreatorShell } from "../src/components/dashboard/CreatorShell";
 
+const refresh = vi.fn();
+
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh }),
   usePathname: () => "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
 }));
 
 vi.mock("../src/server/auth/actions", () => ({
   signOut: vi.fn(() => new Promise(() => undefined)),
 }));
+
+// jsdom ships no `matchMedia`. The shell's pull-to-refresh asks it for the mobile
+// breakpoint on mount; these tests are about the chrome, so it answers desktop.
+window.matchMedia = ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia;
 
 afterEach(cleanup);
 
@@ -30,6 +46,24 @@ describe("creator workspace shell", () => {
     expect(screen.getByRole("navigation", { name: "Mobile creator workspace" })).toBeDefined();
     expect(screen.getByRole("main").textContent).toContain("Invitation editor");
     expect(screen.getAllByRole("link", { name: "Invitica home" })).toHaveLength(2);
+  });
+
+  it("does not navigate when the destination you are on is activated again", () => {
+    render(
+      <CreatorShell email="maria@example.com" metadata={{ full_name: "Maria Santos" }}>
+        <h1>Invitation editor</h1>
+      </CreatorShell>,
+    );
+    const desktopNavigation = screen.getByRole("navigation", { name: "Creator workspace" });
+
+    // `fireEvent` returns false when the handler called preventDefault.
+    const currentPage = within(desktopNavigation).getByRole("link", { name: "Invitations" });
+    expect(fireEvent.click(currentPage)).toBe(false);
+    // The link keeps its href, so opening it in a new tab still works.
+    expect(currentPage.getAttribute("href")).toBe("/dashboard/invitations");
+
+    const otherPage = within(desktopNavigation).getByRole("link", { name: "Templates" });
+    expect(fireEvent.click(otherPage)).toBe(true);
   });
 
   it("restores focus after the profile menu closes", () => {

@@ -102,13 +102,6 @@ export class InvitationDraftConflictError extends Error {
   }
 }
 
-export class InvitationDeletionUnavailableError extends Error {
-  constructor() {
-    super("Only invitations that have never been submitted for publishing can be deleted here.");
-    this.name = "InvitationDeletionUnavailableError";
-  }
-}
-
 interface SaveInvitationSectionsInput {
   expectedRevision: number;
   invitationId: string;
@@ -150,16 +143,19 @@ export async function saveInvitationSectionsDraft(
   return z.coerce.number().int().positive().parse(data);
 }
 
-export async function deleteUnpublishedInvitation(
-  supabase: SupabaseServerClient,
-  invitationId: string,
-) {
+/**
+ * Removes the invitation and everything cascading from it. Publication state is
+ * no longer a refusal: `0031` deletes a published invitation too. The guest link
+ * is not this function's concern — the caller must have purged the R2 alias
+ * first, or the invitation stays live at the edge with no record left to retry
+ * from. See `publication-purge.ts`.
+ */
+export async function deleteInvitation(supabase: SupabaseServerClient, invitationId: string) {
   const parsedInvitationId = invitationIdSchema.parse(invitationId);
-  const { error } = await supabase.rpc("delete_unpublished_invitation", {
+  const { error } = await supabase.rpc("delete_invitation", {
     p_invitation_id: parsedInvitationId,
   });
 
-  if (error?.code === "55000") throw new InvitationDeletionUnavailableError();
   if (error) throw new InvitationDraftPersistenceError();
 }
 

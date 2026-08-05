@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createInitialInvitationDraft,
-  deleteUnpublishedInvitation,
-  InvitationDeletionUnavailableError,
+  deleteInvitation,
   InvitationDraftConflictError,
   InvitationDraftPersistenceError,
   listInvitationDrafts,
@@ -207,24 +206,22 @@ describe("persisted invitation draft listing", () => {
   });
 });
 
-describe("unpublished invitation deletion", () => {
+describe("invitation deletion", () => {
   it("deletes through the owner-authorized RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
 
-    await expect(
-      deleteUnpublishedInvitation({ rpc } as never, invitationId),
-    ).resolves.toBeUndefined();
-    expect(rpc).toHaveBeenCalledWith("delete_unpublished_invitation", {
-      p_invitation_id: invitationId,
-    });
+    await expect(deleteInvitation({ rpc } as never, invitationId)).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith("delete_invitation", { p_invitation_id: invitationId });
   });
 
-  it("keeps submitted invitations behind the revocation boundary", async () => {
+  it("no longer refuses a published invitation", async () => {
+    // `0007` raised 55000 for any invitation with a publication record. `0031`
+    // has no such branch, so the code carries no special meaning here.
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: "55000" } });
 
-    await expect(
-      deleteUnpublishedInvitation({ rpc } as never, invitationId),
-    ).rejects.toBeInstanceOf(InvitationDeletionUnavailableError);
+    await expect(deleteInvitation({ rpc } as never, invitationId)).rejects.toBeInstanceOf(
+      InvitationDraftPersistenceError,
+    );
   });
 });
 

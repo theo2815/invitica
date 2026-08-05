@@ -123,12 +123,11 @@ export default async function InvitationsPage() {
                       <div className={styles.savedActions}>
                         <span>Revision {draft.revision}</span>
                         <div className={styles.savedActionButtons}>
-                          {!publicationStatuses[draft.invitationId] ? (
-                            <InvitationDeleteButton
-                              invitationId={draft.invitationId}
-                              title={draft.title}
-                            />
-                          ) : null}
+                          <InvitationDeleteButton
+                            invitationId={draft.invitationId}
+                            published={Boolean(publicationStatuses[draft.invitationId])}
+                            title={draft.title}
+                          />
                           <Link
                             aria-label="Continue editing"
                             href={`/dashboard/invitations/${draft.invitationId}`}

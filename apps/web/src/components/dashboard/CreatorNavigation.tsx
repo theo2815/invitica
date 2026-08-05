@@ -68,6 +68,14 @@ function WorkspaceLink({ active, href, icon, label, mobileLabel, variant }: Work
         variant === "desktop" ? (active ? styles.activeNavItem : styles.navItem) : undefined
       }
       href={href}
+      // Activating the destination you are already on used to start a real navigation: the
+      // tab swapped its icon for a spinner, the route skeleton replaced the page, and the
+      // same content came back. Nothing changed except the wait. The element stays a link
+      // so `href`, focus order, and open-in-new-tab are untouched — only the same-page
+      // default is dropped.
+      onClick={(event) => {
+        if (active) event.preventDefault();
+      }}
     >
       <PendingLinkContent icon={icon} label={label} mobileLabel={mobileLabel} variant={variant} />
     </Link>

@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { ensurePersonalWorkspace, requireConfirmedUser } from "../auth/session";
+import { R2MediaObjectStore, readR2MediaConfig } from "../media/object-store";
 import {
   createInitialInvitationDraft,
-  deleteUnpublishedInvitation,
-  InvitationDeletionUnavailableError,
+  deleteInvitation,
   InvitationDraftConflictError,
   InvitationDraftPersistenceError,
   saveGardenPromiseDraft,
@@ -17,6 +17,10 @@ import {
 } from "./drafts";
 import { saveSectionDocumentDraft, saveSectionDocumentInputSchema } from "./little-blessings";
 import { enqueueInvitationPublication, PublicationEnqueueError } from "./publication-jobs";
+import {
+  purgePublishedInvitationObjects,
+  readPublishedInvitationObjects,
+} from "./publication-purge";
 import {
   type InvitationPublicationStatus,
   loadInvitationPublicationStatus,
@@ -78,6 +82,14 @@ export type DeleteInvitationActionResult =
   | { status: "deleted" }
   | { message: string; status: "error" };
 
+/**
+ * The edge is unpublished before the records are, never after. A published
+ * invitation lives in R2 and the Viewer never consults Postgres, so deleting the
+ * rows first would hand back a "Deleted" the guest link would keep contradicting,
+ * with nothing left to retry from. In the other order a failure is recoverable:
+ * the link is already dead and the invitation is still listed, so deleting again
+ * finishes the job.
+ */
 export async function deleteInvitationAction(
   input: unknown,
 ): Promise<DeleteInvitationActionResult> {
@@ -92,14 +104,29 @@ export async function deleteInvitationAction(
   const { supabase } = await requireConfirmedUser();
 
   try {
-    await deleteUnpublishedInvitation(supabase, parsed.data.invitationId);
+    const objects = await readPublishedInvitationObjects(supabase, parsed.data.invitationId);
+
+    if (objects.aliasKey || objects.artifactKeys.length > 0) {
+      await purgePublishedInvitationObjects(new R2MediaObjectStore(readR2MediaConfig()), objects);
+    }
+  } catch {
+    return {
+      message:
+        "The shared link could not be taken down, so nothing was deleted. Try again in a moment.",
+      status: "error",
+    };
+  }
+
+  try {
+    await deleteInvitation(supabase, parsed.data.invitationId);
     revalidatePath("/dashboard/invitations");
     return { status: "deleted" };
-  } catch (error: unknown) {
-    if (error instanceof InvitationDeletionUnavailableError) {
-      return { message: error.message, status: "error" };
-    }
-    return { message: "This invitation could not be deleted. Try again.", status: "error" };
+  } catch {
+    return {
+      message:
+        "The shared link is now closed, but this invitation could not be removed. Try again.",
+      status: "error",
+    };
   }
 }
 

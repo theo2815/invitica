@@ -58,6 +58,7 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 | `0028_template_version_policy.sql` | Database-owned exact template policy, stable-ID section updates, and policy-backed publication |
 | `0029_occasion_template_versions.sql` | Garden Promise, Golden Hour, and Sunday Joy v2 policies plus expanded program bounds |
 | `0030_romance_invitation.sql` | Romance occasion policy, A Little Question v1, one-recipient personal invitations, and required declined-response messages |
+| `0031_delete_invitation.sql` | Owner deletion of any invitation, published or not |
 
 Migrations are additive and sequential. Do not selectively install a later migration because its
 function body appears to create successfully: PostgreSQL may defer relation resolution until the
@@ -78,9 +79,10 @@ hook. Do not place service-role credentials in browser-visible variables or repo
 ## Tests
 
 Every migration has a numerically matching transaction-wrapped pgTAP file in `tests/`. The current
-30 files declare 624 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
+31 files declare 643 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
 idempotency, concurrency, document preservation, and focused runtime behavior. The latest executed
-all-migration evidence covers `0001` through `0030` (624/624, 2026-08-05).
+all-migration evidence covers `0001` through `0031` (2026-08-05, zero failures). Only 626 of the 643
+actually run: `0010` executes none of its 17, for the reason in the verification caveat below.
 
 **Apply every migration before running any suite.** The suites assert the fully-migrated catalog
 rather than the schema at their own number: `0028` inserts three template-version policies and `0029`

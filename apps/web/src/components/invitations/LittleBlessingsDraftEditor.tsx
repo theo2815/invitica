@@ -3,16 +3,19 @@
 import type { InvitationDocument, InvitationSection } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
 import type { TemplateRendererKey } from "@invitica/template-kit";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   applySectionDocumentDetails,
   sectionDocumentDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
+import { describeProposalChanges } from "../../lib/invitations/proposal-diff";
 import { getMapTileKey } from "../../lib/map-tile-key";
 import { saveSectionDocumentAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
 import type { CreatorImageAsset } from "../../server/media/library";
+import { useOptionalAssistant } from "../assistant/AssistantProvider";
+import { useRegisterDraftFlush } from "./DraftFlushProvider";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
 import type { InvitationEditorProps } from "./invitation-editor-contract";
 import styles from "./LittleBlessingsDraftEditor.module.css";
@@ -680,15 +683,52 @@ export function SectionDocumentDraftEditor({
     .map((asset) => asset.id);
   const assetsAreReady = referencedImageIds.every((id) => assetsById.has(id));
 
+  // Optional on purpose: the editor is the product and the assistant is an addition to it,
+  // so it renders the same with or without one mounted above.
+  const assistant = useOptionalAssistant();
+  const clearProposal = assistant?.clearProposal;
+  const setAssistantInvitationId = assistant?.setInvitationId;
+  const registerDraftFlush = useRegisterDraftFlush();
+  const flushDraft = autosave.flush;
+
+  // Tells the floating assistant which invitation it is looking at, so it can offer to draft
+  // for this one and nothing else. Cleared on unmount, so leaving the editor also leaves
+  // drafting mode rather than pointing it at an invitation that is no longer on screen.
+  useEffect(() => {
+    setAssistantInvitationId?.(invitationId);
+    return () => setAssistantInvitationId?.(null);
+  }, [invitationId, setAssistantInvitationId]);
+
+  // Lets the assistant's own controls settle this draft before they navigate away from it.
+  useEffect(() => {
+    registerDraftFlush(flushDraft);
+    return () => registerDraftFlush(null);
+  }, [flushDraft, registerDraftFlush]);
+
+  /**
+   * A proposal is held here, deliberately outside `state`.
+   *
+   * Putting it into `state` would make the preview correct and the draft wrong: autosave
+   * watches that state and would commit the assistant's draft 800 ms later, without the
+   * creator having agreed to anything. Kept separate, the proposal can be shown and
+   * measured while the stored invitation is untouched — which is the whole rule this stage
+   * is built around.
+   */
+  const stagedProposal =
+    assistant?.proposal?.invitationId === invitationId ? assistant.proposal : null;
+
   const markEdited = autosave.markEdited;
   const edit = useCallback(
     (next: (current: EditorState) => EditorState) => {
       setState(next);
       setRecoveryMessage(null);
       setLastItemPrompt(null);
+      // Editing a field is a decision not to take the draft. Keeping both would let the
+      // creator's own edit be silently overwritten the moment they pressed Keep.
+      clearProposal?.();
       markEdited();
     },
-    [markEdited],
+    [clearProposal, markEdited],
   );
 
   const saveNow = autosave.saveNow;
@@ -751,17 +791,45 @@ export function SectionDocumentDraftEditor({
     }
   }
 
+  const proposalChanges = useMemo(
+    () => (stagedProposal ? describeProposalChanges(previewDocument, stagedProposal.document) : []),
+    [previewDocument, stagedProposal],
+  );
+
+  // The preview is where a proposal is judged, so on a phone the arrival of one moves the
+  // creator to it. Showing "the assistant drafted something" beside fields that still hold
+  // the old text would describe a change they cannot see.
+  useEffect(() => {
+    if (stagedProposal) setMobilePanel("preview");
+  }, [stagedProposal]);
+
+  /**
+   * Accepts the draft into the editor, where it becomes an ordinary unsaved change: the same
+   * autosave, the same revision guard, the same Save now button. The assistant never touches
+   * the save path — this click is what puts its work on the normal one.
+   */
+  function keepProposal() {
+    if (!stagedProposal) return;
+    setState(buildInitialState(stagedProposal.document));
+    setRecoveryMessage(null);
+    setLastItemPrompt(null);
+    clearProposal?.();
+    markEdited();
+  }
+
+  const shownDocument = stagedProposal?.document ?? previewDocument;
+
   // A general-link guest never receives the reply section. Previewing that is a
   // document question, not a renderer one: the section is simply not shown.
   const previewedDocument =
     previewAudience === "general"
       ? {
-          ...previewDocument,
-          sections: previewDocument.sections.map((section) =>
+          ...shownDocument,
+          sections: shownDocument.sections.map((section) =>
             section.type === "rsvp" ? { ...section, visible: false } : section,
           ),
         }
-      : previewDocument;
+      : shownDocument;
 
   return (
     <section aria-labelledby="section-document-editor-heading" className={styles.editor}>
@@ -2432,6 +2500,63 @@ export function SectionDocumentDraftEditor({
         </aside>
 
         <div className={styles.previewPanel}>
+          {stagedProposal ? (
+            <section aria-labelledby="assistant-proposal-heading" className={styles.proposalPanel}>
+              <div className={styles.proposalIntro}>
+                <p className={styles.eyebrow}>Assistant draft</p>
+                <h3 id="assistant-proposal-heading">
+                  This preview is showing a draft. Nothing has been saved.
+                </h3>
+                <p>
+                  Your invitation is exactly as you left it until you keep this. Editing any field
+                  discards the draft.
+                </p>
+              </div>
+
+              {proposalChanges.length > 0 ? (
+                <ul className={styles.proposalChanges}>
+                  {proposalChanges.map((change) => (
+                    <li key={change.type}>
+                      <strong>
+                        {isSectionKey(change.type)
+                          ? editorProfile.sectionNames[change.type]
+                          : change.type}
+                      </strong>
+                      <span>
+                        {[
+                          change.visibility === "shown"
+                            ? "now shown to guests"
+                            : change.visibility === "hidden"
+                              ? "now hidden from guests"
+                              : null,
+                          change.fields.length > 0
+                            ? `changes the ${change.fields.join(", ")}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.proposalChangesEmpty}>
+                  This draft matches what your invitation already says, so keeping it changes
+                  nothing.
+                </p>
+              )}
+
+              <div className={styles.proposalActions}>
+                <button className={styles.proposalKeep} onClick={keepProposal} type="button">
+                  Keep these changes
+                </button>
+                <button onClick={() => clearProposal?.()} type="button">
+                  Discard the draft
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           <div className={styles.previewHeading}>
             <div>
               <p className={styles.eyebrow}>Live invitation preview</p>

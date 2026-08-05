@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
 import { AssistantConversation } from "./AssistantConversation";
 import { useAssistant } from "./AssistantProvider";
@@ -32,17 +32,38 @@ function useCompactViewport() {
 export function AssistantWidget() {
   const { close, isOpen, open } = useAssistant();
   const pathname = usePathname();
+  const router = useRouter();
+  const flushDraft = useDraftFlush();
   const isCompact = useCompactViewport();
   const panelId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLButtonElement>(null);
+  const [leaving, setLeaving] = useState(false);
 
-  // The editor is the one place the expand control is withheld. Navigating out of it can
-  // lose the keystrokes of a draft save still in flight, and the flush that would prevent
-  // that is not built. A floating panel over the editor needs no navigation at all, so the
-  // control is simply absent there rather than offered and unsafe.
-  const isEditor = pathname.startsWith("/dashboard/invitations/");
-  const showExpand = !isCompact && !isEditor;
+  // Available in the editor again. Stage one withheld it because leaving the editor could
+  // discard keystrokes from a draft save that had not been sent, and there was no way to
+  // settle one first; `useDraftFlush` is that way. On mobile the sheet already fills the
+  // screen, so expanding it would do nothing.
+  const showExpand = !isCompact;
+
+  /**
+   * Saves before it navigates, and never the other way round. The editor's own link guard
+   * would otherwise meet this with a confirm dialog asking the creator to choose between
+   * their unsaved work and the page they asked for — a choice there is no longer any reason
+   * to make them make. A button rather than a link for the same reason: that guard watches
+   * anchors.
+   */
+  async function openFullView() {
+    if (leaving) return;
+    setLeaving(true);
+    try {
+      await flushDraft();
+      close();
+      router.push(ASSISTANT_PAGE);
+    } finally {
+      setLeaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) return;
@@ -101,9 +122,14 @@ export function AssistantWidget() {
             </div>
             <div className={styles.panelActions}>
               {showExpand ? (
-                <Link className={styles.panelAction} href={ASSISTANT_PAGE} onClick={close}>
-                  Open full view
-                </Link>
+                <button
+                  className={styles.panelAction}
+                  disabled={leaving}
+                  onClick={() => void openFullView()}
+                  type="button"
+                >
+                  {leaving ? "Saving…" : "Open full view"}
+                </button>
               ) : null}
               <button
                 className={styles.panelAction}

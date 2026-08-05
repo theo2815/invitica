@@ -19,17 +19,29 @@ export const assistantMessageSchema = z.object({
   role: z.enum(["assistant", "user"]),
 });
 
-export const assistantRequestSchema = z.object({
-  messages: z
-    .array(assistantMessageSchema)
-    .min(1)
-    .max(MAX_CONVERSATION_MESSAGES)
-    // A thread that does not end with the creator has nothing to answer. Rejecting it here
-    // keeps a malformed client from spending a message on an empty turn.
-    .refine((messages) => messages.at(-1)?.role === "user", {
-      message: "The last message must come from the creator.",
-    }),
+// A thread that does not end with the creator has nothing to answer. Rejecting it here
+// keeps a malformed client from spending a message on an empty turn.
+const conversationSchema = z
+  .array(assistantMessageSchema)
+  .min(1)
+  .max(MAX_CONVERSATION_MESSAGES)
+  .refine((messages) => messages.at(-1)?.role === "user", {
+    message: "The last message must come from the creator.",
+  });
+
+export const assistantRequestSchema = z.object({ messages: conversationSchema });
+
+/**
+ * A document proposal is asked for against one invitation, named by id rather than sent as
+ * a document. The server loads the draft itself under the creator's own session, so a
+ * client cannot ask the assistant to rewrite an invitation it does not own, and cannot
+ * describe someone else's draft as the starting point.
+ */
+export const assistantDocumentRequestSchema = z.object({
+  invitationId: z.string().uuid(),
+  messages: conversationSchema,
 });
 
 export type AssistantApiMessage = z.infer<typeof assistantMessageSchema>;
 export type AssistantApiRequest = z.infer<typeof assistantRequestSchema>;
+export type AssistantDocumentApiRequest = z.infer<typeof assistantDocumentRequestSchema>;

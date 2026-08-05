@@ -5,8 +5,12 @@ import { AssistantProvider } from "../src/components/assistant/AssistantProvider
 import { AssistantWidget } from "../src/components/assistant/AssistantWidget";
 
 let pathname = "/dashboard";
+const push = vi.fn();
 
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+  useRouter: () => ({ push }),
+}));
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -106,7 +110,7 @@ describe("the floating assistant", () => {
   it("shows the expand control on a desktop route and never on a phone", async () => {
     renderWidget();
     fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
-    expect(await screen.findByRole("link", { name: "Open full view" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Open full view" })).toBeTruthy();
 
     cleanup();
     setViewport(true);
@@ -114,19 +118,22 @@ describe("the floating assistant", () => {
     renderWidget();
     fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
     await screen.findByRole("dialog");
-    expect(screen.queryByRole("link", { name: "Open full view" })).toBeNull();
+    // The sheet already fills the screen, so expanding it would do nothing.
+    expect(screen.queryByRole("button", { name: "Open full view" })).toBeNull();
   });
 
-  it("withholds the expand control inside the editor, where leaving can lose a save", async () => {
-    // Navigation flush is not implemented, so a control that navigates out of the editor
-    // could discard keystrokes still in flight. The floating panel needs no navigation.
+  it("offers the expand control inside the editor now that a draft can be settled first", async () => {
+    // Stage one withheld this control because leaving the editor could discard keystrokes
+    // from a save that had not been sent. `useDraftFlush` settles the draft first, so the
+    // control is available again — see the flush cases in DraftAutosave.test.tsx.
     pathname = "/dashboard/invitations/71000000-0000-4000-8000-000000000001";
     renderWidget();
 
     fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
     await screen.findByRole("dialog");
 
-    expect(screen.queryByRole("link", { name: "Open full view" })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Open full view" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/assistant"));
   });
 
   it("does not float over the page that already shows the same thread", () => {

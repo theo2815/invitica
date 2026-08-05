@@ -56,6 +56,9 @@ function Harness({
       <button onClick={autosave.discardRecoveredSnapshot} type="button">
         discard
       </button>
+      <button onClick={() => void autosave.flush()} type="button">
+        flush
+      </button>
     </div>
   );
 }
@@ -312,5 +315,84 @@ describe("draft autosave state machine", () => {
 
     // Acknowledged content needs no rescue copy.
     expect(window.sessionStorage.getItem(`invitica:draft-recovery:${invitationId}`)).toBeNull();
+  });
+});
+
+/**
+ * `flush` is what makes it safe for a control outside the editor to navigate away from it.
+ * The case that matters is the ordinary one: a creator types and leaves before the 800 ms
+ * debounce has fired, so the only copy of that edit is on screen.
+ */
+describe("flushing a draft before navigating away", () => {
+  it("saves an edit the debounce has not sent yet", async () => {
+    const save = vi.fn().mockResolvedValue({ revision: 2, status: "saved" });
+    render(<Harness save={save} />);
+
+    edit();
+    // Deliberately no `settleAutosave()` — this is a creator leaving inside the debounce.
+    expect(save).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "flush" }));
+    });
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith({ expectedRevision: 1, payload: "first+" });
+    expect(status()).toBe("saved");
+  });
+
+  it("waits for a save already in flight instead of racing it", async () => {
+    const first = deferred();
+    const save = vi.fn().mockReturnValueOnce(first.promise);
+    render(<Harness save={save} />);
+
+    edit();
+    await settleAutosave();
+    expect(save).toHaveBeenCalledTimes(1);
+
+    let settled = false;
+    await act(async () => {
+      void Promise.resolve()
+        .then(() => screen.getByRole("button", { name: "flush" }).click())
+        .then(() => {
+          settled = true;
+        });
+    });
+
+    await act(async () => {
+      first.resolve({ revision: 2, status: "saved" });
+    });
+
+    // The in-flight save is the one that lands; flush does not send a second copy of the
+    // same content against a revision the server has already moved past.
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("revision").textContent).toBe("2");
+    expect(settled).toBe(true);
+  });
+
+  it("does nothing when there is nothing unsaved", async () => {
+    const save = vi.fn().mockResolvedValue({ revision: 2, status: "saved" });
+    render(<Harness save={save} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "flush" }));
+    });
+
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("resolves rather than hanging when the content cannot be saved yet", async () => {
+    const save = vi.fn().mockResolvedValue({ revision: 2, status: "saved" });
+    // An incomplete required field, which is what `payload: null` means to the editor.
+    render(<Harness save={save} valid={false} />);
+
+    edit();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "flush" }));
+    });
+
+    // Nothing was sent, and the creator is not held on the page for a save that the
+    // contract would reject anyway.
+    expect(save).not.toHaveBeenCalled();
   });
 });

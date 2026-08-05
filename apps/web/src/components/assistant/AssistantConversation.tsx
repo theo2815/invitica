@@ -6,10 +6,21 @@ import { MAX_MESSAGE_CHARACTERS } from "../../contracts/assistant-api";
 import styles from "./Assistant.module.css";
 import { useAssistant } from "./AssistantProvider";
 
-const SUGGESTIONS = [
+const HELP_SUGGESTIONS = [
   "How do I send personalized links?",
   "Why can't my guest see the reply form?",
   "What happens when I publish an update?",
+];
+
+/**
+ * Written the way a creator actually describes an event — one run-on sentence with the facts
+ * in it — rather than as well-formed commands. They are examples of what to say, so a
+ * polished imperative would teach the wrong thing.
+ */
+const DOCUMENT_SUGGESTIONS = [
+  "Our wedding is on 12 December at 3pm, ceremony at San Agustin then reception at the Peninsula",
+  "Add a programme: cocktails at 6, dinner 7, first dance 9",
+  "Make the invitation message warmer and mention that it is a garden ceremony",
 ];
 
 /**
@@ -17,7 +28,7 @@ const SUGGESTIONS = [
  * `/dashboard/assistant`, so the two cannot drift into two different chat surfaces.
  */
 export function AssistantConversation({ autoFocus = false }: { autoFocus?: boolean }) {
-  const { clear, messages, notice, send, status } = useAssistant();
+  const { clear, invitationId, messages, mode, notice, send, setMode, status } = useAssistant();
   const [draft, setDraft] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -53,18 +64,47 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   }
 
   const remaining = MAX_MESSAGE_CHARACTERS - draft.length;
+  const drafting = mode === "document";
+  // Drafting needs an invitation to draft into. Off an editor, and before a creator has
+  // picked one, there is nothing to offer — so the choice is not shown rather than shown
+  // and refused.
+  const canDraft = invitationId !== null;
+  const suggestions = drafting ? DOCUMENT_SUGGESTIONS : HELP_SUGGESTIONS;
 
   return (
     <div className={styles.conversation}>
+      {canDraft ? (
+        <fieldset className={styles.modeSwitch}>
+          <legend className={styles.visuallyHidden}>What the assistant should do</legend>
+          <button
+            aria-pressed={!drafting}
+            disabled={isAnswering}
+            onClick={() => setMode("help")}
+            type="button"
+          >
+            Answer a question
+          </button>
+          <button
+            aria-pressed={drafting}
+            disabled={isAnswering}
+            onClick={() => setMode("document")}
+            type="button"
+          >
+            Draft my invitation
+          </button>
+        </fieldset>
+      ) : null}
+
       <div className={styles.log}>
         {messages.length === 0 && !notice ? (
           <div className={styles.empty}>
             <p className={styles.emptyLead}>
-              Ask how anything in Invitica works. The assistant answers from Invitica's own help
-              material, and it never changes your invitations.
+              {drafting
+                ? "Describe your event and the assistant drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
+                : "Ask how anything in Invitica works. The assistant answers from Invitica's own help material, and it never changes your invitations."}
             </p>
             <ul className={styles.suggestions}>
-              {SUGGESTIONS.map((suggestion) => (
+              {suggestions.map((suggestion) => (
                 <li key={suggestion}>
                   <button
                     className={styles.suggestion}
@@ -106,9 +146,14 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
         ) : null}
 
         {/* The answer itself is not announced token by token — that would read every
-            fragment aloud. One polite status per turn is the useful amount. */}
+            fragment aloud. One polite status per turn is the useful amount. A draft has no
+            streamed text at all, so this status is the only signal that it is working. */}
         <p aria-live="polite" className={styles.visuallyHidden}>
-          {isAnswering ? "The assistant is answering." : ""}
+          {isAnswering
+            ? drafting
+              ? "The assistant is drafting your invitation."
+              : "The assistant is answering."
+            : ""}
         </p>
 
         <div ref={logEndRef} />
@@ -116,7 +161,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
 
       <form className={styles.composer} onSubmit={submit}>
         <label className={styles.visuallyHidden} htmlFor="assistant-composer">
-          Ask the Invitica assistant
+          {drafting ? "Describe your event" : "Ask the Invitica assistant"}
         </label>
         <textarea
           className={styles.input}
@@ -125,7 +170,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           maxLength={MAX_MESSAGE_CHARACTERS}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onComposerKeyDown}
-          placeholder="Ask how something works…"
+          placeholder={drafting ? "Describe your event…" : "Ask how something works…"}
           ref={composerRef}
           rows={2}
           value={draft}
@@ -152,7 +197,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
             disabled={isAnswering || draft.trim().length === 0}
             type="submit"
           >
-            {isAnswering ? "Answering…" : "Ask"}
+            {isAnswering ? (drafting ? "Drafting…" : "Answering…") : drafting ? "Draft" : "Ask"}
           </button>
         </div>
       </form>

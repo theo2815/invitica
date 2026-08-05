@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assistantEnabled,
   budgetRefusalMessage,
+  clearAssistantMisconfigured,
   consumeAssistantMessage,
+  markAssistantMisconfigured,
 } from "../src/server/assistant/budget";
 
 function supabaseReturning(result: { data?: unknown; error?: unknown }) {
@@ -15,6 +17,8 @@ const originalEnv = { ...process.env };
 beforeEach(() => {
   process.env.ANTHROPIC_API_KEY = "test-key";
   process.env.ASSISTANT_ENABLED = "true";
+  // Module state; one test must not decide the next one's outcome.
+  clearAssistantMisconfigured();
 });
 
 afterEach(() => {
@@ -94,9 +98,45 @@ describe("refusal wording", () => {
       "creator_daily_limit",
       "disabled",
       "global_monthly_limit",
+      "misconfigured",
       "unavailable",
     ] as const) {
       expect(budgetRefusalMessage(outcome).length).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * The budget is spent before the model is called, which is right when the deployment works
+ * and wrong when it does not: a rejected key is never billed, so charging a message for it
+ * takes from the creator and saves nothing.
+ */
+describe("after the provider rejects our credentials", () => {
+  it("refuses without touching the database", async () => {
+    const supabase = supabaseReturning({ data: "allowed" });
+    markAssistantMisconfigured();
+
+    expect(await consumeAssistantMessage(supabase)).toBe("misconfigured");
+    // The allowance is untouched — the RPC that spends it is never reached.
+    expect((supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc).not.toHaveBeenCalled();
+  });
+
+  it("blames Invitica rather than the creator, and says the allowance is intact", () => {
+    const message = budgetRefusalMessage("misconfigured");
+    expect(message).toContain("Invitica");
+    expect(message).toContain("not using up your daily messages");
+  });
+
+  it("comes back once the configuration is corrected", async () => {
+    markAssistantMisconfigured();
+    clearAssistantMisconfigured();
+
+    expect(await consumeAssistantMessage(supabaseReturning({ data: "allowed" }))).toBe("allowed");
+  });
+
+  it("leaves the kill switch alone, so the surface does not vanish mid-session", () => {
+    markAssistantMisconfigured();
+    // A creator watching the panel disappear learns less than one reading why it refused.
+    expect(assistantEnabled()).toBe(true);
   });
 });

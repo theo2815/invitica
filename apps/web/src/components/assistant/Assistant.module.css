@@ -125,6 +125,43 @@
   min-height: 0;
 }
 
+/* A segmented control, not tabs: the thread below is one conversation, and this changes
+   what the next message does rather than switching between two views of it. */
+.modeSwitch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.5rem 1rem 0;
+  border: 0;
+}
+
+.modeSwitch button {
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* The selected mode is carried by weight and fill together, so it does not depend on
+   colour alone. `aria-pressed` is the same signal assistive technology reads. */
+.modeSwitch button[aria-pressed="true"] {
+  border-color: var(--accent, #7d2b3f);
+  background: var(--accent, #7d2b3f);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.modeSwitch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .log {
   flex: 1;
   min-height: 0;

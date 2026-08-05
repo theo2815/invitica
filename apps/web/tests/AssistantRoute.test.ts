@@ -38,12 +38,25 @@ function signedIn() {
   });
 }
 
+/**
+ * The help route answers by streaming and must never reach the structured path, so the stub
+ * throws there rather than returning something plausible. A help request that started
+ * calling `generate` would fail loudly here instead of quietly changing what it costs.
+ */
+function unreachableGenerate(): never {
+  throw new Error("The help route must not request a structured document.");
+}
+
 /** A provider that never touches the network, so the route is tested and nothing is billed. */
 function stubProvider(events: AssistantStreamEvent[]) {
   const stream = vi.fn(async function* (_request: AssistantRequest) {
     for (const event of events) yield event;
   });
-  vi.mocked(createClaudeProvider).mockReturnValue({ model: "claude-haiku-4-5", stream });
+  vi.mocked(createClaudeProvider).mockReturnValue({
+    generate: unreachableGenerate,
+    model: "claude-haiku-4-5",
+    stream,
+  });
   return stream;
 }
 
@@ -169,12 +182,14 @@ describe("the creator assistant route", () => {
     signedIn();
     vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
     vi.mocked(createClaudeProvider).mockReturnValue({
+      generate: unreachableGenerate,
       model: "claude-haiku-4-5",
       stream: async function* () {
         yield { text: "Open the ", type: "text" } as AssistantStreamEvent;
         throw new AssistantProviderError(
           "The assistant is busy right now. Try again in a moment.",
           {
+            failure: { kind: "transient", name: "RateLimitError", status: 429 },
             retryable: true,
           },
         );

@@ -1,8 +1,14 @@
-import type { AssistantUsage } from "./provider";
+import type { AssistantFailure, AssistantUsage } from "./provider";
 
 // A signed-out request is not logged at all: there is no creator to attribute it to, and
 // inventing an identifier for one would put a stranger in the record.
-export type AssistantOutcome = "completed" | "invalid" | "provider_error" | "refused_budget";
+export type AssistantOutcome =
+  | "completed"
+  | "invalid"
+  | "provider_error"
+  /** The model answered, and the invitation contract rejected what it said. */
+  | "rejected_proposal"
+  | "refused_budget";
 
 /**
  * Everything the assistant is allowed to record about a request.
@@ -18,10 +24,24 @@ export type AssistantOutcome = "completed" | "invalid" | "provider_error" | "ref
 export interface AssistantRequestLog {
   creatorId: string;
   durationMs: number;
+  /**
+   * Why a `provider_error` happened, when one did.
+   *
+   * Three machine-readable classifiers, no free text — see `AssistantFailure`. Without this
+   * an invalid key and a rate limit produce the same log line, and the only way to tell them
+   * apart is to reproduce the call by hand against the configured key. That is exactly what
+   * happened on 2026-08-06, which is why the field exists.
+   */
+  failure?: AssistantFailure;
   messageCount: number;
   model: string;
   outcome: AssistantOutcome;
-  stage: "help";
+  /**
+   * Which workload this was. Recorded because the two cost very differently — a help reply
+   * is a few hundred tokens against a cached corpus, a document proposal is a whole
+   * invitation — and one daily allowance covers both.
+   */
+  stage: "document" | "help";
   usage?: AssistantUsage;
 }
 

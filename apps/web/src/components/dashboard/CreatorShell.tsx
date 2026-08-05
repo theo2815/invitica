@@ -5,6 +5,7 @@ import { assistantEnabled } from "../../server/assistant/budget";
 import { AssistantProvider } from "../assistant/AssistantProvider";
 import { AssistantWidget } from "../assistant/AssistantWidget";
 import { BrandMark } from "../BrandMark";
+import { DraftFlushProvider } from "../invitations/DraftFlushProvider";
 import { CreatorNavigation, CreatorRouteFocus } from "./CreatorNavigation";
 import styles from "./CreatorShell.module.css";
 import { ProfileMenu } from "./ProfileMenu";
@@ -58,18 +59,22 @@ export function CreatorShell({ children, email, metadata }: CreatorShellProps) {
         <ProfileMenu creatorName={creatorName} email={email} variant="mobile" />
       </header>
 
-      {/* The provider wraps the content as well as the widget, so `/dashboard/assistant`
-          reads the same thread the floating panel holds. */}
-      <AssistantProvider>
-        <main className={styles.content} id="creator-content" tabIndex={-1}>
-          {children}
-        </main>
+      {/* Both providers wrap the content as well as the widget: the assistant so
+          `/dashboard/assistant` reads the same thread the floating panel holds, and the
+          flush registry so the panel's controls can settle an open editor's draft before
+          they navigate away from it. */}
+      <DraftFlushProvider>
+        <AssistantProvider>
+          <main className={styles.content} id="creator-content" tabIndex={-1}>
+            {children}
+          </main>
 
-        <CreatorNavigation variant="mobile" />
-        <CreatorRouteFocus />
-        <PullToRefresh />
-        {assistant ? <AssistantWidget /> : null}
-      </AssistantProvider>
+          <CreatorNavigation variant="mobile" />
+          <CreatorRouteFocus />
+          <PullToRefresh />
+          {assistant ? <AssistantWidget /> : null}
+        </AssistantProvider>
+      </DraftFlushProvider>
     </div>
   );
 }

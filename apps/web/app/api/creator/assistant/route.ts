@@ -4,11 +4,13 @@ import { assistantRequestSchema } from "../../../../src/contracts/assistant-api"
 import {
   budgetRefusalMessage,
   consumeAssistantMessage,
+  markAssistantMisconfigured,
 } from "../../../../src/server/assistant/budget";
 import { createClaudeProvider } from "../../../../src/server/assistant/claude";
 import { logAssistantRequest } from "../../../../src/server/assistant/log";
 import { HELP_SYSTEM_PROMPT, MAX_OUTPUT_TOKENS } from "../../../../src/server/assistant/prompt";
 import {
+  type AssistantFailure,
   AssistantProviderError,
   type AssistantUsage,
 } from "../../../../src/server/assistant/provider";
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
     outcome: Parameters<typeof logAssistantRequest>[0]["outcome"],
     messageCount: number,
     usage?: AssistantUsage,
+    failure?: AssistantFailure,
   ) {
     logAssistantRequest({
       creatorId,
@@ -58,6 +61,7 @@ export async function POST(request: Request) {
       // Omitted rather than logged as null when a request never reached a completion event.
       // An absent key says "no tokens were reported"; `"usage": undefined` would not survive
       // JSON at all, and a zeroed object would read as a free call that was actually billed.
+      ...(failure ? { failure } : {}),
       ...(usage ? { usage } : {}),
     });
   }
@@ -120,7 +124,13 @@ export async function POST(request: Request) {
             ? error.message
             : "The assistant could not finish that answer.";
         controller.enqueue(encoder.encode(`\n\n${message}`));
-        log("provider_error", messages.length, usage);
+
+        const failure = error instanceof AssistantProviderError ? error.failure : undefined;
+        // A rejected key is never billed, so charging every later request a message would
+        // take something from creators and save nothing. Refuse them for free instead.
+        if (failure?.kind === "configuration") markAssistantMisconfigured();
+
+        log("provider_error", messages.length, usage, failure);
       } finally {
         controller.close();
       }

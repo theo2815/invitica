@@ -1,0 +1,206 @@
+.workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent, #7d2b3f);
+  font-size: 0.64rem;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.1rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: var(--surface, #fbf7f0);
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+/* Invitation picker -------------------------------------------------------- */
+
+.picker {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: var(--surface, #fbf7f0);
+}
+
+.picker label {
+  font-size: 0.7rem;
+  font-weight: 760;
+}
+
+/* A native select: it is one value from a bounded list, it gets the platform's own
+   keyboard and screen-reader behaviour for free, and on a phone it opens the system
+   picker rather than a list this page would have to re-implement badly. */
+.picker select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.3rem;
+  background: var(--surface, #fbf7f0);
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.picker select:focus-visible {
+  outline: 2px solid var(--focus, #7d2b3f);
+  outline-offset: 2px;
+}
+
+.picker > p:last-child {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.status {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.3rem;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+}
+
+/* Draft --------------------------------------------------------------------- */
+
+.proposal {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent, #7d2b3f) 38%, var(--border, #d5cbbd));
+  border-left: 3px solid var(--accent, #7d2b3f);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--accent, #7d2b3f) 6%, var(--surface, #fbf7f0));
+}
+
+.proposal h2 {
+  margin: 0.4rem 0 0;
+  font-family: var(--display-font, Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.proposalNote {
+  margin: 0.4rem 0 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.changes {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changes li {
+  display: grid;
+  gap: 0.15rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent, #7d2b3f) 16%, transparent);
+}
+
+.changes li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.changes strong {
+  font-size: 0.7rem;
+}
+
+.changes span {
+  color: var(--muted, #6d655e);
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.proposalActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.proposalActions button {
+  min-height: 2.75rem;
+  border: 1px solid var(--accent, #7d2b3f);
+  border-radius: 0.28rem;
+  background: transparent;
+  color: var(--accent, #7d2b3f);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.proposalActions button:hover:not(:disabled),
+.proposalActions button:focus-visible {
+  background: var(--accent, #7d2b3f);
+  color: #ffffff;
+}
+
+.proposalActions button:focus-visible {
+  outline: 2px solid var(--focus, #7d2b3f);
+  outline-offset: 2px;
+}
+
+.proposalActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.apply {
+  background: var(--accent, #7d2b3f);
+  color: #ffffff;
+}
+
+/* Preview ------------------------------------------------------------------- */
+
+.previewPanel {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--surface-muted, #eee7da) 58%, var(--surface, #fbf7f0));
+}
+
+.previewFrame {
+  max-height: 40rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.3rem;
+  background: var(--surface, #fbf7f0);
+}
+
+@media (max-width: 520px) {
+  .proposalActions {
+    grid-template-columns: 1fr;
+  }
+
+  .previewFrame {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+}

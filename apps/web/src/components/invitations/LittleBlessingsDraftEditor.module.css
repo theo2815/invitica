@@ -784,6 +784,108 @@
   }
 }
 
+/* Assistant draft ---------------------------------------------------------- */
+
+.proposalPanel {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  /* The same left rule the save notices use, in the assistant's colour rather than the
+     error red: this is a decision waiting on the creator, not something that went wrong. */
+  border-left: 3px solid var(--accent);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+.proposalIntro h3 {
+  margin: 0.4rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.05rem;
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.proposalIntro > p:last-child {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.55;
+}
+
+.proposalChanges {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proposalChanges li {
+  display: grid;
+  gap: 0.15rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.proposalChanges li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.proposalChanges strong {
+  font-size: 0.7rem;
+}
+
+.proposalChanges span {
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.5;
+}
+
+.proposalChangesEmpty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.55;
+}
+
+.proposalActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.proposalActions button {
+  min-height: 2.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.28rem;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.proposalActions button:hover,
+.proposalActions button:focus-visible {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.proposalKeep {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.proposalActions button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .saveStatus[data-status="saving"] > span {
     animation: none;
@@ -861,6 +963,7 @@
   }
 
   .fieldRow,
+  .proposalActions,
   .saveNoticeActions {
     grid-template-columns: 1fr;
   }

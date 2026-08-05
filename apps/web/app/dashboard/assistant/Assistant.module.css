@@ -1,0 +1,58 @@
+.pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin: 0.35rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+}
+
+.pageDescription {
+  max-width: 46ch;
+  margin: 0.5rem 0 0;
+  color: var(--muted, #6d655e);
+  line-height: 1.6;
+}
+
+/*
+  A fixed height rather than a growing page. The composer stays reachable without scrolling
+  to the bottom of an ever-longer thread, which is the whole reason the full view exists.
+  `dvh` so the mobile browser's collapsing address bar does not push the composer off screen.
+*/
+.surface {
+  display: flex;
+  height: min(38rem, calc(100dvh - 16rem));
+  min-height: 22rem;
+  overflow: hidden;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.5rem;
+  background: var(--surface, #fffdf8);
+  box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 7%);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #d5cbbd);
+  color: var(--muted, #6d655e);
+  font-size: 0.78rem;
+}

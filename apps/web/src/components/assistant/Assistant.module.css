@@ -1,0 +1,337 @@
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+  The stacking rule. The mobile tab bar is 20 and every creator confirmation dialog is 50,
+  so the assistant sits between: above navigation, beneath any decision a creator is being
+  asked to make. A publish or delete confirmation must cover the assistant, never the reverse.
+*/
+.widget {
+  position: fixed;
+  z-index: 30;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.bubble {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  min-width: 2.75rem;
+  height: 3.25rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 50%;
+  background: var(--accent, #7a3442);
+  box-shadow: 0 0.75rem 1.75rem rgb(61 45 37 / 22%);
+  color: var(--background, #f7f3eb);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.bubble:hover {
+  background: #5d2632;
+}
+
+.bubble:active {
+  transform: scale(0.96);
+}
+
+.bubbleGlyph {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(32rem, calc(100dvh - 8rem));
+  overflow: hidden;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.6rem;
+  background: var(--surface, #fffdf8);
+  box-shadow: 0 1.5rem 3rem rgb(61 45 37 / 18%);
+  color: var(--text, #29231f);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border, #d5cbbd);
+}
+
+.panelEyebrow {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.panelTitle {
+  margin: 0.15rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.05rem;
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.panelAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.panelAction:hover {
+  border-color: var(--border, #d5cbbd);
+  color: var(--text, #29231f);
+}
+
+.conversation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+}
+
+.empty {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.emptyLead {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.suggestions {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface-muted, #eee7da);
+  color: var(--text, #29231f);
+  font-size: 0.83rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover:not(:disabled) {
+  border-color: var(--accent, #7a3442);
+}
+
+.suggestion:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.messages {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.message {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Sender is carried by a text label as well as alignment, so the distinction survives
+   without colour or position. */
+.message[data-role="user"] {
+  justify-items: end;
+  text-align: right;
+}
+
+.messageRole {
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.messageBody {
+  max-width: 92%;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: var(--surface-muted, #eee7da);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.message[data-role="assistant"] .messageBody {
+  background: var(--surface, #fffdf8);
+}
+
+.notice {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.4rem;
+  color: var(--text, #29231f);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.composer {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border, #d5cbbd);
+  background: var(--surface, #fffdf8);
+}
+
+.input {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+}
+
+.input:focus-visible {
+  border-color: var(--accent, #7a3442);
+  outline: 2px solid var(--focus, #2457c5);
+  outline-offset: 1px;
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.counter {
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+}
+
+.secondaryAction {
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  border: none;
+  background: none;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.secondaryAction:hover:not(:disabled) {
+  color: var(--text, #29231f);
+}
+
+.sendAction {
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.35rem;
+  background: var(--accent, #7a3442);
+  color: var(--background, #f7f3eb);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sendAction:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/*
+  At 900px and below the creator navigation becomes a fixed bottom tab bar 4rem tall plus the
+  device's own safe-area inset. The bubble clears both, so it never covers a tab, and the
+  panel becomes a full-height sheet — a 24rem floating card at 390px is a takeover with
+  nothing useful left behind it, so it may as well be honest about covering the screen.
+*/
+@media (max-width: 900px) {
+  .widget {
+    bottom: calc(4rem + env(safe-area-inset-bottom) + 0.75rem);
+  }
+
+  .widget[data-open="true"] {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .widget[data-open="true"] .panel {
+    width: 100%;
+    max-height: none;
+    height: 100dvh;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* Inside the open sheet the bubble would be a second, redundant close control sitting on
+     top of the composer. The header's Close is the one way out, plus Escape. */
+  .widget[data-open="true"] .bubble {
+    display: none;
+  }
+
+  .composer {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}

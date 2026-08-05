@@ -17,8 +17,8 @@ import {
 } from "../src/index.js";
 
 describe("template registry", () => {
-  it("registers eight immutable schema-valid template versions", () => {
-    expect(templateRegistry).toHaveLength(8);
+  it("registers nine immutable schema-valid template versions", () => {
+    expect(templateRegistry).toHaveLength(9);
     expect(Object.isFrozen(templateRegistry)).toBe(true);
 
     for (const manifest of templateRegistry) {
@@ -43,6 +43,7 @@ describe("template registry", () => {
       ["sunday-joy-v2", "production"],
       ["little-blessings-v1", "production"],
       ["little-blessings-v2", "production"],
+      ["little-question-v1", "production"],
     ]);
 
     expect(resolveTemplateById("little-blessings")).toMatchObject({
@@ -71,6 +72,7 @@ describe("template registry", () => {
       ["sunday-joy", "she"],
       ["little-blessings", "she"],
       ["little-blessings", "she"],
+      ["a-little-question", "they"],
     ]);
 
     expect(() =>
@@ -97,6 +99,7 @@ describe("template registry", () => {
       ["sunday-joy", 2, "section-document-v1"],
       ["little-blessings", 1, "section-document-v1"],
       ["little-blessings", 2, "section-document-v1"],
+      ["a-little-question", 1, "section-document-v1"],
     ]);
   });
 
@@ -133,7 +136,7 @@ describe("template registry", () => {
   });
 
   it("derives catalog sections from the schema-backed default documents", () => {
-    expect(templateCatalog).toHaveLength(4);
+    expect(templateCatalog).toHaveLength(5);
     expect(templateCatalog.find((template) => template.id === "golden-hour")?.sections).toEqual([
       "Opening",
       "Event details",
@@ -173,6 +176,27 @@ describe("template registry", () => {
       "Gifts",
       "RSVP",
     ]);
+    expect(
+      templateCatalog.find((template) => template.id === "a-little-question")?.sections,
+    ).toEqual(["Opening", "Event details", "Message", "Gallery", "RSVP"]);
+  });
+
+  it("keeps the Romance question last and personal-response behavior explicit", () => {
+    const romance = resolveTemplateById("a-little-question");
+    const starter = templateStarterDocument(romance);
+    const reply = starter.sections.at(-1);
+
+    expect(romance.listing).toMatchObject({
+      name: "A Little Question",
+      occasion: "Romance",
+    });
+    expect(reply?.type).toBe("rsvp");
+    expect(reply?.props).toMatchObject({
+      responseMode: "romantic-question",
+      declineButtonBehavior: "dodge-five",
+    });
+    expect(starter.assets).toEqual([]);
+    expect(starter.sections.find((section) => section.type === "gallery")?.visible).toBe(false);
   });
 
   it("shows Little Blessings with bounded declared image references in the catalog", () => {

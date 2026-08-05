@@ -35,6 +35,7 @@ const creationRequestIds = {
   "golden-hour": "71000000-0000-4000-8000-000000000002",
   "sunday-joy": "71000000-0000-4000-8000-000000000003",
   "little-blessings": "71000000-0000-4000-8000-000000000004",
+  "a-little-question": "71000000-0000-4000-8000-000000000005",
 };
 
 afterEach(cleanup);
@@ -60,7 +61,7 @@ describe("templates page", () => {
     render(await TemplatesPage());
 
     expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeDefined();
-    expect(screen.getAllByRole("article")).toHaveLength(4);
+    expect(screen.getAllByRole("article")).toHaveLength(5);
   });
 
   it("uses the distinct renderer-derived still for every template card", () => {
@@ -80,10 +81,11 @@ describe("templates page", () => {
     });
 
     expect(sources).toEqual([
-      "/landing/templates/garden-promise-svg-20260804.jpg",
-      "/landing/templates/golden-hour-svg-20260804.jpg",
-      "/landing/templates/sunday-joy-svg-20260804.jpg",
-      "/landing/templates/little-blessings-svg-20260804.jpg",
+      "/landing/templates/garden-promise-svg-20260805.jpg",
+      "/landing/templates/golden-hour-svg-20260805.jpg",
+      "/landing/templates/sunday-joy-svg-20260805.jpg",
+      "/landing/templates/little-blessings-svg-20260805.jpg",
+      "/landing/templates/a-little-question-svg-20260805.jpg",
     ]);
   });
 
@@ -152,7 +154,7 @@ describe("templates page", () => {
     const creationButtons = screen.getAllByRole("button", { name: "Use this template" });
     const previewOnlyButtons = screen.queryAllByRole("button", { name: "Preview only" });
 
-    expect(creationButtons).toHaveLength(4);
+    expect(creationButtons).toHaveLength(5);
     expect(previewOnlyButtons).toHaveLength(0);
     expect(
       creationButtons.map(
@@ -166,6 +168,7 @@ describe("templates page", () => {
       creationRequestIds["golden-hour"],
       creationRequestIds["sunday-joy"],
       creationRequestIds["little-blessings"],
+      creationRequestIds["a-little-question"],
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Quick preview Golden Hour" }));
@@ -297,7 +300,7 @@ describe("templates page", () => {
     });
     expect(screen.getByRole("heading", { name: "No templates match your search." })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getAllByRole("article")).toHaveLength(4);
+    expect(screen.getAllByRole("article")).toHaveLength(5);
     unmount();
 
     const loading = render(<TemplatesLoading />);

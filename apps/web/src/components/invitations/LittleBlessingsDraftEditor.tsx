@@ -86,6 +86,7 @@ interface SectionDocumentEditorProfile {
   editorEyebrow: string;
   heading: string;
   heroTitleLabel: string;
+  lockedSections?: Partial<Record<SectionKey, string>>;
   participantPlaceholder: string;
   previewTitle: string;
   sectionNames: Record<SectionKey, string>;
@@ -148,6 +149,26 @@ const EDITOR_PROFILES: Partial<Record<TemplateRendererKey, SectionDocumentEditor
       schedule: "Program",
     },
     signaturePlaceholder: "With love, her family",
+  },
+  "little-question-v1": {
+    attireGroupPlaceholder: "",
+    editorEyebrow: "A Little Question editor",
+    heading: "Write one invitation for one person.",
+    heroTitleLabel: "Invitation title",
+    lockedSections: {
+      rsvp: "The question and its private answer are the purpose of this invitation, so this section cannot be hidden.",
+    },
+    participantPlaceholder: "",
+    previewTitle: "A Little Question",
+    sectionNames: {
+      ...SECTION_NAMES,
+      "event-details": "Your date idea",
+      gallery: "Favorite moments",
+      hero: "For them",
+      message: "Why you are asking",
+      rsvp: "Your question",
+    },
+    signaturePlaceholder: "With love, your name",
   },
   "sunday-joy-v2": {
     attireGroupPlaceholder: "Children and grown-ups",
@@ -256,7 +277,13 @@ interface EditorState {
   };
   message: { body: string; heading: string; signatureLead: string; signatureNames: string[] };
   participants: { groups: { label: string; names: string[] }[]; heading: string };
-  rsvp: { deadline: string; heading: string; message: string };
+  rsvp: {
+    deadline: string;
+    declineButtonBehavior: "static" | "dodge-five";
+    heading: string;
+    message: string;
+    responseMode: "attendance" | "romantic-question";
+  };
   schedule: { heading: string; items: { description: string; timeLabel: string; title: string }[] };
   visible: Record<SectionKey, boolean>;
 }
@@ -405,8 +432,11 @@ function buildInitialState(document: InvitationDocument): EditorState {
     },
     rsvp: {
       deadline: rsvp?.props.deadline?.slice(0, 10) ?? "",
+      declineButtonBehavior:
+        rsvp && "declineButtonBehavior" in rsvp.props ? rsvp.props.declineButtonBehavior : "static",
       heading: rsvp?.props.heading ?? "",
       message: rsvp?.props.message ?? "",
+      responseMode: rsvp && "responseMode" in rsvp.props ? rsvp.props.responseMode : "attendance",
     },
     schedule: {
       heading: schedule?.props.heading ?? "",
@@ -533,6 +563,12 @@ function toDetails(document: InvitationDocument, state: EditorState): Record<str
   });
   add("rsvp", {
     deadline: state.rsvp.deadline ? `${state.rsvp.deadline}T23:59:59+08:00` : "",
+    ...(state.rsvp.responseMode === "romantic-question"
+      ? {
+          declineButtonBehavior: state.rsvp.declineButtonBehavior,
+          responseMode: state.rsvp.responseMode,
+        }
+      : {}),
     heading: state.rsvp.heading,
     message: state.rsvp.message,
   });
@@ -572,6 +608,7 @@ export function SectionDocumentDraftEditor({
   const details = useMemo(() => toDetails(initialDocument, state), [initialDocument, state]);
   const parsed = useMemo(() => sectionDocumentDetailsSchema.safeParse(details), [details]);
   const editorProfile = resolveEditorProfile(rendererKey);
+  const romanticInvitation = rendererKey === "little-question-v1";
   const sectionOrder = useMemo(
     () => initialDocument.sections.map((section) => section.type).filter(isSectionKey),
     [initialDocument],
@@ -777,8 +814,13 @@ export function SectionDocumentDraftEditor({
               const open = openSection === key;
               const emptyGallery = key === "gallery" && state.gallery.images.length === 0;
               const lockedReason =
-                LOCKED_SECTIONS[key] ?? (emptyGallery ? EMPTY_GALLERY_REASON : undefined);
-              const note = SECTION_NOTES[key];
+                editorProfile.lockedSections?.[key] ??
+                LOCKED_SECTIONS[key] ??
+                (emptyGallery ? EMPTY_GALLERY_REASON : undefined);
+              const note =
+                romanticInvitation && key === "rsvp"
+                  ? "Only a recipient who opens their personal invitation can answer this question."
+                  : SECTION_NOTES[key];
               const cardProps = {
                 index: position + 1,
                 name: editorProfile.sectionNames[key],
@@ -2219,12 +2261,21 @@ export function SectionDocumentDraftEditor({
                 <SectionCard key={key} {...cardProps}>
                   <TextField
                     id="lb-rsvp-heading"
-                    label="Heading"
+                    invalid={
+                      state.rsvp.responseMode === "romantic-question" && blank(state.rsvp.heading)
+                    }
+                    label={
+                      state.rsvp.responseMode === "romantic-question" ? "Your question" : "Heading"
+                    }
                     maxLength={120}
                     onChange={(value) =>
                       edit((current) => ({ ...current, rsvp: { ...current.rsvp, heading: value } }))
                     }
-                    requirement="Optional · 120 characters"
+                    requirement={
+                      state.rsvp.responseMode === "romantic-question"
+                        ? "Required · 120 characters"
+                        : "Optional · 120 characters"
+                    }
                     value={state.rsvp.heading}
                   />
                   <TextField
@@ -2238,10 +2289,37 @@ export function SectionDocumentDraftEditor({
                     rows={3}
                     value={state.rsvp.message}
                   />
+                  {state.rsvp.responseMode === "romantic-question" ? (
+                    <label className={styles.optionToggle} htmlFor="lb-rsvp-moving-no">
+                      <input
+                        checked={state.rsvp.declineButtonBehavior === "dodge-five"}
+                        id="lb-rsvp-moving-no"
+                        onChange={(event) =>
+                          edit((current) => ({
+                            ...current,
+                            rsvp: {
+                              ...current.rsvp,
+                              declineButtonBehavior: event.target.checked ? "dodge-five" : "static",
+                            },
+                          }))
+                        }
+                        type="checkbox"
+                      />
+                      <span>
+                        <strong>Move the No button</strong>
+                        <small>
+                          When enabled, No moves on each of the first five pointer taps or clicks.
+                          Keyboard and reduced-motion guests can select it immediately.
+                        </small>
+                      </span>
+                    </label>
+                  ) : null}
                   <DateField
                     hint="End of the selected day in Philippine time."
                     id="lb-rsvp-deadline"
-                    label="Reply by"
+                    label={
+                      state.rsvp.responseMode === "romantic-question" ? "Answer by" : "Reply by"
+                    }
                     onChange={(value) =>
                       edit((current) => ({
                         ...current,
@@ -2383,19 +2461,23 @@ export function SectionDocumentDraftEditor({
             >
               Invited guest
             </button>
-            <button
-              aria-pressed={previewAudience === "general"}
-              onClick={() => setPreviewAudience("general")}
-              type="button"
-            >
-              General link
-            </button>
+            {!romanticInvitation ? (
+              <button
+                aria-pressed={previewAudience === "general"}
+                onClick={() => setPreviewAudience("general")}
+                type="button"
+              >
+                General link
+              </button>
+            ) : null}
           </fieldset>
 
           <p className={styles.audienceNote}>
-            {previewAudience === "general"
-              ? "Anyone with the shared link reads the invitation without a reply section."
-              : "A guest who opens their own personal link also sees the reply section."}
+            {romanticInvitation
+              ? "Romance invitations are prepared and shared through personal invitation links."
+              : previewAudience === "general"
+                ? "Anyone with the shared link reads the invitation without a reply section."
+                : "A guest who opens their own personal link also sees the reply section."}
           </p>
 
           <div className={styles.previewFrame}>

@@ -9,8 +9,8 @@ select plan(15);
 
 select is(
   (select count(*) from public.template_version_policies),
-  6::bigint,
-  'six immutable production template versions are admitted'
+  7::bigint,
+  'seven immutable production template versions are admitted'
 );
 select is(
   (

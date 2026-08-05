@@ -77,6 +77,7 @@ const occasionByListing: Record<TemplateManifest["listing"]["occasion"], string>
   Birthday: "birthday",
   Christening: "christening",
   Debut: "debut",
+  Romance: "romance",
   Wedding: "wedding",
 };
 

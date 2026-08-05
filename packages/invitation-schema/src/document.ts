@@ -71,14 +71,26 @@ export const venueSectionSchema = z.strictObject({
   }),
 });
 
+const standardRsvpPropsSchema = z.strictObject({
+  heading: z.string().trim().max(120).optional(),
+  message: z.string().trim().max(500).optional(),
+  deadline: z.string().datetime({ offset: true }).optional(),
+});
+
+export const romanticDeclineButtonBehaviorSchema = z.enum(["static", "dodge-five"]);
+
+const romanticQuestionRsvpPropsSchema = z.strictObject({
+  heading: shortTextSchema,
+  message: z.string().trim().max(500).optional(),
+  deadline: z.string().datetime({ offset: true }).optional(),
+  responseMode: z.literal("romantic-question"),
+  declineButtonBehavior: romanticDeclineButtonBehaviorSchema,
+});
+
 export const rsvpSectionSchema = z.strictObject({
   ...sectionBaseShape,
   type: z.literal("rsvp"),
-  props: z.strictObject({
-    heading: z.string().trim().max(120).optional(),
-    message: z.string().trim().max(500).optional(),
-    deadline: z.string().datetime({ offset: true }).optional(),
-  }),
+  props: z.union([standardRsvpPropsSchema, romanticQuestionRsvpPropsSchema]),
 });
 
 export const countdownSectionSchema = z.strictObject({

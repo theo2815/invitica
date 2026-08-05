@@ -12,6 +12,7 @@ const landingTemplateIds = [
   "golden-hour",
   "sunday-joy",
   "little-blessings",
+  "a-little-question",
 ] as const;
 
 function fixture(): PublicationArtifact {

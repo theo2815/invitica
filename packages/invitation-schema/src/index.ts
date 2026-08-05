@@ -22,6 +22,7 @@ export {
   motionStyleSchema,
   parseInvitationDocument,
   participantsSectionSchema,
+  romanticDeclineButtonBehaviorSchema,
   rsvpSectionSchema,
   safeParseInvitationDocument,
   scheduleSectionSchema,

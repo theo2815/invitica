@@ -18,7 +18,7 @@ describe("landing template stills", () => {
     for (const template of templateCatalog) {
       const source = templateStillSource(template.id);
       expect(source).not.toBeNull();
-      expect(source).toBe(`/landing/templates/${template.id}-svg-20260804.jpg`);
+      expect(source).toBe(`/landing/templates/${template.id}-svg-20260805.jpg`);
 
       const bytes = await readFile(
         join(process.cwd(), "public", source?.replace(/^\//, "") ?? "missing-template-still"),

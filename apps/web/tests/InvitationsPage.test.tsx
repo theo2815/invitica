@@ -123,7 +123,7 @@ describe("invitations page", () => {
     const image = artwork.querySelector<HTMLImageElement>("img");
     expect(image?.getAttribute("alt")).toBe("");
     if (!image) throw new Error("Missing Garden Promise still");
-    expect(imageSource(image)).toBe("/landing/templates/garden-promise-svg-20260804.jpg");
+    expect(imageSource(image)).toBe("/landing/templates/garden-promise-svg-20260805.jpg");
     expect(screen.queryByText("Your first invitation begins here.")).toBeNull();
     expect(screen.getByRole("link", { name: "Continue editing" }).getAttribute("href")).toBe(
       "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
@@ -161,7 +161,7 @@ describe("invitations page", () => {
     const artwork = screen.getByRole("img", { name: "Little Blessings design preview" });
     const image = artwork.querySelector<HTMLImageElement>("img");
     if (!image) throw new Error("Missing Little Blessings still");
-    expect(imageSource(image)).toBe("/landing/templates/little-blessings-svg-20260804.jpg");
+    expect(imageSource(image)).toBe("/landing/templates/little-blessings-svg-20260805.jpg");
     expect(screen.getByText("Little Blessings design")).toBeDefined();
   });
 

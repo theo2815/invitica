@@ -8,7 +8,16 @@ import { renderFixture } from "./e2e/render-fixture.generated.mjs";
 const clientRoot = resolve("apps/viewer/dist/client");
 const outputRoot = resolve("apps/web/public/landing/templates");
 const { landingTemplateHtml } = renderFixture();
-const stillRevision = "svg-20260804";
+const stillRevision = "svg-20260805";
+const requestedTemplateIds = process.argv.slice(2);
+const templateIds =
+  requestedTemplateIds.length > 0 ? requestedTemplateIds : Object.keys(landingTemplateHtml);
+
+for (const templateId of templateIds) {
+  if (!landingTemplateHtml[templateId]) {
+    throw new Error(`Unknown landing template: ${templateId}`);
+  }
+}
 
 await mkdir(outputRoot, { recursive: true });
 
@@ -106,7 +115,7 @@ try {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  for (const templateId of Object.keys(landingTemplateHtml)) {
+  for (const templateId of templateIds) {
     console.log(`${templateId}: loading`);
     pageErrors.length = 0;
     await page.goto(`${server.origin}/landing/${templateId}`, {

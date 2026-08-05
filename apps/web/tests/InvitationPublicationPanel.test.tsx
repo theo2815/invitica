@@ -181,4 +181,79 @@ describe("invitation publication panel", () => {
     );
     expect(screen.getByRole("button", { name: "Published" }).hasAttribute("disabled")).toBe(true);
   });
+
+  it("explains each publication failure instead of repeating one retry sentence", () => {
+    const failure = (errorCode: string) =>
+      ({
+        errorCode,
+        livePublicIdentifier: null,
+        publicationId,
+        publishedRevision: null,
+        status: "failed",
+      }) as const;
+
+    const seen = new Set<string>();
+    for (const code of [
+      "social_preview_failed",
+      "alias_conflict",
+      "alias_verification_failed",
+      "artifact_conflict",
+      "publication_stalled",
+      "publication_job_failed",
+    ]) {
+      const view = renderPanel(failure(code));
+      const detail = view.container.querySelector("[data-draft-can-fix]");
+      if (!detail) throw new Error(`Missing failure detail for ${code}`);
+
+      // Reason, next action, and the reassurance that the draft survived.
+      expect(detail.querySelectorAll("p")).toHaveLength(3);
+      expect(detail.textContent).toContain("your saved draft is safe");
+      seen.add(detail.querySelector("p")?.textContent ?? "");
+      view.unmount();
+    }
+
+    // Six codes, six different reasons. The old panel produced one sentence for all of them.
+    expect(seen.size).toBe(6);
+  });
+
+  it("says when editing the draft is the fix and when it is not", () => {
+    const photo = renderPanel({
+      errorCode: "social_preview_failed",
+      livePublicIdentifier: null,
+      publicationId,
+      publishedRevision: null,
+      status: "failed",
+    });
+    const photoDetail = photo.container.querySelector("[data-draft-can-fix]");
+    expect(photoDetail?.getAttribute("data-draft-can-fix")).toBe("true");
+    expect(photoDetail?.textContent).toContain("Hero section");
+    photo.unmount();
+
+    const stalled = renderPanel({
+      errorCode: "publication_stalled",
+      livePublicIdentifier: null,
+      publicationId,
+      publishedRevision: null,
+      status: "failed",
+    });
+    const stalledDetail = stalled.container.querySelector("[data-draft-can-fix]");
+    expect(stalledDetail?.getAttribute("data-draft-can-fix")).toBe("false");
+    // The point of this line is to stop a creator editing details that were never the problem.
+    expect(stalledDetail?.textContent).toContain("not in your invitation");
+  });
+
+  it("falls back to the system-side message for an unrecognized code", () => {
+    const view = renderPanel({
+      errorCode: "something_new_from_the_worker",
+      livePublicIdentifier: null,
+      publicationId,
+      publishedRevision: null,
+      status: "failed",
+    });
+    const detail = view.container.querySelector("[data-draft-can-fix]");
+    expect(detail?.getAttribute("data-draft-can-fix")).toBe("false");
+    expect(detail?.textContent).toContain("not in your details");
+    // A raw code is never shown; a creator cannot act on it.
+    expect(view.container.textContent).not.toContain("something_new_from_the_worker");
+  });
 });

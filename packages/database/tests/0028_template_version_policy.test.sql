@@ -43,8 +43,8 @@ select ok(
 );
 select is(
   (select count(*) from public.template_version_policies),
-  6::bigint,
-  'only the six immutable production template versions are admitted'
+  7::bigint,
+  'only the seven immutable production template versions are admitted'
 );
 select is(
   (
@@ -66,7 +66,8 @@ select is(
     ["40000000-0000-4000-8000-000000000005", 2, "little-blessings-v2", 2, "section-document-v1"],
     ["40000000-0000-4000-8000-000000000006", 2, "garden-promise-v2", 2, "section-document-v1"],
     ["40000000-0000-4000-8000-000000000007", 2, "golden-hour-v2", 2, "section-document-v1"],
-    ["40000000-0000-4000-8000-000000000008", 2, "sunday-joy-v2", 2, "section-document-v1"]
+    ["40000000-0000-4000-8000-000000000008", 2, "sunday-joy-v2", 2, "section-document-v1"],
+    ["40000000-0000-4000-8000-000000000009", 1, "little-question-v1", 1, "section-document-v1"]
   ]'::jsonb,
   'database release tuples match repository registrations exactly'
 );

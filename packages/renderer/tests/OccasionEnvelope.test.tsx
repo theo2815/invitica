@@ -10,6 +10,7 @@ import {
   InvitationRenderer,
   LittleBlessingsRenderer,
   LittleBlessingsRendererV2,
+  LittleQuestionRenderer,
   SundayJoyRendererV2,
 } from "../src/index.js";
 
@@ -126,6 +127,69 @@ describe("occasion envelope", () => {
       expect(markup(sundayJoy)).toContain(marker);
       expect(markup(goldenHour)).not.toContain(marker);
     }
+  });
+
+  it("gives A Little Question illustrated correspondence without leaking it to other families", () => {
+    const littleQuestion = renderToStaticMarkup(
+      <LittleQuestionRenderer
+        document={documentFor("a-little-question")}
+        mode="preview"
+        recipientName="Mia"
+      />,
+    );
+    const gardenPromise = renderToStaticMarkup(
+      <GardenPromiseRendererV2 document={documentFor("garden-promise")} mode="published" />,
+    );
+
+    for (const marker of [
+      "oe-lq-flap-art",
+      "oe-lq-pocket-art",
+      "oe-lq-letter-art",
+      "oe-lq-clasp-stitch",
+      "ot-lq-paper-art--hero",
+      "ot-lq-paper-art--rsvp",
+    ]) {
+      expect(markup(littleQuestion)).toContain(marker);
+      expect(markup(gardenPromise)).not.toContain(marker);
+    }
+  });
+
+  it("draws one silhouette on A Little Question's closed envelope", () => {
+    const html = renderToStaticMarkup(
+      <LittleQuestionRenderer
+        document={documentFor("a-little-question")}
+        mode="preview"
+        recipientName="Mia"
+      />,
+    );
+
+    // The front used to start at 49% of the envelope with a second V notched into it. That put a
+    // deeper V under the flap's own V, left the top corners uncovered so the note's corner rules
+    // showed past the flap's clipped edges, and made the note visible through the notch.
+    expect(html).not.toContain("inset: 49% 0 0;");
+    // The flap carries one edge and one stitch line. The converging fold curves and the two corner
+    // hearts made three V shapes in the top half; the clasp carried a cross through its own middle.
+    for (const removed of [
+      "oe-lq-flap-fold",
+      "oe-lq-flap-flourish",
+      "oe-lq-pocket-rule",
+      "oe-lq-clasp-fold",
+    ]) {
+      expect(html).not.toContain(removed);
+    }
+  });
+
+  it("keeps a family's band tilt through untying and release", () => {
+    const html = renderToStaticMarkup(
+      <LittleQuestionRenderer document={documentFor("a-little-question")} mode="preview" />,
+    );
+
+    // Both tilted bands set their angle in a custom property the shared states compose. Replacing
+    // the transform outright, as every state below used to, snapped the band square on untie and
+    // slid it away level.
+    expect(html).toContain("--oe-band-rest: rotate(-3.5deg);");
+    expect(html).toContain("transform: var(--oe-band-rest) translateY(0.09rem) scaleX(0.978);");
+    expect(html).toContain("transform: var(--oe-band-rest) translateX(-118%) rotate(-3deg);");
   });
 
   it("adds keepsake SVG artwork only to Little Blessings v2", () => {

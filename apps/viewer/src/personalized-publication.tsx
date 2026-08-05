@@ -141,6 +141,18 @@ export function PersonalizedPublication({
     await loadGuestContext(capability, "retrying", false);
   }
 
+  const rsvpSection = artifact.snapshot.document.sections.find(
+    (section) => section.type === "rsvp",
+  );
+  const romanticResponseProps =
+    rsvpSection && "responseMode" in rsvpSection.props
+      ? {
+          declineButtonBehavior: rsvpSection.props.declineButtonBehavior,
+          question: rsvpSection.props.heading,
+          responseMode: rsvpSection.props.responseMode,
+        }
+      : {};
+
   let rsvpSlot: ReactNode;
   if (capability && loadState === "loading") {
     rsvpSlot = (
@@ -163,6 +175,7 @@ export function PersonalizedPublication({
         publicIdentifier={capability.publicIdentifier}
         timezone={artifact.snapshot.document.eventTimezone}
         token={capability.token}
+        {...romanticResponseProps}
       />
     );
   } else if (capability && (loadState === "retrying" || loadState === "unavailable")) {

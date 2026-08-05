@@ -16,6 +16,7 @@ interface GuestShareMessageEditorProps {
   onClose: () => void;
   /** `cleared` is true when both fields were emptied, restoring Invitica's own wording. */
   onSaved: (cleared: boolean) => void;
+  personalOnly?: boolean;
 }
 
 /** Stand-in used only for the preview, so a creator sees a real message before saving. */
@@ -45,6 +46,7 @@ export function GuestShareMessageEditor({
   invitation,
   onClose,
   onSaved,
+  personalOnly = false,
 }: GuestShareMessageEditorProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLTextAreaElement>(null);
@@ -95,7 +97,7 @@ export function GuestShareMessageEditor({
     let saved = false;
     try {
       const result = await saveInvitationShareMessagesAction({
-        general,
+        general: personalOnly ? (invitation.generalShareMessage ?? "") : general,
         invitationId: invitation.invitationId,
         personal,
       });
@@ -112,7 +114,7 @@ export function GuestShareMessageEditor({
     } finally {
       setIsPending(false);
     }
-    if (saved) onSaved(!personal.trim() && !general.trim());
+    if (saved) onSaved(!personal.trim() && (personalOnly || !general.trim()));
   }
 
   return (
@@ -130,7 +132,9 @@ export function GuestShareMessageEditor({
             <p className={styles.eyebrow}>Invitation message</p>
             <h2 id="share-message-title">Write your own message</h2>
             <p id="share-message-description">
-              Leave a message empty to use Invitica&apos;s wording for it.
+              {personalOnly
+                ? "Leave this message empty to use Invitica's personal wording."
+                : "Leave a message empty to use Invitica's wording for it."}
             </p>
           </div>
           <button
@@ -174,39 +178,45 @@ export function GuestShareMessageEditor({
             </small>
           </div>
 
-          <div className={styles.shareMessageField}>
-            <label htmlFor="general-share-message">
-              General message, for sharing with everyone
-            </label>
-            <textarea
-              aria-describedby="general-share-message-hint"
-              disabled={isPending}
-              id="general-share-message"
-              maxLength={2000}
-              onChange={(event) => setGeneral(event.currentTarget.value)}
-              placeholder="Dear, Family & Friends — we're happy to share {celebrant}'s {occasion} invitation with you. {link}"
-              rows={6}
-              value={general}
-            />
-            <small id="general-share-message-hint">
-              Placeholders: <code>{"{celebrant}"}</code> <code>{"{occasion}"}</code>{" "}
-              <code>{"{link}"}</code>. This message goes to everyone at once, so it has no{" "}
-              <code>{"{recipient}"}</code>.
-            </small>
-            {generalPromisesReply ? (
-              <small className={styles.shareMessageWarning} role="status">
-                The general link opens the invitation for reading but cannot accept an RSVP. Guests
-                who reply from it will not be recorded.
+          {!personalOnly ? (
+            <div className={styles.shareMessageField}>
+              <label htmlFor="general-share-message">
+                General message, for sharing with everyone
+              </label>
+              <textarea
+                aria-describedby="general-share-message-hint"
+                disabled={isPending}
+                id="general-share-message"
+                maxLength={2000}
+                onChange={(event) => setGeneral(event.currentTarget.value)}
+                placeholder="Dear, Family & Friends — we're happy to share {celebrant}'s {occasion} invitation with you. {link}"
+                rows={6}
+                value={general}
+              />
+              <small id="general-share-message-hint">
+                Placeholders: <code>{"{celebrant}"}</code> <code>{"{occasion}"}</code>{" "}
+                <code>{"{link}"}</code>. This message goes to everyone at once, so it has no{" "}
+                <code>{"{recipient}"}</code>.
               </small>
-            ) : null}
-          </div>
+              {generalPromisesReply ? (
+                <small className={styles.shareMessageWarning} role="status">
+                  The general link opens the invitation for reading but cannot accept an RSVP.
+                  Guests who reply from it will not be recorded.
+                </small>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className={styles.shareMessagePreview}>
             <p className={styles.eyebrow}>Preview</p>
             <h3>Personal</h3>
             <pre>{preview.personal}</pre>
-            <h3>General</h3>
-            <pre>{preview.general}</pre>
+            {!personalOnly ? (
+              <>
+                <h3>General</h3>
+                <pre>{preview.general}</pre>
+              </>
+            ) : null}
           </div>
 
           {/* Only ever a failure: a success closes the editor and is confirmed on the desk. */}
@@ -217,10 +227,10 @@ export function GuestShareMessageEditor({
           ) : null}
           <div className={styles.dialogActions}>
             <button
-              disabled={isPending || (!personal && !general)}
+              disabled={isPending || (!personal && (personalOnly || !general))}
               onClick={() => {
                 setPersonal("");
-                setGeneral("");
+                if (!personalOnly) setGeneral("");
                 setMessage(null);
               }}
               type="button"

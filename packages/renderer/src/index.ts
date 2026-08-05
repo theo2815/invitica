@@ -28,6 +28,7 @@ export { InvitationRenderer } from "./InvitationRenderer.js";
 export { buildIcsCalendar, formatIcsUtc, type IcsEvent } from "./ics.js";
 export { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
 export { LittleBlessingsRendererV2 } from "./LittleBlessingsRendererV2.js";
+export { LittleQuestionRenderer } from "./LittleQuestionRenderer.js";
 export {
   largestImageRendition,
   PhotoPreviewDialog,
@@ -41,6 +42,14 @@ export {
   RibbonEnvelopeOpening,
   type RibbonEnvelopeVariant,
 } from "./RibbonEnvelopeOpening.js";
+export {
+  ROMANTIC_DECLINE_DODGE_LIMIT,
+  type RomanticDeclineButtonBehavior,
+  RomanticReplyMark,
+  RomanticResponseChoices,
+  RomanticResponsePreview,
+  romanticResponseStyles,
+} from "./RomanticResponse.js";
 export type { TemplateRendererRegistration } from "./registry.js";
 export {
   resolveTemplateRenderer,

@@ -394,6 +394,15 @@ describe("expanded occasion editor profiles", () => {
       sectionCount: 10,
       templateId: "sunday-joy",
     },
+    {
+      editorHeading: "Write one invitation for one person.",
+      firstSection: "For them",
+      heroLabel: "Invitation title",
+      lastSection: "Your question",
+      participantSection: null,
+      sectionCount: 5,
+      templateId: "a-little-question",
+    },
   ] as const)("adapts the section document to $templateId", ({
     editorHeading,
     firstSection,
@@ -424,5 +433,40 @@ describe("expanded occasion editor profiles", () => {
       sectionNames().some((name) => name.includes(participantSection ?? "Party helpers")),
     ).toBe(participantSection !== null);
     expect(screen.queryByText("Little Blessings editor")).toBeNull();
+  });
+
+  it("edits the Romance question and moving-No option without a general-link preview", async () => {
+    vi.mocked(saveSectionDocumentAction).mockResolvedValue({ revision: 2, status: "saved" });
+    const template = resolveTemplateById("a-little-question");
+    const result = render(
+      <SectionDocumentDraftEditor
+        initialAssets={[]}
+        initialDocument={parseInvitationDocument(structuredClone(template.defaultDocument))}
+        initialRevision={1}
+        invitationId={invitationId}
+        rendererKey={template.rendererKey}
+      />,
+    );
+    root = result.container;
+
+    openSection("Your question");
+    const movingNo = screen.getByRole("checkbox", { name: /Move the No button/ });
+    expect((movingNo as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole("button", { name: "General link" })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText(/^Your question/), {
+      target: { value: "Will you be my Valentine?" },
+    });
+    fireEvent.click(movingNo);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(lastSavedDetails().rsvp?.props).toMatchObject({
+      heading: "Will you be my Valentine?",
+      responseMode: "romantic-question",
+      declineButtonBehavior: "static",
+    });
   });
 });

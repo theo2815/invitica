@@ -8,7 +8,13 @@ import {
   guestRsvpMutationRequestSchema,
   guestRsvpMutationResponseSchema,
 } from "@invitica/invitation-schema";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type RomanticDeclineButtonBehavior,
+  RomanticReplyMark,
+  RomanticResponseChoices,
+  romanticResponseStyles,
+} from "@invitica/renderer";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 
 import { fetchWithTimeout } from "./fetch-with-timeout";
 
@@ -20,10 +26,13 @@ type RefreshReason = "closed" | "conflict";
 
 interface RsvpFormProps {
   context: GuestRsvpContext;
+  declineButtonBehavior?: RomanticDeclineButtonBehavior;
   locale: "en-PH" | "fil-PH";
   onRefresh: () => Promise<boolean>;
   onSaved: (response: GuestRsvpResponse) => void;
   publicIdentifier: string;
+  question?: string;
+  responseMode?: "attendance" | "romantic-question";
   timezone: string;
   token: string;
 }
@@ -42,10 +51,13 @@ function deadlineLabel(deadline: string | null, locale: RsvpFormProps["locale"],
 
 export function RsvpForm({
   context,
+  declineButtonBehavior = "static",
   locale,
   onRefresh,
   onSaved,
   publicIdentifier,
+  question,
+  responseMode = "attendance",
   timezone,
   token,
 }: RsvpFormProps) {
@@ -56,19 +68,31 @@ export function RsvpForm({
     context.response?.attendance === "attending" ? context.response.attendeeCount : 1,
   );
   const [message, setMessage] = useState(context.response?.message ?? "");
+  const [romanticMessageAnswer, setRomanticMessageAnswer] = useState<GuestRsvpAttendance | null>(
+    null,
+  );
+  const [declineDodgeCount, setDeclineDodgeCount] = useState(0);
   const [editing, setEditing] = useState(context.response === null);
   const [error, setError] = useState<string>();
   const [longWait, setLongWait] = useState(false);
   const [refreshReason, setRefreshReason] = useState<RefreshReason>();
   const [submissionStage, setSubmissionStage] = useState<SubmissionStage>("idle");
   const operationInFlight = useRef(false);
+  const romanticMessageId = useId();
+  const romanticMessageRef = useRef<HTMLTextAreaElement>(null);
   const retryRequest = useRef<GuestRsvpMutationRequest | undefined>(undefined);
+
+  useEffect(() => {
+    if (romanticMessageAnswer) romanticMessageRef.current?.focus();
+  }, [romanticMessageAnswer]);
 
   useEffect(() => {
     const response = context.response;
     setAttendance(response?.attendance ?? "attending");
     setAttendeeCount(response?.attendance === "attending" ? response.attendeeCount : 1);
     setMessage(response?.message ?? "");
+    setRomanticMessageAnswer(null);
+    setDeclineDodgeCount(0);
     setEditing(response === null);
     setError(undefined);
     setRefreshReason(undefined);
@@ -119,18 +143,27 @@ export function RsvpForm({
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveResponse(
+    override?: Readonly<{
+      attendance: GuestRsvpAttendance;
+      attendeeCount: number;
+      message: string;
+    }>,
+  ) {
     if (operationInFlight.current) return;
     setError(undefined);
+
+    const nextAttendance = override?.attendance ?? attendance;
+    const nextAttendeeCount = override?.attendeeCount ?? attendeeCount;
+    const nextMessage = override?.message ?? message;
 
     let request = retryRequest.current;
     if (!request) {
       const parsed = guestRsvpMutationRequestSchema.safeParse({
-        attendance,
-        attendeeCount: attendance === "attending" ? attendeeCount : 0,
+        attendance: nextAttendance,
+        attendeeCount: nextAttendance === "attending" ? nextAttendeeCount : 0,
         expectedRevision: context.response?.revision ?? 0,
-        message,
+        message: nextMessage,
         mutationId: crypto.randomUUID(),
         publicIdentifier,
         token,
@@ -138,7 +171,7 @@ export function RsvpForm({
 
       if (!parsed.success) {
         setError(
-          attendance === "attending"
+          nextAttendance === "attending"
             ? `Choose a party size from 1 to ${context.capacity}.`
             : "Review your response and try again.",
         );
@@ -215,6 +248,42 @@ export function RsvpForm({
     }
   }
 
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await saveResponse();
+  }
+
+  function chooseRomanticYes() {
+    changeDraft(() => {
+      setAttendance("attending");
+      setAttendeeCount(1);
+      if (context.response?.attendance !== "attending") setMessage("");
+      setRomanticMessageAnswer("attending");
+    });
+  }
+
+  function chooseRomanticNo() {
+    changeDraft(() => {
+      setAttendance("declined");
+      if (context.response?.attendance !== "declined") setMessage("");
+      setRomanticMessageAnswer("declined");
+    });
+  }
+
+  async function submitRomanticAnswer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!romanticMessageAnswer) return;
+    if (romanticMessageAnswer === "declined" && !message.trim()) {
+      setError("Enter a message before sending your answer.");
+      return;
+    }
+    await saveResponse({
+      attendance: romanticMessageAnswer,
+      attendeeCount: romanticMessageAnswer === "attending" ? 1 : 0,
+      message,
+    });
+  }
+
   const deadline = deadlineLabel(context.deadline, locale, timezone);
   const submitting = submissionStage !== "idle";
   const retryingSave = Boolean(error && retryRequest.current && !refreshReason);
@@ -248,16 +317,39 @@ export function RsvpForm({
 
   if (!editing && context.response) {
     const attending = context.response.attendance === "attending";
+    const romanticQuestion = responseMode === "romantic-question";
     return (
-      <div className="rsvp-card rsvp-card--centered" role="status">
+      <div
+        className={`rsvp-card rsvp-card--centered${romanticQuestion ? " rsvp-card--romantic-result" : ""}`}
+        role="status"
+      >
+        {romanticQuestion ? (
+          <span className="rsvp-card__response-mark">
+            <RomanticReplyMark answer={attending ? "yes" : "no"} />
+          </span>
+        ) : null}
         <p className="rsvp-card__eyebrow">Response received</p>
-        <h3>{attending ? "We saved your place." : "Thank you for letting us know."}</h3>
+        <h3>
+          {romanticQuestion
+            ? attending
+              ? "Your answer is yes."
+              : "Your answer was sent."
+            : attending
+              ? "We saved your place."
+              : "Thank you for letting us know."}
+        </h3>
         <p>
-          {attending
-            ? `${context.response.attendeeCount} ${context.response.attendeeCount === 1 ? "guest is" : "guests are"} attending.`
-            : "Your party is unable to attend."}
+          {romanticQuestion
+            ? attending
+              ? context.response.message
+                ? "Your response and optional note have been saved."
+                : "Your response has been saved."
+              : "Your message was included with your answer."
+            : attending
+              ? `${context.response.attendeeCount} ${context.response.attendeeCount === 1 ? "guest is" : "guests are"} attending.`
+              : "Your party is unable to attend."}
         </p>
-        {context.response.message ? (
+        {!romanticQuestion && context.response.message ? (
           <p className="rsvp-card__note">Your note was included.</p>
         ) : null}
         {error ? (
@@ -283,6 +375,117 @@ export function RsvpForm({
           </p>
         )}
       </div>
+    );
+  }
+
+  if (responseMode === "romantic-question") {
+    if (romanticMessageAnswer) {
+      const answeringYes = romanticMessageAnswer === "attending";
+      return (
+        <form
+          aria-busy={submitting || undefined}
+          aria-label={`${answeringYes ? "Yes" : "No"} response for ${question ?? "this invitation"}`}
+          className="rsvp-card rq-message-form"
+          data-answer={answeringYes ? "yes" : "no"}
+          onSubmit={(event) => void submitRomanticAnswer(event)}
+        >
+          <style>{romanticResponseStyles}</style>
+          <fieldset className="rq-message-form__body" disabled={submitting}>
+            <div className="rq-form-heading">
+              <span className="rq-form-mark">
+                <RomanticReplyMark answer={answeringYes ? "yes" : "no"} />
+              </span>
+              <span className="rq-form-heading-copy">
+                <span className="rq-form-kicker">Your reply</span>
+                <label className="rq-form-title" htmlFor={romanticMessageId}>
+                  {answeringYes ? "Add a note, if you would like." : "Please leave a message."}
+                </label>
+              </span>
+              <span className="rq-form-requirement">{answeringYes ? "Optional" : "Required"}</span>
+            </div>
+            <div className="rq-message-field">
+              <textarea
+                id={romanticMessageId}
+                maxLength={500}
+                onChange={(event) => changeDraft(() => setMessage(event.currentTarget.value))}
+                placeholder={
+                  answeringYes
+                    ? "Write a little note to go with your yes."
+                    : "Share what you would like them to know."
+                }
+                ref={romanticMessageRef}
+                required={!answeringYes}
+                rows={4}
+                value={message}
+              />
+              <div className="rq-message-meta">
+                <small>
+                  {answeringYes
+                    ? "A note is completely optional."
+                    : "A thoughtful message is needed to send No."}
+                </small>
+                <output aria-label={`${message.length} of 500 characters`}>
+                  {message.length}/500
+                </output>
+              </div>
+            </div>
+            {error ? (
+              <p className="rsvp-card__error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <p aria-atomic="true" aria-live="polite" className="rsvp-card__status">
+              {submissionStatus}
+            </p>
+            <div className="rq-form-actions">
+              <button
+                className="rq-form-back"
+                disabled={submitting}
+                onClick={() => changeDraft(() => setRomanticMessageAnswer(null))}
+                type="button"
+              >
+                Back
+              </button>
+              <button className="rq-form-submit" disabled={submitting} type="submit">
+                {submissionStage === "saving"
+                  ? longWait
+                    ? "Still sending..."
+                    : "Sending answer..."
+                  : retryingSave
+                    ? "Try sending again"
+                    : `Send ${answeringYes ? "yes" : "no"}`}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      );
+    }
+
+    return (
+      <fieldset
+        aria-busy={submitting || undefined}
+        aria-label={question ?? "Choose your answer"}
+        className="rsvp-card rsvp-card--choice-fieldset"
+        disabled={submitting}
+      >
+        <RomanticResponseChoices
+          declineButtonBehavior={declineButtonBehavior}
+          disabled={submitting}
+          dodgeCount={declineDodgeCount}
+          onDodge={() => setDeclineDodgeCount((current) => current + 1)}
+          onNo={chooseRomanticNo}
+          onYes={chooseRomanticYes}
+        />
+        {deadline ? <p className="rsvp-card__deadline">Please answer by {deadline}.</p> : null}
+        {error ? (
+          <p className="rsvp-card__error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <p aria-atomic="true" aria-live="polite" className="rsvp-card__status">
+          {submissionStatus}
+        </p>
+      </fieldset>
     );
   }
 

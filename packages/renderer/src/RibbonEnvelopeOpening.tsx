@@ -16,6 +16,7 @@ export type RibbonEnvelopeVariant =
   | "garden-promise"
   | "golden-hour"
   | "little-blessings"
+  | "little-question"
   | "sunday-joy"
   | "warm-editorial";
 
@@ -156,7 +157,11 @@ export function RibbonEnvelopeOpening({
   const openingPace = openingPaces[paceKey];
   const offersSkip = paceKey !== "standard";
   const cinematicTakeover =
-    gardenPromise || variant === "golden-hour" || littleBlessings || variant === "sunday-joy";
+    gardenPromise ||
+    variant === "golden-hour" ||
+    littleBlessings ||
+    variant === "little-question" ||
+    variant === "sunday-joy";
   const contentIsVisuallyGated =
     contentIsGated && !(cinematicTakeover && openingState === "letter-revealing");
 

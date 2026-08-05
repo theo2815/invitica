@@ -33,7 +33,7 @@ function splitGuestNames(value: string): string[] {
     .filter(Boolean);
 }
 
-function pastedRows(value: string, startId: number): DraftRow[] {
+function pastedRows(value: string, startId: number, singleRecipient: boolean): DraftRow[] {
   return value
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -43,7 +43,7 @@ function pastedRows(value: string, startId: number): DraftRow[] {
         .split("\t")
         .map((cell) => cell.trim());
       return {
-        capacity: /^\d+$/.test(capacity) ? capacity : "1",
+        capacity: singleRecipient ? "1" : /^\d+$/.test(capacity) ? capacity : "1",
         guestNames: "",
         id: startId + index,
         internalLabel,
@@ -58,6 +58,7 @@ export function GuestBulkComposer({
   onCreated,
   returnFocusRef,
 }: GuestBulkComposerProps) {
+  const singleRecipient = invitation.occasion === "Romance";
   const nextIdRef = useRef(2);
   const dialogRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -138,7 +139,7 @@ export function GuestBulkComposer({
 
   function handlePaste(event: ClipboardEvent<HTMLInputElement>, rowId: number) {
     const value = event.clipboardData.getData("text");
-    const additions = pastedRows(value, nextIdRef.current);
+    const additions = pastedRows(value, nextIdRef.current, singleRecipient);
     if (additions.length <= 1) return;
     event.preventDefault();
     const available = additions.slice(0, 50 - rows.length + 1);
@@ -165,7 +166,7 @@ export function GuestBulkComposer({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = rows.map((row) => ({
-      capacity: Number(row.capacity),
+      capacity: singleRecipient ? 1 : Number(row.capacity),
       guestNames: splitGuestNames(row.guestNames),
       internalLabel: row.internalLabel.trim(),
       recipientName: row.recipientName.trim() || row.internalLabel.trim(),
@@ -180,6 +181,7 @@ export function GuestBulkComposer({
         !Number.isInteger(party.capacity) ||
         party.capacity < 1 ||
         party.capacity > 50 ||
+        (singleRecipient && party.capacity !== 1) ||
         party.guestNames.length > party.capacity ||
         party.guestNames.some((name) => name.length > 120)
       ) {
@@ -235,18 +237,20 @@ export function GuestBulkComposer({
       >
         <header className={styles.bulkHeader}>
           <div>
-            <p className={styles.eyebrow}>Add guests</p>
-            <h2 id="bulk-guests-title">Prepare one or many invitations</h2>
+            <p className={styles.eyebrow}>{singleRecipient ? "Add recipients" : "Add guests"}</p>
+            <h2 id="bulk-guests-title">
+              {singleRecipient ? "Prepare personal invitations" : "Prepare one or many invitations"}
+            </h2>
             <p id="bulk-guests-description">
-              Each row is one RSVP party. Paste a one-column list into any name field, or paste
-              tab-separated name, greeting, and seats from a spreadsheet. Press Enter after a party
-              name to continue to the next row.
+              {singleRecipient
+                ? "Each row creates one private invitation for one recipient. Paste a one-column list into any name field, or paste tab-separated names and greetings from a spreadsheet."
+                : "Each row is one RSVP party. Paste a one-column list into any name field, or paste tab-separated name, greeting, and seats from a spreadsheet. Press Enter after a party name to continue to the next row."}
             </p>
           </div>
           <div className={styles.modalHeaderActions}>
             <strong>{rows.length} / 50</strong>
             <button
-              aria-label="Close add guests"
+              aria-label={singleRecipient ? "Close add recipients" : "Close add guests"}
               className={styles.modalClose}
               disabled={isPending}
               onClick={onClose}
@@ -266,16 +270,18 @@ export function GuestBulkComposer({
                 disabled={isPending}
                 key={row.id}
               >
-                <legend>Guest party {index + 1}</legend>
+                <legend>
+                  {singleRecipient ? "Personal invitation" : "Guest party"} {index + 1}
+                </legend>
                 <label>
-                  <span>Guest or party name</span>
+                  <span>{singleRecipient ? "Recipient name" : "Guest or party name"}</span>
                   <input
                     aria-invalid={invalidRows.has(row.id)}
                     maxLength={120}
                     onChange={(event) => updateRow(row.id, { internalLabel: event.target.value })}
                     onKeyDown={(event) => continueFromName(event, row.id)}
                     onPaste={(event) => handlePaste(event, row.id)}
-                    placeholder="John Cruz or Santos family"
+                    placeholder={singleRecipient ? "Mia Santos" : "John Cruz or Santos family"}
                     ref={(element) => {
                       if (element) {
                         rowFieldRefs.current.set(row.id, element);
@@ -294,31 +300,37 @@ export function GuestBulkComposer({
                     value={row.recipientName}
                   />
                 </label>
-                <label className={styles.capacityField}>
-                  <span>Seats</span>
-                  <input
-                    inputMode="numeric"
-                    max={50}
-                    min={1}
-                    onChange={(event) => updateRow(row.id, { capacity: event.target.value })}
-                    type="number"
-                    value={row.capacity}
-                  />
-                </label>
-                <label className={styles.memberField}>
-                  <span>
-                    Members <small>Optional, comma or new line</small>
-                  </span>
-                  <textarea
-                    maxLength={6049}
-                    onChange={(event) => updateRow(row.id, { guestNames: event.target.value })}
-                    placeholder={row.capacity === "1" ? "Uses the guest name" : "Lena, Paolo"}
-                    rows={1}
-                    value={row.guestNames}
-                  />
-                </label>
+                {singleRecipient ? (
+                  <p className={styles.singleRecipientNote}>One recipient</p>
+                ) : (
+                  <>
+                    <label className={styles.capacityField}>
+                      <span>Seats</span>
+                      <input
+                        inputMode="numeric"
+                        max={50}
+                        min={1}
+                        onChange={(event) => updateRow(row.id, { capacity: event.target.value })}
+                        type="number"
+                        value={row.capacity}
+                      />
+                    </label>
+                    <label className={styles.memberField}>
+                      <span>
+                        Members <small>Optional, comma or new line</small>
+                      </span>
+                      <textarea
+                        maxLength={6049}
+                        onChange={(event) => updateRow(row.id, { guestNames: event.target.value })}
+                        placeholder={row.capacity === "1" ? "Uses the guest name" : "Lena, Paolo"}
+                        rows={1}
+                        value={row.guestNames}
+                      />
+                    </label>
+                  </>
+                )}
                 <button
-                  aria-label={`Remove guest party ${index + 1}`}
+                  aria-label={`Remove ${singleRecipient ? "personal invitation" : "guest party"} ${index + 1}`}
                   className={styles.removeDraftRow}
                   onClick={() => removeRow(row.id)}
                   type="button"
@@ -356,7 +368,9 @@ export function GuestBulkComposer({
             <button disabled={isPending} type="submit">
               {isPending
                 ? "Preparing invitations..."
-                : `Create ${rows.length} ${rows.length === 1 ? "party" : "parties"}`}
+                : singleRecipient
+                  ? `Create ${rows.length} ${rows.length === 1 ? "invitation" : "invitations"}`
+                  : `Create ${rows.length} ${rows.length === 1 ? "party" : "parties"}`}
             </button>
           </div>
         </form>

@@ -83,6 +83,7 @@ describe("Invitica marketing landing interactions", () => {
       "/templates/golden-hour/preview",
       "/templates/sunday-joy/preview",
       "/templates/little-blessings/preview",
+      "/templates/a-little-question/preview",
     ]);
     expect(
       Array.from(container.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')).map(
@@ -92,10 +93,11 @@ describe("Invitica marketing landing interactions", () => {
             : image.getAttribute("src"),
       ),
     ).toEqual([
-      "/landing/templates/garden-promise-svg-20260804.jpg",
-      "/landing/templates/golden-hour-svg-20260804.jpg",
-      "/landing/templates/sunday-joy-svg-20260804.jpg",
-      "/landing/templates/little-blessings-svg-20260804.jpg",
+      "/landing/templates/garden-promise-svg-20260805.jpg",
+      "/landing/templates/golden-hour-svg-20260805.jpg",
+      "/landing/templates/sunday-joy-svg-20260805.jpg",
+      "/landing/templates/little-blessings-svg-20260805.jpg",
+      "/landing/templates/a-little-question-svg-20260805.jpg",
     ]);
     expect(container.querySelector("[data-index]")).toBeNull();
   });

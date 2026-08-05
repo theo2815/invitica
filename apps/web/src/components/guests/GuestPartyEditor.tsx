@@ -12,6 +12,7 @@ interface GuestPartyEditorProps {
   onClose: () => void;
   onUpdated: () => void;
   party: GuestPartySummary;
+  singleRecipient: boolean;
 }
 
 function splitGuestNames(value: string): string[] {
@@ -26,6 +27,7 @@ export function GuestPartyEditor({
   onClose,
   onUpdated,
   party,
+  singleRecipient,
 }: GuestPartyEditorProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -73,13 +75,17 @@ export function GuestPartyEditor({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalizedCapacity = Number(capacity);
-    const normalizedGuestNames = splitGuestNames(guestNames);
+    const normalizedCapacity = singleRecipient ? 1 : Number(capacity);
     const normalizedLabel = internalLabel.trim();
     const normalizedRecipient = recipientName.trim();
+    const normalizedGuestNames = singleRecipient ? [normalizedLabel] : splitGuestNames(guestNames);
 
     if (!normalizedLabel || !normalizedRecipient) {
-      setMessage("Party name and envelope greeting are required.");
+      setMessage(
+        singleRecipient
+          ? "Recipient name and envelope greeting are required."
+          : "Party name and envelope greeting are required.",
+      );
       return;
     }
     if (
@@ -142,14 +148,18 @@ export function GuestPartyEditor({
       >
         <header className={styles.dialogHeader}>
           <div>
-            <p className={styles.eyebrow}>Edit guest party</p>
+            <p className={styles.eyebrow}>
+              {singleRecipient ? "Edit personal invitation" : "Edit guest party"}
+            </p>
             <h2 id="edit-party-title">Update {party.internalLabel}</h2>
             <p id="edit-party-description">
-              Changes keep the current private link and RSVP history.
+              Changes keep the current private link and response history.
             </p>
           </div>
           <button
-            aria-label="Close edit guest party"
+            aria-label={
+              singleRecipient ? "Close personal invitation editor" : "Close edit guest party"
+            }
             className={styles.modalClose}
             disabled={isPending}
             onClick={onClose}
@@ -165,7 +175,7 @@ export function GuestPartyEditor({
           onSubmit={(event) => void submit(event)}
         >
           <label>
-            <span>Guest or party name</span>
+            <span>{singleRecipient ? "Recipient name" : "Guest or party name"}</span>
             <input
               disabled={isPending}
               maxLength={120}
@@ -183,34 +193,43 @@ export function GuestPartyEditor({
               value={recipientName}
             />
           </label>
-          <label>
-            <span>Seats</span>
-            <input
-              disabled={isPending}
-              inputMode="numeric"
-              max={50}
-              min={minimumCapacity}
-              onChange={(event) => setCapacity(event.currentTarget.value)}
-              type="number"
-              value={capacity}
-            />
-            {minimumCapacity > 1 ? (
-              <small>
-                At least {minimumCapacity} seats because this party has already responded.
-              </small>
-            ) : null}
-          </label>
-          <label>
-            <span>Named members</span>
-            <textarea
-              disabled={isPending}
-              maxLength={6049}
-              onChange={(event) => setGuestNames(event.currentTarget.value)}
-              placeholder="One name per line, or separate names with commas"
-              rows={5}
-              value={guestNames}
-            />
-          </label>
+          {singleRecipient ? (
+            <p className={styles.singleRecipientEditorNote}>
+              <strong>One recipient</strong>
+              <span>This personal invitation always belongs to one person.</span>
+            </p>
+          ) : (
+            <>
+              <label>
+                <span>Seats</span>
+                <input
+                  disabled={isPending}
+                  inputMode="numeric"
+                  max={50}
+                  min={minimumCapacity}
+                  onChange={(event) => setCapacity(event.currentTarget.value)}
+                  type="number"
+                  value={capacity}
+                />
+                {minimumCapacity > 1 ? (
+                  <small>
+                    At least {minimumCapacity} seats because this party has already responded.
+                  </small>
+                ) : null}
+              </label>
+              <label>
+                <span>Named members</span>
+                <textarea
+                  disabled={isPending}
+                  maxLength={6049}
+                  onChange={(event) => setGuestNames(event.currentTarget.value)}
+                  placeholder="One name per line, or separate names with commas"
+                  rows={5}
+                  value={guestNames}
+                />
+              </label>
+            </>
+          )}
 
           <p aria-live="polite" className={styles.dialogStatus} role="status">
             {message}

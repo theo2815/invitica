@@ -7,6 +7,7 @@ import {
   invitationDocumentV1Schema,
   parseInvitationDocument,
   participantsSectionSchema,
+  rsvpSectionSchema,
   safeParseInvitationDocument,
   scheduleSectionSchema,
   UnsupportedInvitationSchemaVersionError,
@@ -15,6 +16,18 @@ import { invitationFixture } from "../src/testing.js";
 
 const galleryAssetId = "46000000-0000-4000-8000-000000000001";
 const giftAssetId = "46000000-0000-4000-8000-000000000002";
+
+const romanticReplySection = {
+  id: "47000000-0000-4000-8000-000000000099",
+  type: "rsvp",
+  visible: true,
+  animationPreset: "fade-up",
+  props: {
+    heading: "Will you go on a date with me?",
+    responseMode: "romantic-question",
+    declineButtonBehavior: "dodge-five",
+  },
+} as const;
 
 function additiveSectionDocument() {
   return invitationDocumentV1Schema.parse({
@@ -128,6 +141,31 @@ function additiveSectionDocument() {
 }
 
 describe("invitation document schema", () => {
+  it("accepts the bounded Romance reply behavior", () => {
+    expect(rsvpSectionSchema.safeParse(romanticReplySection).success).toBe(true);
+    expect(
+      rsvpSectionSchema.safeParse({
+        ...romanticReplySection,
+        props: { ...romanticReplySection.props, declineButtonBehavior: "static" },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an incomplete or invented Romance reply behavior", () => {
+    expect(
+      rsvpSectionSchema.safeParse({
+        ...romanticReplySection,
+        props: { ...romanticReplySection.props, heading: "" },
+      }).success,
+    ).toBe(false);
+    expect(
+      rsvpSectionSchema.safeParse({
+        ...romanticReplySection,
+        props: { ...romanticReplySection.props, declineButtonBehavior: "run-forever" },
+      }).success,
+    ).toBe(false);
+  });
+
   it("parses a valid version one document", () => {
     expect(parseInvitationDocument(invitationFixture)).toEqual(invitationFixture);
   });

@@ -67,6 +67,24 @@ function publicationFailureCode(error: unknown): string {
   return "publication_job_failed";
 }
 
+/**
+ * The failure code is the creator-facing contract and stays coarse. These add the operator detail a
+ * run needs to be diagnosable — but only values this repository owns.
+ *
+ * Provider error *messages* never reach the log: an S3 or sharp failure can carry a bucket, an
+ * endpoint, a request ID, or a signed URL, and the delivery suite asserts none of that appears. The
+ * class name is safe and low-cardinality (`NoSuchKey`, `AccessDenied`), and together with the
+ * enumerated reason it is what separates a wrong bucket from a missing font.
+ */
+function failureReason(error: unknown): string | undefined {
+  return error instanceof PublicationSocialPreviewError ? error.reason : undefined;
+}
+
+function failureCauseName(error: unknown): string | undefined {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return cause instanceof Error ? cause.name : undefined;
+}
+
 function isTerminalFailure(error: unknown, options: PublicationJobOptions): boolean {
   return (
     error instanceof PublicationArtifactConflictError ||
@@ -170,8 +188,12 @@ export async function orchestratePublication(
       );
     }
 
+    const causeName = failureCauseName(error);
+    const reason = failureReason(error);
     logger.error("Publication job failed", {
       ...logAttributes,
+      ...(causeName === undefined ? {} : { causeName }),
+      ...(reason === undefined ? {} : { reason }),
       errorCode,
       stage: buildCompleted ? "delivery" : "build",
       terminal,

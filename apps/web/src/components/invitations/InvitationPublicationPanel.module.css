@@ -83,6 +83,23 @@
 .statusMessage [role="alert"] {
   color: #8c382b;
 }
+/* The reason and the next action carry the weight here, so they read at body colour while the
+   reassurance underneath stays muted like the rest of the panel's supporting copy. */
+.failureDetail {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  border-left: 2px solid #8c382b;
+  border-radius: 0.2rem;
+  background: rgb(140 56 43 / 6%);
+}
+.failureDetail p:first-child {
+  color: #8c382b;
+  font-weight: 700;
+}
+.failureDetail p:nth-child(2) {
+  color: inherit;
+}
 .publishButton,
 .statusCheckButton,
 .nextStep a,

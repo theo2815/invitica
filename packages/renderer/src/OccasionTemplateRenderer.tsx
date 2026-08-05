@@ -30,10 +30,15 @@ import {
   type RibbonEnvelopeVariant,
   ribbonEnvelopeStyles,
 } from "./RibbonEnvelopeOpening.js";
+import { RomanticResponsePreview } from "./RomanticResponse.js";
 import { isSectionVisibleToAudience } from "./sectionVisibility.js";
 import { useCountdown } from "./useCountdown.js";
 
-export type OccasionTemplateVariant = "garden-promise" | "golden-hour" | "sunday-joy";
+export type OccasionTemplateVariant =
+  | "garden-promise"
+  | "golden-hour"
+  | "little-question"
+  | "sunday-joy";
 
 interface OccasionProfile {
   readonly kicker: string;
@@ -57,6 +62,13 @@ const profiles: Record<OccasionTemplateVariant, OccasionProfile> = {
     letterNote: "Your place is reserved",
     recipientLead: "Presented to",
     variant: "golden-hour",
+  },
+  "little-question": {
+    kicker: "A little question is waiting",
+    letterLead: "Just for",
+    letterNote: "Open when you are ready",
+    recipientLead: "Made especially for",
+    variant: "little-question",
   },
   "sunday-joy": {
     kicker: "A party is waiting",
@@ -92,6 +104,65 @@ function GardenSprig() {
   );
 }
 
+function LittleQuestionStampArtwork() {
+  return (
+    <svg aria-hidden="true" className="ot-lq-stamp-art" focusable="false" viewBox="0 0 100 100">
+      <path
+        className="ot-lq-stamp-edge"
+        d="M12 22v-8h8l4-5 7 3 6-4 6 4 7-3 7 3 6-4 6 4 7-3 4 5h8v8l5 4-3 7 4 6-4 6 3 7-3 7 4 6-5 4v8h-8l-4 5-7-3-6 4-6-4-7 3-7-3-6 4-6-4-7 3-4-5h-8v-8l-5-4 3-7-4-6 4-6-3-7 3-7-4-6 5-4Z"
+      />
+      <circle className="ot-lq-stamp-ring" cx="50" cy="50" r="31" />
+      <path
+        className="ot-lq-stamp-heart"
+        d="M50 70C42 63 30 54 30 43c0-11 14-14 20-4 6-10 20-7 20 4 0 11-12 20-20 27Z"
+      />
+    </svg>
+  );
+}
+
+function LittleQuestionPaperArtwork({ context }: { context: "hero" | "rsvp" }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={
+        context === "hero"
+          ? "ot-lq-paper-art ot-lq-paper-art--hero"
+          : "ot-lq-paper-art ot-lq-paper-art--rsvp"
+      }
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 100"
+    >
+      <path className="ot-lq-paper-fold" d="M0 13h18L27 0M100 87H82l-9 13" />
+      <path className="ot-lq-paper-stitch" d="M4 22V4h18M96 78v18H78" />
+      <path
+        className="ot-lq-paper-heart"
+        d="M12 82c2-3 7-2 7 2 0 3-4 5-7 8-3-3-7-5-7-8 0-4 5-5 7-2Zm78-68c2-3 7-2 7 2 0 3-4 5-7 8-3-3-7-5-7-8 0-4 5-5 7-2Z"
+      />
+      {context === "rsvp" ? (
+        <path className="ot-lq-paper-perforation" d="M6 31h88M6 74h88" />
+      ) : null}
+    </svg>
+  );
+}
+
+function LittleQuestionReplyMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="ot-rsvp-mark ot-lq-reply-mark"
+      focusable="false"
+      viewBox="0 0 96 48"
+    >
+      <path className="ot-lq-reply-line" d="M2 24h25m42 0h25" />
+      <path
+        className="ot-lq-reply-heart"
+        d="M48 40C40 33 30 26 30 16 30 6 42 3 48 12 54 3 66 6 66 16c0 10-10 17-18 24Z"
+      />
+    </svg>
+  );
+}
+
 function TemplateMotif({
   context,
   variant,
@@ -105,15 +176,21 @@ function TemplateMotif({
           medallion sits at 24%, and a text-shaped mark at that opacity reads as a grey artifact the
           eye keeps trying to resolve. The hero watermark is the diamond geometry alone. */}
       {variant === "golden-hour" && context !== "hero" ? <b>XVIII</b> : null}
+      {variant === "little-question" ? (
+        <>
+          <LittleQuestionStampArtwork />
+          <b>?</b>
+        </>
+      ) : null}
       {variant === "garden-promise" ? (
         <GardenSprig />
-      ) : (
+      ) : variant === "golden-hour" || variant === "sunday-joy" ? (
         <>
           <i />
           <i />
           <i />
         </>
-      )}
+      ) : null}
     </span>
   );
 }
@@ -383,9 +460,11 @@ function renderSection(
         <section
           className="ot-section ot-hero"
           data-animation={section.animationPreset}
+          data-has-image={Boolean(section.props.imageAssetId)}
           data-section-type={section.type}
           key={section.id}
         >
+          {variant === "little-question" ? <LittleQuestionPaperArtwork context="hero" /> : null}
           <TemplateMotif context="hero" variant={variant} />
           {section.props.imageAssetId ? (
             resolved ? (
@@ -602,7 +681,14 @@ function renderSection(
           data-section-type={section.type}
           key={section.id}
         >
-          <span aria-hidden="true" className="ot-rsvp-mark" />
+          {variant === "little-question" ? (
+            <>
+              <LittleQuestionPaperArtwork context="rsvp" />
+              <LittleQuestionReplyMark />
+            </>
+          ) : (
+            <span aria-hidden="true" className="ot-rsvp-mark" />
+          )}
           {section.props.heading ? <h2>{section.props.heading}</h2> : null}
           {section.props.message ? <p>{section.props.message}</p> : null}
           {section.props.deadline ? (
@@ -611,13 +697,19 @@ function renderSection(
             </time>
           ) : null}
           <div className="ot-rsvp-slot" data-rsvp-slot="true">
-            {rsvpSlot ?? (
-              <span>
-                {mode === "preview"
-                  ? "Response form appears here after publication."
-                  : "Open your personal invitation link to respond."}
-              </span>
-            )}
+            {rsvpSlot ??
+              (mode === "preview" && "responseMode" in section.props ? (
+                <RomanticResponsePreview
+                  declineButtonBehavior={section.props.declineButtonBehavior}
+                  reducedMotion={reducedMotion}
+                />
+              ) : (
+                <span>
+                  {mode === "preview"
+                    ? "Response form appears here after publication."
+                    : "Open your personal invitation link to respond."}
+                </span>
+              ))}
           </div>
         </section>
       );
@@ -1554,6 +1646,240 @@ ${poweredByInviticaStyles}
   border-radius: 0;
 }
 
+/* A Little Question: hand-finished correspondence with folded paper and postal linework. */
+.ot-root[data-template="little-question"] {
+  --ot-reveal-range: 18%;
+  background:
+    radial-gradient(circle at 7% 14%, color-mix(in srgb, var(--ie-ribbon) 10%, transparent) 0 4.5rem, transparent 4.6rem),
+    radial-gradient(circle at 96% 68%, color-mix(in srgb, var(--ie-ribbon) 8%, transparent) 0 6.5rem, transparent 6.6rem),
+    var(--ie-background);
+}
+.ot-root[data-template="little-question"] .ot-content {
+  width: min(100%, 62rem);
+  padding: clamp(0.75rem, 2.8cqi, 1.75rem);
+}
+.ot-root[data-template="little-question"] .ot-section {
+  margin-block: clamp(0.75rem, 2.8cqi, 1.75rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 28%, transparent);
+  border-radius: 0.35rem;
+  background:
+    radial-gradient(90% 72% at 8% 4%, rgb(255 255 255 / 48%), transparent 68%),
+    linear-gradient(105deg, color-mix(in srgb, var(--ie-ribbon) 4%, transparent), transparent 42%),
+    var(--ie-paper);
+  box-shadow:
+    0.48rem 0.58rem 0 color-mix(in srgb, var(--ie-ribbon) 13%, transparent),
+    0 1.2rem 2.8rem color-mix(in srgb, var(--ie-ink) 7%, transparent);
+}
+.ot-root[data-template="little-question"] .ot-section:nth-child(even) { transform: rotate(0.35deg); }
+.ot-root[data-template="little-question"] .ot-section:nth-child(odd) { transform: rotate(-0.35deg); }
+.ot-root[data-template="little-question"] .ot-hero {
+  min-height: clamp(32rem, 62cqi, 39rem);
+  grid-template-columns: minmax(13rem, 0.82fr) minmax(18rem, 1.18fr);
+  gap: clamp(2rem, 6cqi, 4.5rem);
+  padding: clamp(4rem, 8cqi, 6rem) clamp(2rem, 7cqi, 5rem);
+}
+.ot-root[data-template="little-question"] .ot-hero h1 {
+  max-width: 9ch;
+  font-size: clamp(3rem, 9cqi, 5.4rem);
+  line-height: 0.98;
+}
+.ot-root[data-template="little-question"] .ot-hero-copy {
+  max-width: 28rem;
+}
+.ot-root[data-template="little-question"] .ot-hero[data-has-image="false"] {
+  grid-template-columns: 1fr;
+}
+.ot-root[data-template="little-question"] .ot-hero[data-has-image="false"] .ot-hero-copy {
+  width: min(100%, 36rem);
+  max-width: none;
+  margin-inline: auto;
+  text-align: center;
+}
+.ot-root[data-template="little-question"] .ot-hero[data-has-image="false"] h1 {
+  margin-inline: auto;
+}
+.ot-root[data-template="little-question"] .ot-hero[data-has-image="false"] .ot-hero-copy > p,
+.ot-root[data-template="little-question"] .ot-hero[data-has-image="false"] .ot-hero-copy > time {
+  margin-inline: auto;
+}
+.ot-root[data-template="little-question"] .ot-lq-paper-art {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  pointer-events: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ot-root[data-template="little-question"] .ot-lq-paper-fold {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 18%, transparent);
+  stroke-width: 0.35;
+}
+.ot-root[data-template="little-question"] .ot-lq-paper-stitch {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 36%, transparent);
+  stroke-dasharray: 0.9 1.4;
+  stroke-width: 0.35;
+}
+.ot-root[data-template="little-question"] .ot-lq-paper-heart {
+  fill: color-mix(in srgb, var(--ie-ribbon) 7%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 45%, transparent);
+  stroke-width: 0.38;
+}
+.ot-root[data-template="little-question"] .ot-hero > .ot-motif {
+  position: absolute;
+  z-index: 2;
+  top: 6%;
+  right: 5%;
+  width: clamp(4rem, 11cqi, 6rem);
+  color: var(--ie-ribbon);
+  transform: rotate(8deg);
+}
+.ot-root[data-template="little-question"] .ot-lq-stamp-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ot-root[data-template="little-question"] .ot-lq-stamp-edge {
+  fill: color-mix(in srgb, var(--ie-paper) 76%, white);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 50%, transparent);
+  stroke-width: 1.15;
+}
+.ot-root[data-template="little-question"] .ot-lq-stamp-ring {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 42%, transparent);
+  stroke-dasharray: 2.4 2.8;
+  stroke-width: 1.1;
+}
+.ot-root[data-template="little-question"] .ot-lq-stamp-heart {
+  fill: color-mix(in srgb, var(--ie-ribbon) 11%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 52%, transparent);
+  stroke-width: 1.1;
+}
+.ot-root[data-template="little-question"] .ot-hero-photo,
+.ot-root[data-template="little-question"] .ot-hero-placeholder {
+  width: min(100%, 16.5rem);
+  justify-self: center;
+  padding: 0.55rem 0.55rem 2.35rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 18%, transparent);
+  background: color-mix(in srgb, var(--ie-paper) 88%, white);
+  box-shadow:
+    0.42rem 0.52rem 0 color-mix(in srgb, var(--ie-ribbon) 16%, transparent),
+    0 0.8rem 1.8rem color-mix(in srgb, var(--ie-ink) 9%, transparent);
+  transform: rotate(-2.2deg);
+}
+.ot-root[data-template="little-question"] .ot-hero-placeholder {
+  min-height: 0;
+  aspect-ratio: 4 / 5;
+}
+.ot-root[data-template="little-question"] .ot-message-body {
+  max-width: 34rem;
+  font-size: clamp(1.15rem, 3.2cqi, 1.7rem);
+}
+.ot-root[data-template="little-question"] .ot-event-grid article {
+  max-width: 34rem;
+  margin-inline: auto;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 26%, transparent);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--ie-paper) 84%, var(--ie-background));
+  text-align: center;
+}
+.ot-root[data-template="little-question"] .ot-gallery-grid figure {
+  padding: 0.45rem 0.45rem 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 15%, transparent);
+  background: color-mix(in srgb, var(--ie-paper) 88%, white);
+  box-shadow: 0.35rem 0.4rem 0 color-mix(in srgb, var(--ie-ribbon) 12%, transparent);
+}
+.ot-root[data-template="little-question"] .ot-gallery-grid figure:nth-child(2) { transform: rotate(1.2deg); }
+.ot-root[data-template="little-question"] .ot-gallery-grid figure:nth-child(3) { transform: rotate(-1deg); }
+.ot-root[data-template="little-question"] .ot-rsvp {
+  min-height: clamp(30rem, 54cqi, 37rem);
+  align-content: center;
+  padding: clamp(3.5rem, 7cqi, 5rem) clamp(1.5rem, 8cqi, 5rem);
+  background:
+    radial-gradient(80% 70% at 88% 16%, color-mix(in srgb, white 40%, transparent), transparent 70%),
+    color-mix(in srgb, var(--ie-ribbon) 9%, var(--ie-paper));
+  text-align: center;
+}
+.ot-root[data-template="little-question"] .ot-rsvp > :not(.ot-lq-paper-art) {
+  position: relative;
+  z-index: 1;
+}
+.ot-root[data-template="little-question"] .ot-rsvp > h2 {
+  max-width: 12ch;
+  margin-inline: auto;
+  font-size: clamp(2.85rem, 7.5cqi, 4.85rem);
+  line-height: 0.98;
+}
+.ot-root[data-template="little-question"] .ot-rsvp > p {
+  max-width: 29rem;
+  font-size: clamp(1rem, 2.2cqi, 1.18rem);
+}
+.ot-root[data-template="little-question"] .ot-lq-paper-perforation {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 22%, transparent);
+  stroke-dasharray: 0.65 1.2;
+  stroke-width: 0.28;
+}
+.ot-root[data-template="little-question"] .ot-lq-reply-mark {
+  display: block;
+  width: 5.4rem;
+  height: auto;
+  margin: 0 auto 1.3rem;
+  overflow: visible;
+}
+.ot-root[data-template="little-question"] .ot-lq-reply-line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 42%, transparent);
+  stroke-dasharray: 3 3;
+  stroke-width: 1;
+}
+.ot-root[data-template="little-question"] .ot-lq-reply-heart {
+  fill: color-mix(in srgb, var(--ie-ribbon) 10%, transparent);
+  stroke: var(--ie-ribbon);
+  stroke-width: 1.2;
+}
+.ot-root[data-template="little-question"] .ot-rsvp-slot {
+  position: relative;
+  width: min(100%, 34rem);
+  margin: 2.15rem auto 0;
+  padding: clamp(1rem, 3cqi, 1.4rem);
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon) 38%, transparent);
+  border-radius: 0.35rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--ie-ribbon) 4%, transparent), transparent 24%),
+    color-mix(in srgb, var(--ie-paper) 94%, white);
+  box-shadow:
+    0.42rem 0.5rem 0 color-mix(in srgb, var(--ie-ribbon) 13%, transparent),
+    0 0.8rem 1.8rem color-mix(in srgb, var(--ie-ink) 7%, transparent);
+}
+.ot-root[data-template="little-question"] .ot-rsvp-slot::before {
+  position: absolute;
+  inset: 0.45rem;
+  border: 1px dashed color-mix(in srgb, var(--ie-ribbon) 20%, transparent);
+  content: "";
+  pointer-events: none;
+}
+.ot-root[data-template="little-question"] .ot-rsvp-slot > * {
+  position: relative;
+  z-index: 1;
+}
+.ot-root[data-template="little-question"] .ot-rsvp-slot > .rsvp-card {
+  padding: 0.45rem;
+}
+.ot-root[data-template="little-question"] .ot-rsvp-slot .rq-choices {
+  width: min(100%, 29rem);
+  margin-inline: auto;
+}
+.ot-root[data-template="little-question"] .ot-footer .ot-motif {
+  color: var(--ie-ribbon);
+  transform: rotate(-7deg);
+}
+
 /* Sunday Joy — sunlit cut-paper party book. */
 .ot-root[data-template="sunday-joy"] {
   /* Quick pace: cards snap into place over 14% of their entrance, the fastest of the three. */
@@ -1737,6 +2063,43 @@ ${poweredByInviticaStyles}
     justify-items: center;
   }
   .ot-root[data-template="golden-hour"] .ot-schedule ol { grid-template-columns: 1fr; }
+  .ot-root[data-template="little-question"] .ot-section,
+  .ot-root[data-template="little-question"] .ot-section:nth-child(even),
+  .ot-root[data-template="little-question"] .ot-section:nth-child(odd) {
+    transform: none;
+  }
+  .ot-root[data-template="little-question"] .ot-hero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 2.4rem;
+    padding: 4.5rem 1.35rem 3.5rem;
+    text-align: center;
+  }
+  .ot-root[data-template="little-question"] .ot-hero h1 {
+    max-width: 10ch;
+    margin-inline: auto;
+    font-size: clamp(2.8rem, 15cqi, 4.2rem);
+  }
+  .ot-root[data-template="little-question"] .ot-hero-copy { max-width: none; }
+  .ot-root[data-template="little-question"] .ot-hero-copy > p,
+  .ot-root[data-template="little-question"] .ot-hero-copy > time { margin-inline: auto; }
+  .ot-root[data-template="little-question"] .ot-hero-photo,
+  .ot-root[data-template="little-question"] .ot-hero-placeholder { margin-inline: auto; }
+  .ot-root[data-template="little-question"] .ot-hero > .ot-motif {
+    top: 1.1rem;
+    right: 1rem;
+    width: 4rem;
+  }
+  .ot-root[data-template="little-question"] .ot-rsvp {
+    min-height: 0;
+    padding: 3.75rem 1.25rem;
+  }
+  .ot-root[data-template="little-question"] .ot-rsvp > h2 {
+    font-size: clamp(2.65rem, 14cqi, 4rem);
+  }
+  .ot-root[data-template="little-question"] .ot-rsvp-slot {
+    padding: 0.85rem !important;
+  }
   .ot-root[data-template="sunday-joy"] .ot-section,
   .ot-root[data-template="sunday-joy"] .ot-section:nth-child(even),
   .ot-root[data-template="sunday-joy"] .ot-section:nth-child(odd) {

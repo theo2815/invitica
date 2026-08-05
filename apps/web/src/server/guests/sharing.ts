@@ -125,6 +125,10 @@ const OCCASION_COPY: Readonly<Record<TemplateOccasion, OccasionCopy>> = {
     closing: (their) =>
       `Thank you for being a wonderful part of ${their} journey. We can't wait to celebrate with you!`,
   },
+  Romance: {
+    celebration: () => "There is one little question waiting for you inside.",
+    closing: () => "Open it when you are ready.",
+  },
   Wedding: {
     celebration: () =>
       "We hope you can join us as we begin this new chapter and share the day with the people closest to us.",
@@ -145,6 +149,10 @@ function occasionCopy(invitation: InvitationShareContext): OccasionCopy {
 
 function invitationBody(invitation: InvitationShareContext): string {
   const title = normalizeMessageValue(invitation.title);
+  if (invitation.occasion === "Romance") {
+    return `I made this invitation just for you.\n\n${title}\n\n${occasionCopy(invitation).celebration("their")}`;
+  }
+
   const noun = invitation.occasion
     ? `${invitation.occasion.toLowerCase()} invitation`
     : "invitation";

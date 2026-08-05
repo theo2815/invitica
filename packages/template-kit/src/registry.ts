@@ -15,6 +15,7 @@ import { littleBlessingsTemplate } from "./templates/christening/little-blessing
 import { littleBlessingsTemplateV2 } from "./templates/christening/little-blessings/v2.js";
 import { goldenHourTemplate } from "./templates/debut/golden-hour/v1.js";
 import { goldenHourTemplateV2 } from "./templates/debut/golden-hour/v2.js";
+import { aLittleQuestionTemplate } from "./templates/romance/a-little-question/v1.js";
 import { gardenPromiseTemplate } from "./templates/wedding/garden-promise/v1.js";
 import { gardenPromiseTemplateV2 } from "./templates/wedding/garden-promise/v2.js";
 
@@ -113,6 +114,7 @@ export const templateRegistry = createTemplateRegistry([
   sundayJoyTemplateV2,
   littleBlessingsTemplate,
   littleBlessingsTemplateV2,
+  aLittleQuestionTemplate,
 ]);
 
 const sectionLabels: Record<InvitationSection["type"], string> = {

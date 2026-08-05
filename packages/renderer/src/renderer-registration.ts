@@ -22,6 +22,7 @@ const templateRendererVersions = {
   "golden-hour-v2": 2,
   "little-blessings-v1": 1,
   "little-blessings-v2": 2,
+  "little-question-v1": 1,
   "standard-v1": 1,
   "sunday-joy-v2": 2,
 } as const satisfies Record<TemplateRendererKey, number>;

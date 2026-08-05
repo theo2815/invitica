@@ -11,6 +11,7 @@ export const templateRendererKeySchema = z.enum([
   "golden-hour-v2",
   "little-blessings-v1",
   "little-blessings-v2",
+  "little-question-v1",
   "sunday-joy-v2",
 ]);
 export const templateEditorKeySchema = z.enum(["focused-event-v1", "section-document-v1"]);
@@ -21,6 +22,7 @@ export const templateOccasionSchema = z.enum([
   "Christening",
   "Baby shower",
   "Debut",
+  "Romance",
   "Anniversary",
 ]);
 export type TemplateOccasion = z.infer<typeof templateOccasionSchema>;

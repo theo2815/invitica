@@ -5,7 +5,7 @@ import type { ReactElement } from "react";
 import type { OccasionTemplateVariant } from "./OccasionTemplateRenderer.js";
 
 /**
- * The closed-envelope art direction for the three occasion families.
+ * The closed-envelope art direction for the four occasion families.
  *
  * `RibbonEnvelopeOpening` owns the layers, the lifecycle, the scroll gate, and the focus handoff.
  * This module owns only what those layers look like and how they move, and every rule below is
@@ -20,6 +20,8 @@ import type { OccasionTemplateVariant } from "./OccasionTemplateRenderer.js";
  *   by a slide that carries the numeral. The card rises out of the sleeve rather than a flap opening.
  * - Sunday Joy — a square craft envelope with a rounded flap and cut-paper edges, tied off-centre
  *   with an oversized floppy bow.
+ * - A Little Question — a wide landscape note whose deep flap is the only shape on its face, banded
+ *   low in narrow satin and sealed with a stitched paper heart set over the flap's point.
  */
 
 function EnvelopeAddress({
@@ -36,6 +38,7 @@ function EnvelopeAddress({
   return (
     <>
       {variant === "garden-promise" ? <GardenPromisePocketArtwork /> : null}
+      {variant === "little-question" ? <LittleQuestionPocketArtwork /> : null}
       {variant === "sunday-joy" ? <SundayJoyPocketArtwork /> : null}
       <span className="oe-address">
         <i />
@@ -298,9 +301,98 @@ function SundayJoyClosure() {
   );
 }
 
+/**
+ * The folded flap's own edge, drawn as an engraved rule with a stitched line just inside it. The
+ * `clip-path` that cuts the triangle also cuts the element's border, so these two strokes are the
+ * only thing that defines the fold. Nothing else is mounted here: the flap is the largest quiet
+ * surface on the object and the question mark is the mark it carries.
+ *
+ * The viewBox matches the flap's real box — 142 : 56 is the same ratio as a full-width band 56% down
+ * a 1.42 landscape envelope — so `preserveAspectRatio="none"` stretches nothing.
+ */
+function LittleQuestionFlapArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-lq-flap-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 142 56"
+    >
+      <path className="oe-lq-flap-edge" d="M4 3.5h134L71 52.5Z" />
+      <path className="oe-lq-flap-stitch" d="M9.5 8h123L71 46Z" />
+    </svg>
+  );
+}
+
+/**
+ * Two small hearts set either side of the addressed name. The pocket is now the whole face of the
+ * envelope, so its viewBox carries the envelope's own 1.42 ratio and the hearts stay hearts.
+ */
+function LittleQuestionPocketArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-lq-pocket-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 142 100"
+    >
+      <path
+        className="oe-lq-pocket-heart"
+        d="M18 90.5C15.83 88.33 14.28 86.78 14.28 85.23c0-1.24.99-1.8 1.86-1.43.62.25 1.55 1 1.86 1.62.31-.62 1.24-1.37 1.86-1.62.87-.37 1.86.19 1.86 1.43 0 1.55-1.55 3.1-3.72 5.27ZM124 90.5c-2.17-2.17-3.72-3.72-3.72-5.27 0-1.24.99-1.8 1.86-1.43.62.25 1.55 1 1.86 1.62.31-.62 1.24-1.37 1.86-1.62.87-.37 1.86.19 1.86 1.43 0 1.55-1.55 3.1-3.72 5.27Z"
+      />
+    </svg>
+  );
+}
+
+/** Quiet ruled corners and a closing flourish that travel with the note during its reveal. */
+function LittleQuestionLetterArtwork() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="oe-lq-letter-art"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 142 100"
+    >
+      <path className="oe-lq-letter-rule" d="M6 18V6h18M136 18V6h-18M6 82v12h18M136 82v12h-18" />
+      <path className="oe-lq-letter-line" d="M42 75h58" />
+      <path
+        className="oe-lq-letter-heart"
+        d="M71 82c3-4 9-2 9 3 0 4-5 7-9 10-4-3-9-6-9-10 0-5 6-7 9-3Z"
+      />
+    </svg>
+  );
+}
+
+/**
+ * A stitched paper heart threaded on the band, sitting over the flap's point. The band releases
+ * first, the heart falls away, then the folded note opens.
+ *
+ * The viewBox is drawn tight to the heart so the CSS box is the heart, not a box the heart floats
+ * inside: that is what lets the clasp be placed against the flap's tip by a single `top`.
+ */
+function LittleQuestionClosure() {
+  return (
+    <svg aria-hidden="true" className="oe-knot oe-lq-knot" focusable="false" viewBox="0 0 100 96">
+      <path
+        className="oe-lq-clasp-paper"
+        d="M50 92C43 85 6 62 6 34 6 16 19 4 33 4c9 0 15 6 17 12 2-6 8-12 17-12 14 0 27 12 27 30 0 28-37 51-44 58Z"
+      />
+      <path
+        className="oe-lq-clasp-stitch"
+        d="M50 81C44 75 16 56 16 34 16 21 26 12 35 12c7 0 12 5 15 11 3-6 8-11 15-11 9 0 19 9 19 22 0 22-28 41-34 47Z"
+      />
+      <path className="oe-lq-clasp-sheen" d="M24 30c1-7 6-12 12-14" />
+    </svg>
+  );
+}
+
 const closures: Record<OccasionTemplateVariant, () => ReactElement> = {
   "garden-promise": GardenPromiseClosure,
   "golden-hour": GoldenHourClosure,
+  "little-question": LittleQuestionClosure,
   "sunday-joy": SundayJoyClosure,
 };
 
@@ -310,7 +402,15 @@ export function OccasionEnvelopeClosure({ variant }: { variant: OccasionTemplate
 }
 
 export function OccasionEnvelopeLetterMark({ variant }: { variant: OccasionTemplateVariant }) {
-  return variant === "golden-hour" ? <GoldenHourCardArtwork /> : null;
+  if (variant === "golden-hour") return <GoldenHourCardArtwork />;
+  return variant === "little-question" ? (
+    <>
+      <LittleQuestionLetterArtwork />
+      <span aria-hidden="true" className="oe-lq-letter-mark">
+        just one question
+      </span>
+    </>
+  ) : null;
 }
 
 /** Mounted on the flap so its decorative artwork swings away with the paper. */
@@ -320,6 +420,17 @@ export function OccasionEnvelopeCoverMark({ variant }: { variant: OccasionTempla
       <>
         <GardenPromiseFlapArtwork />
         <GardenPromiseSeal />
+      </>
+    );
+  }
+
+  if (variant === "little-question") {
+    return (
+      <>
+        <LittleQuestionFlapArtwork />
+        <span aria-hidden="true" className="oe-lq-flap-mark">
+          ?
+        </span>
       </>
     );
   }
@@ -354,13 +465,18 @@ export const occasionEnvelopeStyles = `
    envelope straightened and snapped back mid-sequence. */
 .ot-root .ie-envelope { --oe-rest: rotate(0deg); }
 
+/* The same problem one layer down. Sunday Joy and A Little Question lay their band across the paper
+   at an angle, and every shared state below replaced that transform outright, so the band snapped
+   square on untie and slid away level. Families declare their tilt here and the states compose it. */
+.ot-root .ie-ribbon-horizontal { --oe-band-rest: rotate(0deg); }
+
 /* Acknowledge the press before anything releases. Pointer-driven, so it fires on touch, which the
    existing hover lift never did. */
 .ot-root .ie-scene:active:not([aria-disabled="true"]) .ie-envelope {
   transition-duration: 120ms;
   transform: var(--oe-rest) scale(0.985);
 }
-.ot-root .ie-scene:active:not([aria-disabled="true"]) .ie-ribbon-horizontal { transform: scaleX(1.012); }
+.ot-root .ie-scene:active:not([aria-disabled="true"]) .ie-ribbon-horizontal { transform: var(--oe-band-rest) scaleX(1.012); }
 .ot-root .ie-scene:active:not([aria-disabled="true"]) .ie-ribbon-vertical { transform: scaleY(1.012); }
 
 /* The letter sits inside the envelope while closed. The shared default translates it 22% down, which
@@ -551,7 +667,7 @@ export const occasionEnvelopeStyles = `
 /* Nothing fades during untying. The bands slacken and the closure releases; the release itself
    happens in the opening phase, and opacity only arrives once separation is already legible. */
 .ot-root .ie-root[data-opening-state="untying"] .ie-envelope { transform: var(--oe-rest) scale(0.994); }
-.ot-root .ie-root[data-opening-state="untying"] .ie-ribbon-horizontal { transform: translateY(0.09rem) scaleX(0.978); }
+.ot-root .ie-root[data-opening-state="untying"] .ie-ribbon-horizontal { transform: var(--oe-band-rest) translateY(0.09rem) scaleX(0.978); }
 .ot-root .ie-root[data-opening-state="untying"] .ie-ribbon-vertical { transform: translateX(-0.07rem) scaleY(0.982); }
 .ot-root .ie-root[data-opening-state="untying"] .ie-ribbon-knot { transform: translate(-50%, -50%) scale(1.04); }
 .ot-root .ie-root[data-opening-state="untying"] .oe-cinch { transform: scaleY(0.7) scaleX(1.12); }
@@ -563,7 +679,7 @@ export const occasionEnvelopeStyles = `
 /* Release. Bands travel along their own axes and only start fading in the last third of the move. */
 .ot-root .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"]) .ie-ribbon-horizontal {
   opacity: 0;
-  transform: translateX(-118%) rotate(-3deg);
+  transform: var(--oe-band-rest) translateX(-118%) rotate(-3deg);
 }
 .ot-root .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"]) .ie-ribbon-vertical {
   opacity: 0;
@@ -1001,6 +1117,227 @@ export const occasionEnvelopeStyles = `
 }
 
 /* ---------------------------------------------------------------------------------------------
+   A Little Question \u2014 a landscape folded note, a tilted satin band, and a stitched heart seal.
+   --------------------------------------------------------------------------------------------- */
+
+.ot-root[data-template="little-question"] .ie-envelope {
+  --oe-rest: rotate(-1.25deg);
+  width: min(94%, 27rem);
+  aspect-ratio: 1.42;
+  transform: var(--oe-rest);
+}
+/* The offset card behind the paper. It is fully covered while the envelope is closed, so it carries
+   the drop shadow and nothing else; the diagonal seam it used to draw was a fold no envelope has. */
+.ot-root[data-template="little-question"] .ie-envelope-back {
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 22%, transparent);
+  border-radius: 0.4rem;
+  background: var(--ie-paper);
+  box-shadow:
+    0.55rem 0.66rem 0 color-mix(in srgb, var(--ie-ribbon) 17%, transparent),
+    0 1.7rem 2.4rem color-mix(in srgb, var(--ie-ink) 17%, transparent);
+}
+/* One panel across the whole face, the way an envelope front actually is. It used to start at 49%
+   with a second V notched into it, which put a deeper V under the flap's V, uncovered the top
+   corners so the letter's own corner rules showed past the flap's clipped edges, and left the note
+   visible through the notch as a stray dashed line. Garden Promise removed the same notch for the
+   same reason. The flap's triangle is now the only V on the object. */
+.ot-root[data-template="little-question"] .ie-envelope-front {
+  inset: 0;
+  clip-path: none;
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 20%, transparent);
+  border-radius: 0.4rem;
+  background:
+    radial-gradient(120% 46% at 50% 0%, color-mix(in srgb, var(--ie-ink) 8%, transparent), transparent 62%),
+    radial-gradient(70% 55% at 16% 100%, color-mix(in srgb, var(--ie-ribbon) 9%, transparent), transparent 72%),
+    var(--ie-paper);
+  color: var(--ie-ink);
+}
+/* Shallower than before, so the point lands above the band rather than inside it. The clip cuts the
+   border off both diagonals, so the separation between flap and pocket is carried by the drop
+   shadow and the SVG edge rule — the two paper tones are deliberately close. */
+.ot-root[data-template="little-question"] .ie-envelope-flap {
+  height: 56%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 20%, transparent);
+  border-radius: 0.4rem 0.4rem 0 0;
+  background:
+    radial-gradient(80% 100% at 50% 0%, rgb(255 255 255 / 52%), transparent 72%),
+    color-mix(in srgb, var(--ie-paper) 98%, white);
+  filter: drop-shadow(0 0.16rem 0.24rem color-mix(in srgb, var(--ie-ink) 18%, transparent));
+}
+.ot-root[data-template="little-question"] :is(.oe-lq-flap-art, .oe-lq-pocket-art, .oe-lq-letter-art) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  pointer-events: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.ot-root[data-template="little-question"] .oe-lq-flap-edge {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 40%, transparent);
+  stroke-width: 0.7;
+}
+.ot-root[data-template="little-question"] .oe-lq-flap-stitch {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 24%, transparent);
+  stroke-dasharray: 0.9 1.8;
+  stroke-width: 0.5;
+}
+/* The one mark the template is named for, set square on the fold. It used to sit at a 7\xB0 tilt of its
+   own on top of the envelope's −1.25\xB0 rest tilt, which read as a mistake rather than a flourish. */
+.ot-root[data-template="little-question"] .oe-lq-flap-mark {
+  position: absolute;
+  top: 23%;
+  left: 50%;
+  color: color-mix(in srgb, var(--ie-ribbon) 76%, var(--ie-ink));
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(1.65rem, 7.4cqi, 2.8rem);
+  font-weight: 400;
+  line-height: 1;
+  transform: translateX(-50%);
+}
+.ot-root[data-template="little-question"] .ie-letter {
+  border: 1px solid color-mix(in srgb, var(--ie-ink) 18%, transparent);
+  border-radius: 0.3rem;
+  background:
+    radial-gradient(80% 70% at 10% 10%, color-mix(in srgb, white 55%, transparent), transparent 70%),
+    color-mix(in srgb, var(--ie-paper) 94%, white);
+  box-shadow: inset 0 0 0 0.22rem color-mix(in srgb, var(--ie-ribbon) 5%, transparent);
+}
+.ot-root[data-template="little-question"] .ie-letter > :is(span:not(.oe-lq-letter-mark), strong, small) {
+  opacity: 0;
+  transition: opacity 260ms ease 260ms;
+}
+.ot-root[data-template="little-question"] .ie-root:is(
+  [data-opening-state="opening"],
+  [data-opening-state="letter-revealing"],
+  [data-opening-state="opened"]
+) .ie-letter > :is(span:not(.oe-lq-letter-mark), strong, small) {
+  opacity: 1;
+}
+.ot-root[data-template="little-question"] .oe-lq-letter-rule,
+.ot-root[data-template="little-question"] .oe-lq-letter-line {
+  stroke: color-mix(in srgb, var(--ie-ribbon) 36%, transparent);
+  stroke-width: 0.7;
+}
+.ot-root[data-template="little-question"] .oe-lq-letter-line { stroke-dasharray: 2 2.5; }
+.ot-root[data-template="little-question"] .oe-lq-letter-heart {
+  fill: color-mix(in srgb, var(--ie-ribbon) 8%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 58%, transparent);
+  stroke-width: 0.75;
+}
+.ot-root[data-template="little-question"] .oe-lq-letter-mark {
+  position: absolute;
+  right: 8%;
+  bottom: 6%;
+  color: color-mix(in srgb, var(--ie-ribbon) 72%, var(--ie-ink));
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(0.58rem, 2.4cqi, 0.84rem);
+  font-style: italic;
+}
+.ot-root[data-template="little-question"] .oe-lq-pocket-heart {
+  fill: color-mix(in srgb, var(--ie-ribbon) 10%, transparent);
+  stroke: color-mix(in srgb, var(--ie-ribbon) 46%, transparent);
+  stroke-width: 0.7;
+}
+/* A narrow satin band, not the plank this was. At −7\xB0 across a 1.42 landscape card the ends climbed
+   17.5% of the envelope's height and hung in the air past both corners; −3.5\xB0 with the shared −3%
+   overhang lets them pass behind the paper edges instead, which is what reads as wrapping. The
+   sheen and the two inset highlights come from the shared .ie-ribbon rule; only the shadow the band
+   drops onto the paper is added here. */
+.ot-root[data-template="little-question"] .ie-ribbon-horizontal {
+  --oe-band-rest: rotate(-3.5deg);
+  top: 59.4%;
+  height: 4.6%;
+  box-shadow:
+    inset 0 0.08rem 0 rgb(255 255 255 / 26%),
+    inset 0 -0.08rem 0 rgb(0 0 0 / 12%),
+    0 0.28rem 0.5rem -0.2rem color-mix(in srgb, var(--ie-ink) 34%, transparent);
+  transform: var(--oe-band-rest);
+}
+.ot-root[data-template="little-question"] .ie-ribbon-vertical { display: none; }
+/* Centred on the band and tall enough to reach over the flap's point at 54%, so the seal reads as
+   the thing holding the flap down rather than a sticker beside it. */
+.ot-root[data-template="little-question"] .ie-ribbon-knot {
+  top: 61.7%;
+  left: 50%;
+  width: 16%;
+  height: auto;
+  aspect-ratio: 100 / 96;
+}
+.ot-root[data-template="little-question"] .oe-lq-knot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0.18rem 0.2rem color-mix(in srgb, var(--ie-ink) 22%, transparent));
+  transition: opacity 260ms ease, transform 720ms cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+/* Blush paper, not the near-black disc this was. A dark heart on a dark band read as a hole; a paper
+   heart carries the same silhouette against the ribbon and keeps the object made of one material. */
+.ot-root[data-template="little-question"] .oe-lq-clasp-paper {
+  fill: color-mix(in srgb, var(--ie-ribbon) 12%, var(--ie-paper));
+  stroke: color-mix(in srgb, var(--ie-ribbon) 66%, transparent);
+  stroke-width: 2.2;
+}
+.ot-root[data-template="little-question"] .oe-lq-clasp-stitch {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ie-ribbon) 44%, transparent);
+  stroke-dasharray: 3.5 4;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+.ot-root[data-template="little-question"] .oe-lq-clasp-sheen {
+  fill: none;
+  stroke: rgb(255 255 255 / 62%);
+  stroke-linecap: round;
+  stroke-width: 2.6;
+}
+.ot-root[data-template="little-question"] .ie-root[data-opening-state="untying"] .oe-lq-knot {
+  transform: rotate(6deg) scale(1.05);
+}
+.ot-root[data-template="little-question"] .ie-root:is([data-opening-state="opening"], [data-opening-state="letter-revealing"], [data-opening-state="opened"]) .oe-lq-knot {
+  opacity: 0;
+  transform: translateY(40%) rotate(22deg) scale(0.78);
+}
+/* Re-measured against the full-height front. The side insets leave the two pocket hearts room to sit
+   outside the name rather than under it, and a long name still wraps upward into empty paper. */
+.ot-root[data-template="little-question"] .oe-address {
+  z-index: 2;
+  right: 20%;
+  bottom: 9%;
+  left: 20%;
+}
+.ot-root[data-template="little-question"] .ot-scene-decoration i {
+  width: 0.72rem;
+  height: 0.72rem;
+  background: color-mix(in srgb, var(--ie-ribbon) 38%, transparent);
+  transform: rotate(45deg);
+}
+.ot-root[data-template="little-question"] .ot-scene-decoration i::before,
+.ot-root[data-template="little-question"] .ot-scene-decoration i::after {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  content: "";
+}
+.ot-root[data-template="little-question"] .ot-scene-decoration i::before { top: -50%; left: 0; }
+.ot-root[data-template="little-question"] .ot-scene-decoration i::after { top: 0; left: -50%; }
+.ot-root[data-template="little-question"] .ot-scene-decoration i:nth-child(1) { top: 16%; left: 11%; }
+.ot-root[data-template="little-question"] .ot-scene-decoration i:nth-child(2) { right: 8%; bottom: 18%; }
+.ot-root[data-template="little-question"] .ot-scene-decoration i:nth-child(3) {
+  top: 8%;
+  right: 18%;
+  width: 0.42rem;
+  height: 0.42rem;
+}
+
+/* ---------------------------------------------------------------------------------------------
    Sunday Joy \u2014 square craft envelope, rounded flap, oversized off-centre bow.
    --------------------------------------------------------------------------------------------- */
 
@@ -1107,9 +1444,10 @@ export const occasionEnvelopeStyles = `
 }
 /* Tied off-centre, the way a present actually gets wrapped. */
 .ot-root[data-template="sunday-joy"] .ie-ribbon-horizontal {
+  --oe-band-rest: rotate(-1.5deg);
   top: 56%;
   height: 8%;
-  transform: rotate(-1.5deg);
+  transform: var(--oe-band-rest);
 }
 .ot-root[data-template="sunday-joy"] .ie-ribbon-vertical {
   left: 26.5%;
@@ -1183,6 +1521,7 @@ export const occasionEnvelopeStyles = `
 
 @container (max-width: 26rem) {
   .ot-root[data-template="garden-promise"] .ie-envelope,
+  .ot-root[data-template="little-question"] .ie-envelope,
   .ot-root[data-template="sunday-joy"] .ie-envelope { width: 94%; }
   .ot-root[data-template="golden-hour"] .ie-envelope { width: min(80%, 15rem, 38svh); }
   .ot-root .oe-address strong { font-size: 0.72rem; }

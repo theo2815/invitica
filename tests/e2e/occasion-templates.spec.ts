@@ -3,16 +3,24 @@ import { expect, type Page, test } from "@playwright/test";
 
 const upgradedTemplates = [
   {
+    dataTemplate: "garden-promise",
     id: "garden-promise",
     title: "Mara & Joaquin",
   },
   {
+    dataTemplate: "golden-hour",
     id: "golden-hour",
     title: "Sam turns XVIII",
   },
   {
+    dataTemplate: "sunday-joy",
     id: "sunday-joy",
     title: "Lia is seven!",
+  },
+  {
+    dataTemplate: "little-question",
+    id: "a-little-question",
+    title: "A little question",
   },
 ] as const;
 
@@ -55,7 +63,7 @@ test("opens every upgraded occasion without horizontal overflow", async ({ page 
 
   for (const template of upgradedTemplates) {
     await page.goto(`${origin()}/preview/${template.id}`, { waitUntil: "domcontentloaded" });
-    await expect(page.locator(`[data-template="${template.id}"]`)).toBeAttached();
+    await expect(page.locator(`[data-template="${template.dataTemplate}"]`)).toBeAttached();
 
     if (testInfo.project.name === "chromium-narrow") {
       await page.addStyleTag({ content: ":root { font-size: 200% !important; }" });

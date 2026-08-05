@@ -135,10 +135,20 @@ export async function createGuestPartiesAction(
       };
     }
 
+    if (
+      context.occasion === "Romance" &&
+      parsed.data.parties.some((party) => party.capacity !== 1)
+    ) {
+      return {
+        message: "Each Romance invitation must belong to exactly one recipient.",
+        status: "error",
+      };
+    }
+
     const normalizedParties = parsed.data.parties.map((party) => ({
       ...party,
       guestNames:
-        party.guestNames.length === 0 && party.capacity === 1
+        context.occasion === "Romance" && party.guestNames.length === 0
           ? [party.internalLabel]
           : party.guestNames,
     }));
@@ -385,6 +395,12 @@ export async function updateGuestPartyAction(input: unknown): Promise<GuestManag
   try {
     const context = await loadOwnedInvitationContext(parsed.data.invitationId);
     if (!context) return { message: "This invitation is unavailable.", status: "error" };
+    if (context.occasion === "Romance" && parsed.data.capacity !== 1) {
+      return {
+        message: "A Romance invitation must belong to exactly one recipient.",
+        status: "error",
+      };
+    }
     await updateGuestParty(context.supabase, parsed.data);
     revalidatePath("/dashboard/guests");
     return { status: "updated" };

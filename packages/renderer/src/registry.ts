@@ -7,6 +7,7 @@ import { GoldenHourRendererV2 } from "./GoldenHourRendererV2.js";
 import { InvitationRenderer, type InvitationRendererProps } from "./InvitationRenderer.js";
 import { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
 import { LittleBlessingsRendererV2 } from "./LittleBlessingsRendererV2.js";
+import { LittleQuestionRenderer } from "./LittleQuestionRenderer.js";
 import {
   resolveTemplateRendererVersion,
   type TemplateRendererRegistration,
@@ -24,6 +25,7 @@ const templateRendererComponents = {
   "golden-hour-v2": GoldenHourRendererV2,
   "little-blessings-v1": LittleBlessingsRenderer,
   "little-blessings-v2": LittleBlessingsRendererV2,
+  "little-question-v1": LittleQuestionRenderer,
   "standard-v1": InvitationRenderer,
   "sunday-joy-v2": SundayJoyRendererV2,
 } satisfies Record<TemplateRendererKey, ComponentType<InvitationRendererProps>>;

@@ -17,7 +17,7 @@ import {
   trashGuestPartyAction,
   updateGuestPartyAction,
 } from "../src/server/guests/actions";
-import type { GuestPartySummary } from "../src/server/guests/guests";
+import type { GuestInvitationSummary, GuestPartySummary } from "../src/server/guests/guests";
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -51,6 +51,12 @@ const invitation = {
   occasion: "Wedding" as const,
   publicIdentifier: "a".repeat(32),
   title: "Mara & Joaquin",
+};
+const romanceInvitation: GuestInvitationSummary = {
+  ...invitation,
+  invitationId: "72000000-0000-4000-8000-000000000009",
+  occasion: "Romance",
+  title: "A Little Question",
 };
 const resultSummary = {
   attendingGuests: 0,
@@ -92,19 +98,21 @@ function renderDesk(
     hasMore: false,
     nextOffset: parties.length,
   },
+  selectedInvitation: GuestInvitationSummary = invitation,
 ) {
   return render(
     <GuestDesk
       hasMoreParties={pagination.hasMore}
-      invitations={[invitation]}
+      invitations={[selectedInvitation]}
       nextPartyOffset={pagination.nextOffset}
       parties={parties}
       resultSummary={{
         ...resultSummary,
+        invitationId: selectedInvitation.invitationId,
         awaitingParties: parties.length,
         guestPartyCount: parties.length,
       }}
-      selectedInvitation={invitation}
+      selectedInvitation={selectedInvitation}
       trashedParties={trashedParties}
     />,
   );
@@ -133,6 +141,41 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("GuestDesk", () => {
+  it("creates one-recipient Romance invitations without exposing a general link", async () => {
+    vi.mocked(createGuestPartiesAction).mockResolvedValue({ count: 1, status: "created" });
+    renderDesk([], [], undefined, romanceInvitation);
+
+    expect(screen.getByText("Personal invitations only")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Copy general invitation" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write your personal message" }));
+    expect(screen.getByLabelText("Personal message, for one guest party")).toBeTruthy();
+    expect(screen.queryByLabelText("General message, for sharing with everyone")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close invitation message editor" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add recipients" }));
+    fireEvent.change(screen.getByLabelText("Recipient name"), {
+      target: { value: "Mia Santos" },
+    });
+    expect(screen.queryByLabelText("Seats")).toBeNull();
+    expect(screen.queryByLabelText(/Members/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Create 1 invitation" }));
+
+    await waitFor(() => expect(createGuestPartiesAction).toHaveBeenCalledOnce());
+    expect(createGuestPartiesAction).toHaveBeenCalledWith({
+      invitationId: romanceInvitation.invitationId,
+      mutationId: expect.any(String),
+      parties: [
+        {
+          capacity: 1,
+          guestNames: [],
+          internalLabel: "Mia Santos",
+          recipientName: "Mia Santos",
+        },
+      ],
+    });
+  });
+
   it("creates multiple parties in one keyboard-friendly composer", async () => {
     vi.mocked(createGuestPartiesAction).mockResolvedValue({ count: 2, status: "created" });
     renderDesk();
@@ -327,9 +370,11 @@ describe("GuestDesk", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy invitation for Santos household" }));
     await waitFor(() => expect(copyGuestInvitationAction).toHaveBeenCalledOnce());
     expect(writeText).toHaveBeenCalledWith(copyText);
-    expect(
-      screen.getByRole("button", { name: "Copied invitation for Santos household" }),
-    ).toBeDefined();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Copied invitation for Santos household" }),
+      ).toBeDefined(),
+    );
   });
 
   it("groups RSVP details into a readable party ledger", () => {
@@ -433,6 +478,41 @@ describe("GuestDesk", () => {
       recipientName: "Tita Lena, Paolo, and family",
     });
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a Romance invitation tied to one recipient when edited", async () => {
+    vi.mocked(updateGuestPartyAction).mockResolvedValue({ status: "updated" });
+    const recipient = party({
+      capacity: 1,
+      guestMembers: [{ id: "74000000-0000-4000-8000-000000000009", name: "Mia" }],
+      internalLabel: "Mia",
+      recipientName: "Mia",
+    });
+    renderDesk([recipient], [], undefined, romanceInvitation);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Mia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Mia" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Update Mia" });
+    expect(within(dialog).queryByLabelText("Seats")).toBeNull();
+    expect(within(dialog).queryByLabelText("Named members")).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText("Recipient name"), {
+      target: { value: "Mia Rose" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Envelope greeting"), {
+      target: { value: "For Mia" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updateGuestPartyAction).toHaveBeenCalledOnce());
+    expect(updateGuestPartyAction).toHaveBeenCalledWith({
+      capacity: 1,
+      expectedRevision: 1,
+      guestNames: ["Mia Rose"],
+      guestPartyId: recipient.id,
+      internalLabel: "Mia Rose",
+      invitationId: romanceInvitation.invitationId,
+      recipientName: "For Mia",
+    });
   });
 
   it("offers a conventional close button on the add-guests dialog", () => {

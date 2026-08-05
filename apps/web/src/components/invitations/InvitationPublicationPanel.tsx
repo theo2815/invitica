@@ -33,6 +33,61 @@ interface InvitationPublicationPanelProps {
   titleReady: boolean;
 }
 
+/**
+ * Every publication failure used to read "try publishing again", so a creator whose hero photo could
+ * not be processed and a creator whose delivery never started saw the same sentence and clicked the
+ * same button. The codes already travel with the status; these turn each one into the reason and the
+ * next action, and say plainly when editing the draft cannot help.
+ */
+interface PublicationProblem {
+  readonly detail: string;
+  readonly draftCanFix: boolean;
+  readonly nextStep: string;
+}
+
+function publicationProblem(errorCode: string | null): PublicationProblem {
+  switch (errorCode) {
+    case "social_preview_failed":
+      return {
+        detail: "We could not build the shareable preview image from your hero photo.",
+        draftCanFix: true,
+        nextStep: "Open the Hero section, replace or remove the photo, then publish again.",
+      };
+    case "alias_conflict":
+      return {
+        detail: "Another publication is already using this invitation's guest link.",
+        draftCanFix: false,
+        nextStep: "Wait a few seconds and publish again. Your draft does not need changing.",
+      };
+    case "alias_verification_failed":
+      return {
+        detail: "Your invitation was built, but we could not confirm the guest link went live.",
+        draftCanFix: false,
+        nextStep: "Publish again. Nothing in your draft caused this.",
+      };
+    case "artifact_conflict":
+      return {
+        detail: "This publication no longer matches the draft it was built from.",
+        draftCanFix: true,
+        nextStep: "Make any small edit so the draft saves, then publish again.",
+      };
+    case "publication_stalled":
+      return {
+        detail: "Publishing was requested but never started.",
+        draftCanFix: false,
+        nextStep:
+          "Publish again. If it still does not start, the delay is on our side, not in your invitation.",
+      };
+    default:
+      return {
+        detail: "Publishing stopped before your invitation went live.",
+        draftCanFix: false,
+        nextStep:
+          "Publish again. If it fails a second time, the problem is on our side, not in your details.",
+      };
+  }
+}
+
 function publicationLabel(publication: InvitationPublicationStatus, revision: number): string {
   if (publication.status === "publishing") return "Preparing your invitation";
   if (publication.status === "retrying") return "Retrying secure delivery";
@@ -65,6 +120,7 @@ export function InvitationPublicationPanel({
   const isCurrentRevisionLive =
     publication.status === "delivered" && publication.publishedRevision === revision;
   const isProcessing = publication.status === "publishing" || publication.status === "retrying";
+  const problem = publicationProblem(publication.errorCode);
 
   useEffect(() => {
     if (!confirmationOpen) return;
@@ -125,7 +181,9 @@ export function InvitationPublicationPanel({
 
       if (cancelled) return;
       if (completedPolls >= MAX_STATUS_POLLS) {
-        setActionMessage("Publishing is taking longer than expected. Your saved draft is safe.");
+        setActionMessage(
+          "Publishing is taking longer than expected. Your saved draft is safe. Check the latest status below, or come back to this page in a few minutes.",
+        );
         return;
       }
       schedulePoll();
@@ -254,7 +312,11 @@ export function InvitationPublicationPanel({
         {publication.status === "publishing" ? <p>Building a verified guest copy now.</p> : null}
         {publication.status === "retrying" ? <p>Delivery is retrying automatically.</p> : null}
         {publication.status === "failed" ? (
-          <p>Nothing new went live. Your saved draft is safe; try publishing again.</p>
+          <div className={styles.failureDetail} data-draft-can-fix={problem.draftCanFix}>
+            <p>{problem.detail}</p>
+            <p>{problem.nextStep}</p>
+            <p>Nothing new went live, and your saved draft is safe.</p>
+          </div>
         ) : null}
         {actionMessage ? <p role="alert">{actionMessage}</p> : null}
         {publication.livePublicIdentifier && !isCurrentRevisionLive ? (

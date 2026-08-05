@@ -8,6 +8,7 @@ import { renderFixture } from "./render-fixture.generated.mjs";
 const clientRoot = resolve("apps/viewer/dist/client");
 const publicIdentifier = "e000000000000000000000000000000e";
 const littleBlessingsIdentifier = "f000000000000000000000000000000f";
+const romanceIdentifier = "d000000000000000000000000000000d";
 
 // Tiny solid-color WebP bodies (64x64) standing in for immutable publication
 // renditions so browser lanes can load real image bytes without object storage.
@@ -78,7 +79,9 @@ export default async function globalSetup(_config: FullConfig) {
         ? publicationHtml
         : url.pathname.endsWith(littleBlessingsIdentifier)
           ? littleBlessingsHtml
-          : null;
+          : url.pathname.endsWith(romanceIdentifier)
+            ? landingTemplateHtml["a-little-question"]
+            : null;
       response.writeHead(body ? 200 : 404, {
         "cache-control": body ? "public, max-age=0" : "private, no-store",
         "content-security-policy":

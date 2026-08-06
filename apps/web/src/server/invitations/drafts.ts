@@ -220,6 +220,38 @@ export async function loadInvitationDraft(supabase: SupabaseServerClient, invita
   };
 }
 
+/**
+ * How many invitations this creator has, without loading one.
+ *
+ * The assistant needs the difference between "no invitations yet" and "has some but none
+ * selected" to answer a first-time creator usefully, and that is the whole of what it needs.
+ * A head count says it in one round trip, where `listInvitationDrafts` would parse every
+ * document and resolve every manifest to arrive at the same integer.
+ *
+ * No workspace filter: the select policy from migration `0002` already restricts these rows to
+ * workspaces the caller actively owns, so an unfiltered count is their own count.
+ *
+ * Returns `null` when it could not be counted, which is deliberately not `0`. The caller uses
+ * this to decide whether to tell the assistant that a creator has no invitations yet, and a
+ * failed query reported as zero would have Tala confidently send someone with nine invitations
+ * off to the Templates page. Unknown has to stay distinguishable from none.
+ */
+export async function countInvitationDrafts(
+  supabase: SupabaseServerClient,
+): Promise<null | number> {
+  try {
+    const { count, error } = await supabase
+      .from("invitation_drafts")
+      .select("invitation_id", { count: "exact", head: true });
+
+    if (error) return null;
+
+    return count;
+  } catch {
+    return null;
+  }
+}
+
 export async function listInvitationDrafts(supabase: SupabaseServerClient, workspaceId: string) {
   const parsedWorkspaceId = invitationIdSchema.parse(workspaceId);
   const { data, error } = await supabase

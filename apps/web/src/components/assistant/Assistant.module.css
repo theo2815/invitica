@@ -552,6 +552,53 @@
   cursor: not-allowed;
 }
 
+/* Sits between the thread and the composer, where the creator is already looking while they
+   type. Deliberately quieter than a notice: nothing has gone wrong, and the message they are
+   writing still works exactly as it is. */
+.routing {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0;
+}
+
+.routingReason {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.routingActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.routingActions button {
+  min-height: 2.75rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.routingActions .routingSwitch {
+  flex: 1;
+  border-color: var(--accent, #7d2b3f);
+  color: var(--text, #29231f);
+  font-weight: 700;
+  text-align: left;
+}
+
+.routingActions button:hover {
+  background: var(--surface-muted, #eee7da);
+}
+
 .composer {
   display: grid;
   gap: 0.5rem;

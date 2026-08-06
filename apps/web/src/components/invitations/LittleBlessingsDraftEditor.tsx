@@ -2,7 +2,6 @@
 
 import type { InvitationDocument, InvitationSection } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
-import type { TemplateRendererKey } from "@invitica/template-kit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -10,6 +9,12 @@ import {
   sectionDocumentDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
 import { describeProposalChanges } from "../../lib/invitations/proposal-diff";
+import {
+  isSectionKey,
+  resolveEditorProfile,
+  SECTION_ORDER,
+  type SectionKey,
+} from "../../lib/invitations/section-vocabulary";
 import { getMapTileKey } from "../../lib/map-tile-key";
 import { saveSectionDocumentAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
@@ -38,173 +43,6 @@ const MAX_PHOTOS = 8;
 const MAX_GIFTS = 8;
 const MAX_PARTICIPANT_GROUPS = 10;
 const MAX_SCHEDULE_ITEMS = 16;
-
-type SectionKey =
-  | "attire"
-  | "countdown"
-  | "event-details"
-  | "gallery"
-  | "gifts"
-  | "guidance"
-  | "hero"
-  | "message"
-  | "participants"
-  | "rsvp"
-  | "schedule";
-
-/**
- * Every section-document template has a curated order. Creators choose what to
- * show, never where it sits, and RSVP remains last whenever it is present.
- */
-const SECTION_ORDER: readonly SectionKey[] = [
-  "hero",
-  "message",
-  "countdown",
-  "event-details",
-  "participants",
-  "schedule",
-  "attire",
-  "gallery",
-  "guidance",
-  "gifts",
-  "rsvp",
-];
-
-const SECTION_NAMES: Record<SectionKey, string> = {
-  attire: "What to wear",
-  countdown: "Until the celebration",
-  "event-details": "Where and when",
-  gallery: "Little moments",
-  gifts: "Gift ideas",
-  guidance: "A gentle note",
-  hero: "The celebrant",
-  message: "Held in grace",
-  participants: "Ninong and ninang",
-  rsvp: "Celebrate with us",
-  schedule: "Order of the day",
-};
-
-interface SectionDocumentEditorProfile {
-  attireGroupPlaceholder: string;
-  editorEyebrow: string;
-  heading: string;
-  heroTitleLabel: string;
-  lockedSections?: Partial<Record<SectionKey, string>>;
-  participantPlaceholder: string;
-  previewTitle: string;
-  sectionNames: Record<SectionKey, string>;
-  signaturePlaceholder: string;
-}
-
-const LITTLE_BLESSINGS_EDITOR_PROFILE: SectionDocumentEditorProfile = {
-  attireGroupPlaceholder: "Ninong and ninang",
-  editorEyebrow: "Little Blessings editor",
-  heading: "Tell the story of her day.",
-  heroTitleLabel: "The celebrant's name",
-  participantPlaceholder: "Tito",
-  previewTitle: "Little Blessings",
-  sectionNames: SECTION_NAMES,
-  signaturePlaceholder: "With love, her parents",
-};
-
-const EDITOR_PROFILES: Partial<Record<TemplateRendererKey, SectionDocumentEditorProfile>> = {
-  "garden-promise-v2": {
-    attireGroupPlaceholder: "Wedding party",
-    editorEyebrow: "Garden Promise editor",
-    heading: "Plan the whole wedding day.",
-    heroTitleLabel: "The couple's names",
-    participantPlaceholder: "Parents of the bride",
-    previewTitle: "Garden Promise",
-    sectionNames: {
-      ...SECTION_NAMES,
-      attire: "What to wear",
-      countdown: "Until the vows",
-      "event-details": "Ceremony and reception",
-      gallery: "Their story",
-      gifts: "Gifts",
-      guidance: "Guest notes",
-      hero: "The couple",
-      message: "Their invitation",
-      participants: "Wedding party",
-      rsvp: "Reply to the couple",
-      schedule: "Wedding-day schedule",
-    },
-    signaturePlaceholder: "With love, the couple",
-  },
-  "golden-hour-v2": {
-    attireGroupPlaceholder: "Debutante's court",
-    editorEyebrow: "Golden Hour editor",
-    heading: "Shape her eighteenth-birthday program.",
-    heroTitleLabel: "The debutante's name",
-    participantPlaceholder: "18 roses",
-    previewTitle: "Golden Hour",
-    sectionNames: {
-      ...SECTION_NAMES,
-      attire: "What to wear",
-      countdown: "Until the celebration",
-      "event-details": "The evening",
-      gallery: "Eighteen chapters",
-      guidance: "Guest notes",
-      hero: "The debutante",
-      message: "Her invitation",
-      participants: "Her eighteen",
-      rsvp: "Reserve your evening",
-      schedule: "Program",
-    },
-    signaturePlaceholder: "With love, her family",
-  },
-  "little-question-v1": {
-    attireGroupPlaceholder: "",
-    editorEyebrow: "A Little Question editor",
-    heading: "Write one invitation for one person.",
-    heroTitleLabel: "Invitation title",
-    lockedSections: {
-      rsvp: "The question and its private answer are the purpose of this invitation, so this section cannot be hidden.",
-    },
-    participantPlaceholder: "",
-    previewTitle: "A Little Question",
-    sectionNames: {
-      ...SECTION_NAMES,
-      "event-details": "Your date idea",
-      gallery: "Favorite moments",
-      hero: "For them",
-      message: "Why you are asking",
-      rsvp: "Your question",
-    },
-    signaturePlaceholder: "With love, your name",
-  },
-  "sunday-joy-v2": {
-    attireGroupPlaceholder: "Children and grown-ups",
-    editorEyebrow: "Sunday Joy editor",
-    heading: "Plan a joyful children's party.",
-    heroTitleLabel: "The birthday child's name",
-    participantPlaceholder: "Party helpers",
-    previewTitle: "Sunday Joy",
-    sectionNames: {
-      ...SECTION_NAMES,
-      attire: "What to wear and bring",
-      countdown: "Until the party",
-      "event-details": "Party place and time",
-      gallery: "Favorite moments",
-      gifts: "Gifts",
-      guidance: "Notes for grown-ups",
-      hero: "The birthday child",
-      message: "Party invitation",
-      participants: "Party helpers",
-      rsvp: "Join the party",
-      schedule: "Party activities",
-    },
-    signaturePlaceholder: "With love, the family",
-  },
-};
-
-function resolveEditorProfile(rendererKey: TemplateRendererKey): SectionDocumentEditorProfile {
-  return EDITOR_PROFILES[rendererKey] ?? LITTLE_BLESSINGS_EDITOR_PROFILE;
-}
-
-function isSectionKey(type: InvitationSection["type"]): type is SectionKey {
-  return SECTION_ORDER.includes(type as SectionKey);
-}
 
 const LOCKED_SECTIONS: Partial<Record<SectionKey, string>> = {
   "event-details":
@@ -694,10 +532,20 @@ export function SectionDocumentDraftEditor({
   // Tells the floating assistant which invitation it is looking at, so it can offer to draft
   // for this one and nothing else. Cleared on unmount, so leaving the editor also leaves
   // drafting mode rather than pointing it at an invitation that is no longer on screen.
+  //
+  // Drafting is always available here — this editor is the one surface that can apply a
+  // proposal. Organizing needs a published invitation, and the status read is the one this
+  // page was rendered with: a creator who publishes and asks about guests in the same visit
+  // is told nothing rather than told wrongly, which is the right way round for a suggestion.
+  const publishedOnLoad = initialPublication.status === "delivered";
+
   useEffect(() => {
-    setAssistantInvitationId?.(invitationId);
+    setAssistantInvitationId?.(invitationId, {
+      canDraft: true,
+      canOrganize: publishedOnLoad,
+    });
     return () => setAssistantInvitationId?.(null);
-  }, [invitationId, setAssistantInvitationId]);
+  }, [invitationId, publishedOnLoad, setAssistantInvitationId]);
 
   // Lets the assistant's own controls settle this draft before they navigate away from it.
   useEffect(() => {

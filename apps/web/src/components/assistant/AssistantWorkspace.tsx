@@ -55,7 +55,11 @@ export function AssistantWorkspace({
 
   const select = useCallback(
     async (nextId: string) => {
-      setInvitationId(nextId || null);
+      // The page has already filtered this list to invitations the shared editor can apply a
+      // proposal to, so drafting is available for every one of them. Whether any is published
+      // is not loaded here, and a suggestion that is merely unmade costs less than one that
+      // sends a creator to a tab which refuses them.
+      setInvitationId(nextId || null, { canDraft: true, canOrganize: false });
       // A proposal belongs to the invitation it was drafted for. Switching away from that
       // invitation makes it meaningless rather than merely out of view.
       clearProposal();

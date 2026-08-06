@@ -207,7 +207,10 @@ export function GuestDesk({
    */
   useEffect(() => {
     if (!setAssistantInvitationId) return;
-    setAssistantInvitationId(selectedInvitationId);
+    // Everything the desk lists is published, so organizing is always available from here.
+    // Drafting is not offered: this desk does not know which editor the invitation uses, and
+    // there is nowhere on this route to read or apply a draft even when it does.
+    setAssistantInvitationId(selectedInvitationId, { canDraft: false, canOrganize: true });
     return () => setAssistantInvitationId(null);
   }, [selectedInvitationId, setAssistantInvitationId]);
 

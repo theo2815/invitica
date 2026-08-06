@@ -1,7 +1,7 @@
 import type { InvitationDocument } from "@invitica/invitation-schema";
 import type { TemplateManifest } from "@invitica/template-kit";
 
-import { SECTION_GUIDE } from "./document-prompt";
+import { sectionLines } from "./document-prompt";
 import { type ProposableSection, proposableSections } from "./document-schema";
 
 /**
@@ -61,13 +61,13 @@ export function sectionSelectionSystemPrompt(
   document: InvitationDocument,
   manifest: TemplateManifest,
 ): string {
-  const sections = proposableSections(document, manifest)
-    .map((type) => `- ${SECTION_GUIDE[type] ?? type}`)
-    .join("\n");
+  const sections = sectionLines(document, manifest);
 
   return `You are sorting a request, not answering it. A creator has described something about their invitation. Name only the sections their description would change.
 
 Choose at most ${MAX_PROPOSED_SECTIONS}, fewest first — a request about the reception time is about one section, not four. Do not name a section merely because it exists or because it is empty. Name none if the request changes nothing about the invitation's content.
+
+A creator may name a section by the number or the title on its card in their editor rather than by its type — "Section 5", "the Wedding party part". Both are listed below. Answer with the type, which is the name in brackets.
 
 # Sections in this invitation
 

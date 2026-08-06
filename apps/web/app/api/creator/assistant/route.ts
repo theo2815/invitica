@@ -7,6 +7,7 @@ import {
   markAssistantMisconfigured,
 } from "../../../../src/server/assistant/budget";
 import { createClaudeProvider } from "../../../../src/server/assistant/claude";
+import { helpContextMessage } from "../../../../src/server/assistant/help-context";
 import { logAssistantRequest } from "../../../../src/server/assistant/log";
 import { HELP_SYSTEM_PROMPT, MAX_OUTPUT_TOKENS } from "../../../../src/server/assistant/prompt";
 import {
@@ -15,6 +16,10 @@ import {
   type AssistantUsage,
 } from "../../../../src/server/assistant/provider";
 import { getOptionalConfirmedUser } from "../../../../src/server/auth/session";
+import {
+  countInvitationDrafts,
+  loadInvitationDraft,
+} from "../../../../src/server/invitations/drafts";
 import { readJsonRequest } from "../guest-desk/responses";
 
 // Twenty messages of two thousand characters plus JSON overhead. A body larger than the
@@ -78,7 +83,41 @@ export async function POST(request: Request) {
     return assistantError("That assistant request is not valid.", 400);
   }
 
-  const { messages } = parsed.data;
+  const { context, messages } = parsed.data;
+
+  // Resolved before the allowance is spent, because both reads are cheap and a creator whose
+  // invitation has been deleted should still get an answer rather than a failure. The draft is
+  // loaded under their own session, so RLS decides whether it is theirs — the client naming an
+  // id it does not own resolves to nothing, exactly as if it had named nothing.
+  //
+  // The whole block is best-effort. Context makes an answer better; it is never the reason a
+  // creator does not get one, so a database that will not answer here leaves them talking to
+  // Tala rather than looking at an error.
+  let contextMessage: null | string = null;
+  try {
+    const [draft, invitationCount] = await Promise.all([
+      context?.invitationId
+        ? loadInvitationDraft(session.supabase, context.invitationId).catch(() => null)
+        : Promise.resolve(null),
+      countInvitationDrafts(session.supabase),
+    ]);
+
+    contextMessage = helpContextMessage({
+      ...(invitationCount === null ? {} : { hasInvitations: invitationCount > 0 }),
+      ...(draft ? { invitation: { document: draft.document, manifest: draft.manifest } } : {}),
+      ...(context?.mode ? { mode: context.mode } : {}),
+      ...(context?.surface ? { surface: context.surface } : {}),
+    });
+  } catch {
+    contextMessage = null;
+  }
+
+  // Ahead of the thread rather than appended to it, so the creator's own last message stays
+  // last — the contract requires that, and an answer to the message before the question would
+  // be the wrong answer.
+  const promptMessages = contextMessage
+    ? [{ content: contextMessage, role: "user" as const }, ...messages]
+    : messages;
 
   // Spend the allowance before the provider is reached, so a creator past their cap costs
   // nothing. A refusal here is a 200 with a plain message rather than an error status: the
@@ -102,7 +141,7 @@ export async function POST(request: Request) {
         for await (const event of provider.stream(
           {
             maxOutputTokens: MAX_OUTPUT_TOKENS,
-            messages,
+            messages: promptMessages,
             systemPrompt: HELP_SYSTEM_PROMPT,
           },
           request.signal,

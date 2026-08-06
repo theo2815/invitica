@@ -362,8 +362,8 @@ describe("the creator document-proposing route", () => {
     // The whole point of the first call: a schema for every section of a wide template is
     // rejected by the provider before any model reads it.
     expect(offered.sort()).toEqual(["hero", "message"]);
-    expect(drafting?.systemPrompt).toContain("hero —");
-    expect(drafting?.systemPrompt).not.toContain("gallery —");
+    expect(drafting?.systemPrompt).toContain("(hero) —");
+    expect(drafting?.systemPrompt).not.toContain("(gallery) —");
     // Both calls are billed, so both are costed — on separate lines naming their own model,
     // which is what stops the two being summed into a total no published rate can price.
     // Asserted against the constants rather than literals: which model drafts is a config

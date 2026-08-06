@@ -1,4 +1,5 @@
 import { account } from "./account";
+import { assistant } from "./assistant";
 import { editing } from "./editing";
 import { gettingStarted } from "./getting-started";
 import { guests } from "./guests";
@@ -18,6 +19,6 @@ import { rsvps } from "./rsvps";
  * stores what, any credential, and anything from the project's internal notes. The
  * assistant repeats this material to creators, so treat every line as published copy.
  */
-export const HELP_CORPUS = [gettingStarted, editing, publishing, guests, rsvps, account]
+export const HELP_CORPUS = [gettingStarted, editing, publishing, guests, rsvps, assistant, account]
   .join("\n\n")
   .trim();

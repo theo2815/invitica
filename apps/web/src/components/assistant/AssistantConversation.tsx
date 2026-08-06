@@ -1,9 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { MAX_MESSAGE_CHARACTERS } from "../../contracts/assistant-api";
+import {
+  ASSISTANT_MODE_LABELS,
+  type AssistantMode,
+  MAX_MESSAGE_CHARACTERS,
+} from "../../contracts/assistant-api";
+import { suggestMode } from "../../lib/assistant/mode-routing";
 import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
 import { AssistantAnswer } from "./AssistantAnswer";
@@ -53,6 +58,7 @@ const FOLLOW_THRESHOLD = 120;
  */
 export function AssistantConversation({ autoFocus = false }: { autoFocus?: boolean }) {
   const {
+    abilities,
     close,
     conversations,
     editLastMessage,
@@ -75,6 +81,13 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   const [leaving, setLeaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<null | number>(null);
+  /**
+   * The tab a creator has already said no to for what they are typing.
+   *
+   * Held per tab rather than as one boolean, so dismissing a drafting suggestion does not
+   * silence a guest-list one about a different sentence later in the same message.
+   */
+  const [dismissedMode, setDismissedMode] = useState<null | AssistantMode>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -125,6 +138,20 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
     if (!draft.trim() || isAnswering) return;
     void send(draft);
     setDraft("");
+    // The dismissal belonged to the message that has now gone. The next one starts fresh.
+    setDismissedMode(null);
+  }
+
+  /**
+   * Takes the suggestion: changes what the next message does, and leaves what is typed alone.
+   *
+   * Not sending it. The creator wrote the message, so the creator sends it — and they may well
+   * want to add to it now that it is going somewhere else.
+   */
+  function switchTo(to: AssistantMode) {
+    setMode(to);
+    setDismissedMode(null);
+    composerRef.current?.focus();
   }
 
   function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -192,6 +219,29 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   const remaining = MAX_MESSAGE_CHARACTERS - draft.length;
   const drafting = mode === "document";
   const organizing = mode === "guests";
+
+  /**
+   * Which tab what they are typing belongs in, if it is plainly not this one.
+   *
+   * Run on the composer rather than on the answer, which is the whole point: the creator is
+   * offered the right tab **before** the message is spent. It is a regular expression over at
+   * most two thousand characters, so it costs nothing to run on every keystroke and nothing to
+   * be wrong about.
+   */
+  const suggestion = useMemo(
+    () =>
+      suggestMode({
+        canDraft: abilities.canDraft,
+        canOrganize: abilities.canOrganize,
+        mode,
+        text: draft,
+      }),
+    [abilities.canDraft, abilities.canOrganize, draft, mode],
+  );
+
+  // Hidden while an answer runs, because the mode buttons are disabled then and an offer that
+  // cannot be taken is just noise.
+  const offered = suggestion && suggestion.to !== dismissedMode && !isAnswering ? suggestion : null;
   // Both drafting and organizing need an invitation to work against. Off an editor, and
   // before a creator has picked one, there is nothing to offer — so the choice is not shown
   // rather than shown and refused.
@@ -251,7 +301,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
             onClick={() => setMode("help")}
             type="button"
           >
-            Answer a question
+            {ASSISTANT_MODE_LABELS.help}
           </button>
           <button
             aria-pressed={drafting}
@@ -259,7 +309,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
             onClick={() => setMode("document")}
             type="button"
           >
-            Draft my invitation
+            {ASSISTANT_MODE_LABELS.document}
           </button>
           <button
             aria-pressed={organizing}
@@ -267,7 +317,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
             onClick={() => setMode("guests")}
             type="button"
           >
-            Organize my guest list
+            {ASSISTANT_MODE_LABELS.guests}
           </button>
         </fieldset>
       ) : null}
@@ -418,6 +468,26 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           <div ref={logEndRef} />
         </div>
       )}
+
+      {offered && !showHistory ? (
+        /* Polite rather than assertive, and the text only changes when the suggested tab
+           does — so it is announced once per suggestion rather than once per keystroke. */
+        <div className={styles.routing} role="status">
+          <p className={styles.routingReason}>{offered.reason}</p>
+          <div className={styles.routingActions}>
+            <button
+              className={styles.routingSwitch}
+              onClick={() => switchTo(offered.to)}
+              type="button"
+            >
+              Switch to {ASSISTANT_MODE_LABELS[offered.to]}
+            </button>
+            <button onClick={() => setDismissedMode(offered.to)} type="button">
+              Not now
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <form className={styles.composer} onSubmit={submit}>
         <label className={styles.visuallyHidden} htmlFor="assistant-composer">

@@ -1,6 +1,7 @@
 import type { InvitationDocument } from "@invitica/invitation-schema";
 import type { TemplateManifest } from "@invitica/template-kit";
 
+import { describeInvitationSections } from "../../lib/invitations/section-vocabulary";
 import { proposableSections } from "./document-schema";
 
 /**
@@ -11,27 +12,61 @@ import { proposableSections } from "./document-schema";
  */
 export const MAX_DOCUMENT_OUTPUT_TOKENS = 8_000;
 
-/** Shared with `section-selection.ts`, so both calls describe a section the same way. */
+/**
+ * What each section is for. Shared with `section-selection.ts`, so both calls describe a
+ * section the same way.
+ *
+ * The purpose only — the type name and the creator's own title for it are composed by
+ * `sectionLines` below, which is the one place that decides how a section is named to a model.
+ */
 export const SECTION_GUIDE: Record<string, string> = {
-  attire: "attire — what guests should wear, with optional named colours and per-group codes.",
-  countdown: "countdown — the moment being counted to, plus a written form that reads on its own.",
+  attire: "what guests should wear, with optional named colours and per-group codes.",
+  countdown: "the moment being counted to, plus a written form that reads on its own.",
   "event-details":
-    "event-details — every gathering: what it is, when, and where. This is the section guests actually need.",
-  gallery: "gallery — the heading and introduction for the creator's own photographs.",
-  gifts: "gifts — gift ideas, each a short name with an optional note.",
-  guidance: "guidance — short practical notes for guests.",
-  hero: "hero — the name the invitation is for, a line of welcome, and the written date.",
-  message: "message — the invitation itself, in the host's voice, with an optional signature.",
-  participants: "participants — named groups of people with a role in the occasion.",
-  rsvp: "rsvp — how and by when to reply. Only guests with a personal link ever see it.",
-  schedule: "schedule — the order of the day, each moment with a time and a title.",
+    "every gathering: what it is, when, and where. This is the section guests actually need.",
+  gallery: "the heading and introduction for the creator's own photographs.",
+  gifts: "gift ideas, each a short name with an optional note.",
+  guidance: "short practical notes for guests.",
+  hero: "the name the invitation is for, a line of welcome, and the written date.",
+  message: "the invitation itself, in the host's voice, with an optional signature.",
+  participants: "named groups of people with a role in the occasion.",
+  rsvp: "how and by when to reply. Only guests with a personal link ever see it.",
+  schedule: "the order of the day, each moment with a time and a title.",
 };
+
+/**
+ * The sections of one invitation, named the three ways a creator might refer to them: the
+ * number on the section card, the template's own title for it, and the schema type.
+ *
+ * The number comes from `describeInvitationSections`, so it is the number the creator is
+ * actually looking at. A filtered list keeps the original numbers rather than renumbering from
+ * one — a narrowed request about sections 4 and 6 must not present them as 1 and 2, or the next
+ * thing the creator says about "section 2" means something else to each of us.
+ */
+export function sectionLines(
+  document: InvitationDocument,
+  manifest: TemplateManifest,
+  narrowedTo?: readonly string[],
+): string {
+  const proposable = new Set<string>(proposableSections(document, manifest));
+
+  return describeInvitationSections(document, manifest.rendererKey)
+    .filter((section) => proposable.has(section.type))
+    .filter((section) => !narrowedTo || narrowedTo.includes(section.type))
+    .map(
+      (section) =>
+        `- Section ${section.position}, "${section.name}" (${section.type}) — ${SECTION_GUIDE[section.type] ?? ""}`,
+    )
+    .join("\n");
+}
 
 const INSTRUCTIONS = `You draft invitation content for Invitica, a Philippine digital-invitation product. A creator describes their event and you return the invitation document as JSON matching the supplied schema.
 
 Fill only what the creator's description supports. Touch the sections their request is about and set every other section to null, so whatever they have already written stays as it is. Null keeps a section exactly as it is — it is not how you delete it, and a section you rewrite loses whatever it said before.
 
 Inside a section you are filling, leave out any field you have nothing real to put in.
+
+A creator refers to a section by the number or the title on its card in their editor — "Section 5", "the Wedding party part", "the entourage one". Every section below carries both. When they name one, fill that section and set every other to null, even if a neighbouring section looks like it could be improved too. Editing what they did not ask about is how a creator loses work they were happy with.
 
 Never invent a fact. If the creator has not given a date, a venue, a time, or a name, do not make one up and do not use a placeholder like "TBD" or "[venue name]"; leave that section out and let them fill it in. Reuse the exact spelling of every name, venue, and title the creator writes — those are theirs, not yours to correct or translate.
 
@@ -74,10 +109,7 @@ export function documentSystemPrompt(
   manifest: TemplateManifest,
   narrowedTo?: readonly string[],
 ): string {
-  const available = proposableSections(document, manifest);
-  const sections = (narrowedTo ? available.filter((type) => narrowedTo.includes(type)) : available)
-    .map((type) => `- ${SECTION_GUIDE[type] ?? type}`)
-    .join("\n");
+  const sections = sectionLines(document, manifest, narrowedTo);
 
   return [
     INSTRUCTIONS,
@@ -87,7 +119,7 @@ export function documentSystemPrompt(
     // other date in this product is written in.
     `# Today\n\n${todayInManila()}. Read every relative date the creator writes — "next year", "this March", "next Saturday" — against this.`,
     `# This template\n\n${manifest.listing.name} — ${manifest.listing.occasion}. ${manifest.listing.description}`,
-    `# Sections you may fill\n\nThese are the only sections this invitation has. The schema will not accept any other, and naming one is the single thing that makes a draft unusable.\n\n${sections}`,
+    `# Sections you may fill\n\nThese are the only sections this invitation has. The schema will not accept any other, and naming one is the single thing that makes a draft unusable. The number is the one printed on that section's card in the creator's editor, so it is what they mean by "Section 5".\n\n${sections}`,
     "# Creator content follows",
   ].join("\n\n");
 }

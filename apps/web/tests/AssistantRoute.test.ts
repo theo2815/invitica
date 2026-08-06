@@ -39,6 +39,23 @@ function signedIn() {
 }
 
 /**
+ * A creator whose invitation count can actually be read.
+ *
+ * The plain `signedIn` stub has no `from`, which is the unreachable-database case: context
+ * resolution fails, the count is unknown, and the answer still has to arrive. Both are worth
+ * covering, so they are separate helpers rather than one that hides the difference.
+ */
+function signedInWithInvitations(count: number) {
+  vi.mocked(getOptionalConfirmedUser).mockResolvedValue({
+    supabase: {
+      from: () => ({ select: async () => ({ count, error: null }) }),
+      rpc: vi.fn(),
+    } as never,
+    user: { id: creatorId } as never,
+  });
+}
+
+/**
  * The help route answers by streaming and must never reach the structured path, so the stub
  * throws there rather than returning something plausible. A help request that started
  * calling `generate` would fail loudly here instead of quietly changing what it costs.
@@ -153,6 +170,100 @@ describe("the creator assistant route", () => {
     expect(sent.systemPrompt).toContain("Invitica help material");
     expect(sent.messages).toEqual([{ content: "How do I send personalized links?", role: "user" }]);
     expect(sent.maxOutputTokens).toBeLessThanOrEqual(600);
+  });
+
+  it("sends the creator's situation as a message, never in the cacheable prefix", async () => {
+    signedInWithInvitations(0);
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const stream = stubProvider([
+      { text: "Open Templates.", type: "text" },
+      { stopReason: "end_turn", type: "complete", usage },
+    ]);
+
+    const response = await POST(
+      request({
+        context: { mode: "help", surface: "Overview" },
+        messages: [{ content: "Can you help me create my first invitation?", role: "user" }],
+      }),
+    );
+    await response.text();
+
+    const sent = stream.mock.calls[0]?.[0] as AssistantRequest;
+
+    // The prefix is what prompt caching reads. A creator's route or invitation inside it would
+    // vary per request and quietly cost full price on every message. Asserted on the context
+    // block's own framing rather than on a word like "Overview", which the help corpus
+    // legitimately contains.
+    expect(sent.systemPrompt).not.toContain("Invitica's own record of where I am");
+    expect(sent.systemPrompt).not.toContain("They are on:");
+
+    expect(sent.messages).toHaveLength(2);
+    expect(sent.messages[0]?.role).toBe("user");
+    expect(sent.messages[0]?.content).toContain("They are on: Overview");
+    expect(sent.messages[0]?.content).toContain("have not made an invitation yet");
+
+    // The creator's question stays last. The contract requires it, and answering the message
+    // before it would answer the wrong thing.
+    expect(sent.messages.at(-1)).toEqual({
+      content: "Can you help me create my first invitation?",
+      role: "user",
+    });
+  });
+
+  it("answers without context rather than failing when the database will not describe it", async () => {
+    // `signedIn` has no `from`, so the count throws and no invitation was named.
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const stream = stubProvider([
+      { text: "Open Templates.", type: "text" },
+      { stopReason: "end_turn", type: "complete", usage },
+    ]);
+
+    const response = await POST(
+      request({
+        context: { mode: "help" },
+        messages: [{ content: "How do I start?", role: "user" }],
+      }),
+    );
+
+    expect(await response.text()).toBe("Open Templates.");
+
+    const sent = stream.mock.calls[0]?.[0] as AssistantRequest;
+    const contextLine = sent.messages[0]?.content ?? "";
+    expect(contextLine).not.toContain("have not made an invitation");
+    expect(sent.messages.at(-1)).toEqual({ content: "How do I start?", role: "user" });
+  });
+
+  it("ignores an invitation the creator does not own instead of refusing the answer", async () => {
+    vi.mocked(getOptionalConfirmedUser).mockResolvedValue({
+      supabase: {
+        // RLS returns no row for someone else's invitation, which is the same answer as an
+        // id that does not exist. Either way the creator still gets their question answered.
+        from: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+          select: async () => ({ count: 2, error: null }),
+        }),
+        rpc: vi.fn(),
+      } as never,
+      user: { id: creatorId } as never,
+    });
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const stream = stubProvider([
+      { text: "Here is how.", type: "text" },
+      { stopReason: "end_turn", type: "complete", usage },
+    ]);
+
+    const response = await POST(
+      request({
+        context: { invitationId: "d1000000-0000-4000-8000-000000000009", mode: "help" },
+        messages: [{ content: "What does Section 5 do?", role: "user" }],
+      }),
+    );
+
+    expect(await response.text()).toBe("Here is how.");
+
+    const sent = stream.mock.calls[0]?.[0] as AssistantRequest;
+    expect(sent.messages[0]?.content).not.toContain("Garden Promise");
   });
 
   it("logs request metadata and never the question or the answer", async () => {

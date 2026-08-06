@@ -29,7 +29,58 @@ const conversationSchema = z
     message: "The last message must come from the creator.",
   });
 
-export const assistantRequestSchema = z.object({ messages: conversationSchema });
+/**
+ * What the assistant does with the next thing the creator types.
+ *
+ * Explicit rather than inferred. "How do I publish?", "make it a garden wedding", and a
+ * pasted guest list are three requests to three endpoints at three costs, and the only way to
+ * tell them apart automatically would be to ask a model first — a billed call to decide where
+ * to send the next one.
+ *
+ * It lives in the contract because the client picks it, the request carries it, and the server
+ * validates it. Three separate spellings of the same three words is one place too many.
+ */
+export const assistantModeSchema = z.enum(["document", "guests", "help"]);
+
+export type AssistantMode = z.infer<typeof assistantModeSchema>;
+
+/**
+ * The name of each mode's tab, exactly as it reads on the button.
+ *
+ * One owner, because these strings appear in three places that must agree: the tab itself, the
+ * suggestion offering to switch to it, and the sentence telling Tala which tab the creator is
+ * typing into. Tala naming a tab the creator cannot find is worse than saying nothing.
+ */
+export const ASSISTANT_MODE_LABELS: Record<AssistantMode, string> = {
+  document: "Draft my invitation",
+  guests: "Organize my guest list",
+  help: "Answer a question",
+};
+
+/**
+ * Where the creator is standing when they ask.
+ *
+ * Every field is optional, because the widget floats over routes that know none of it and an
+ * answer without context is still an answer. What it buys is the difference between "I cannot
+ * help you with that" and the four steps: a creator on the Templates page with no invitations
+ * yet needs a different sentence than one inside an editor.
+ *
+ * None of it is trusted for anything that matters. `invitationId` is re-resolved server-side
+ * under the creator's own session, so the client cannot describe someone else's invitation as
+ * its own; `surface` and `mode` only shape wording, and the worst a wrong one produces is Tala
+ * naming the wrong page.
+ */
+export const assistantContextSchema = z.object({
+  /** The invitation in context, if any. Re-loaded server-side under the creator's session. */
+  invitationId: z.string().uuid().optional(),
+  mode: assistantModeSchema.optional(),
+  surface: z.string().trim().max(120).optional(),
+});
+
+export const assistantRequestSchema = z.object({
+  context: assistantContextSchema.optional(),
+  messages: conversationSchema,
+});
 
 /**
  * A document proposal is asked for against one invitation, named by id rather than sent as

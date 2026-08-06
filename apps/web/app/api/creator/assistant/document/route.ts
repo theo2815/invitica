@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { assistantDocumentRequestSchema } from "../../../../../src/contracts/assistant-api";
+import {
+  ASSISTANT_MODE_LABELS,
+  assistantDocumentRequestSchema,
+} from "../../../../../src/contracts/assistant-api";
 import {
   budgetRefusalMessage,
   consumeAssistantMessage,
@@ -199,11 +202,14 @@ export async function POST(request: Request) {
     // The creator's message was not about the invitation's content, or was too vague to
     // place. Saying so is more useful than drafting a whole invitation nobody asked for,
     // and it costs one cheap call rather than the expensive one.
+    //
+    // The likeliest reason a message lands here is that it was a question about how Invitica
+    // works, asked from the wrong tab. The composer offers to move those before they are sent;
+    // this is the net underneath, and it is Invitica's own sentence rather than the model's.
     log("rejected_proposal", messages.length);
     return NextResponse.json(
       {
-        message:
-          "I could not tell which part of the invitation to change. Try naming it — the date and venue, the programme, what to wear, or how to reply.",
+        message: `I could not tell which part of the invitation to change. Try naming it — the date and venue, the programme, what to wear, or how to reply. If you were asking how something in Invitica works, ask me again in ${ASSISTANT_MODE_LABELS.help}.`,
         status: "refused",
       },
       { headers: assistantResponseHeaders, status: 200 },

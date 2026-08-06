@@ -1,6 +1,7 @@
 "use client";
 
 import type { InvitationDocument } from "@invitica/invitation-schema";
+import { usePathname } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -14,6 +15,7 @@ import {
 import {
   type AssistantApiMessage,
   type AssistantConversationSummary,
+  type AssistantMode,
   conversationTitle,
   conversationWindow,
   type ParsedGuestParty,
@@ -30,14 +32,44 @@ import { requestGuestParties } from "./guest-parsing";
 export type AssistantStatus = "answering" | "idle";
 
 /**
- * What the assistant does with the next thing the creator types.
+ * The page the creator is on, in the words they would use for it.
  *
- * Explicit rather than inferred. "How do I publish?", "make it a garden wedding", and a
- * pasted guest list are three requests to three endpoints at three costs, and the only way
- * to tell them apart automatically would be to ask a model first — a billed call to decide
- * where to send the next one.
+ * Named rather than sent as a path, because the answer this shapes is a sentence a creator
+ * reads — "you are already on the Templates page" is useful, "you are on /dashboard/templates"
+ * is Invitica talking to itself. Unknown routes send nothing at all.
  */
-export type AssistantMode = "document" | "guests" | "help";
+function describeSurface(pathname: null | string): string | undefined {
+  if (!pathname) return undefined;
+
+  if (pathname === "/dashboard") return "Overview";
+  if (pathname === "/dashboard/templates") return "the Templates catalog";
+  if (pathname === "/dashboard/invitations") return "their Invitations library";
+  if (pathname === "/dashboard/guests") return "Guests & RSVPs, the Guest Desk";
+  if (pathname === "/dashboard/assistant") return "the full Tala page";
+  if (pathname.startsWith("/dashboard/invitations/")) return "the invitation editor";
+
+  return undefined;
+}
+
+export type { AssistantMode };
+
+/**
+ * What Tala can actually do with the invitation currently in context.
+ *
+ * Neither of these is knowable from the id alone, and both decide whether a tab leads
+ * somewhere: drafting needs the shared section-document editor, because the legacy Garden
+ * Promise v1 editor has no surface that can apply a proposal, and organizing needs a published
+ * invitation, because guest parties belong to one.
+ *
+ * Whoever sets the invitation states them, and both default to false. A wrong false costs a
+ * suggestion that was not made; a wrong true sends a creator to a tab that refuses them.
+ */
+export interface AssistantInvitationAbilities {
+  canDraft: boolean;
+  canOrganize: boolean;
+}
+
+const NO_ABILITIES: AssistantInvitationAbilities = { canDraft: false, canOrganize: false };
 
 /**
  * A drafted invitation waiting for the creator to accept it.
@@ -74,6 +106,8 @@ export interface AssistantGuestList {
 }
 
 interface AssistantContextValue {
+  /** What the invitation in context supports. All false when none is selected. */
+  abilities: AssistantInvitationAbilities;
   clearGuestList: () => void;
   clearProposal: () => void;
   close: () => void;
@@ -99,7 +133,14 @@ interface AssistantContextValue {
   proposal: AssistantProposal | null;
   refreshConversations: () => Promise<void>;
   send: (text: string) => Promise<void>;
-  setInvitationId: (invitationId: null | string) => void;
+  /**
+   * Names the invitation Tala is working against, and what may be done with it.
+   *
+   * The abilities travel with the id rather than in a setter of their own, so there is no
+   * moment where the two disagree — an invitation swapped without them would otherwise keep
+   * the last one's.
+   */
+  setInvitationId: (invitationId: null | string, abilities?: AssistantInvitationAbilities) => void;
   setMode: (mode: AssistantMode) => void;
   /** Starts a fresh thread. The one on screen stays in history rather than being lost. */
   startNewConversation: () => void;
@@ -147,13 +188,15 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<null | string>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AssistantMode>("help");
-  const [invitationId, setInvitationId] = useState<null | string>(null);
+  const [invitationId, setInvitationIdState] = useState<null | string>(null);
+  const [abilities, setAbilities] = useState<AssistantInvitationAbilities>(NO_ABILITIES);
   const [proposal, setProposal] = useState<AssistantProposal | null>(null);
   const [guestList, setGuestList] = useState<AssistantGuestList | null>(null);
   const [conversationId, setConversationIdState] = useState<null | string>(null);
   const [conversations, setConversations] = useState<AssistantConversationSummary[]>([]);
   const [historyStatus, setHistoryStatus] = useState<AssistantHistoryStatus>("idle");
   const [stopped, setStopped] = useState(false);
+  const surface = describeSurface(usePathname());
   // One answer at a time. Without this a second Enter while the first answer is still
   // streaming would spend a second message from the daily allowance and interleave the two.
   const inFlight = useRef(false);
@@ -179,6 +222,16 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     conversationIdRef.current = next;
     setConversationIdState(next);
   }, []);
+
+  const setInvitationId = useCallback(
+    (next: null | string, nextAbilities?: AssistantInvitationAbilities) => {
+      setInvitationIdState(next);
+      // Releasing the invitation releases the abilities with it. Left behind, they would
+      // describe an invitation that is no longer on screen.
+      setAbilities(next && nextAbilities ? nextAbilities : NO_ABILITIES);
+    },
+    [],
+  );
 
   const refreshConversations = useCallback(async () => {
     try {
@@ -352,7 +405,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await fetch("/api/creator/assistant", {
-          body: JSON.stringify({ messages: conversationWindow(history) }),
+          body: JSON.stringify({
+            // What the creator can see from where they are standing. The server re-resolves
+            // the invitation under their own session and treats the rest as wording input,
+            // so nothing here is trusted for more than choosing a sentence.
+            context: {
+              mode,
+              ...(invitationId ? { invitationId } : {}),
+              ...(surface ? { surface } : {}),
+            },
+            messages: conversationWindow(history),
+          }),
           headers: { "content-type": "application/json" },
           method: "POST",
           signal: controller.signal,
@@ -398,7 +461,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         void persist(settled);
       }
     },
-    [invitationId, messages, mode, persist],
+    [invitationId, messages, mode, persist, surface],
   );
 
   const stop = useCallback(() => {
@@ -509,6 +572,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AssistantContextValue>(
     () => ({
+      abilities,
       clearGuestList,
       clearProposal,
       close: () => setIsOpen(false),
@@ -536,6 +600,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       stopped,
     }),
     [
+      abilities,
       clearGuestList,
       clearProposal,
       conversationId,
@@ -553,6 +618,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       proposal,
       refreshConversations,
       send,
+      setInvitationId,
       startNewConversation,
       status,
       stop,

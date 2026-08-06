@@ -1491,6 +1491,7 @@ export function GuestDesk({
 
       {messageEditorOpen && selectedInvitation ? (
         <GuestShareMessageEditor
+          assistantAvailable={assistantAvailable}
           invitation={selectedInvitation}
           onClose={() => {
             setMessageEditorOpen(false);

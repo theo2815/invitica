@@ -2,16 +2,27 @@
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import {
+  type AssistantApiMessage,
+  MAX_MESSAGE_CHARACTERS,
+  shareMessageConversationPayload,
+  shareMessageQuestionsMessage,
+  shareMessageWrittenMessage,
+} from "../../contracts/assistant-api";
 import { saveInvitationShareMessagesAction } from "../../server/guests/actions";
 import type { GuestInvitationSummary } from "../../server/guests/guests";
 import {
   buildGeneralInvitationMessage,
   buildPersonalInvitationMessage,
 } from "../../server/guests/sharing";
+import { AssistantAnswer } from "../assistant/AssistantAnswer";
+import { requestShareMessages } from "../assistant/message-writing";
 import { Close } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
 interface GuestShareMessageEditorProps {
+  /** False when `ASSISTANT_ENABLED` is off or no key is configured. Hides the Tala path only. */
+  assistantAvailable?: boolean;
   invitation: GuestInvitationSummary;
   onClose: () => void;
   /** `cleared` is true when both fields were emptied, restoring Invitica's own wording. */
@@ -43,6 +54,7 @@ function previewOf(
 }
 
 export function GuestShareMessageEditor({
+  assistantAvailable = false,
   invitation,
   onClose,
   onSaved,
@@ -54,11 +66,22 @@ export function GuestShareMessageEditor({
   const [general, setGeneral] = useState(invitation.generalShareMessage ?? "");
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [request, setRequest] = useState("");
+  const [isWriting, setIsWriting] = useState(false);
+  /**
+   * The exchange with Tala inside this dialog.
+   *
+   * Local, and deliberately not the floating panel's thread: this conversation is about two
+   * fields on this screen, it ends when the dialog closes, and it is not saved to history.
+   */
+  const [thread, setThread] = useState<AssistantApiMessage[]>([]);
 
   useEffect(() => {
     firstFieldRef.current?.focus();
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPending) {
+      // Closing mid-write would discard an answer that has already been billed, so the dialog
+      // holds until it lands — the same rule the Add guests composer follows.
+      if (event.key === "Escape" && !isPending && !isWriting) {
         event.preventDefault();
         onClose();
         return;
@@ -82,13 +105,73 @@ export function GuestShareMessageEditor({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, onClose]);
+  }, [isPending, isWriting, onClose]);
 
   const preview = previewOf(invitation, personal, general);
+  // Whether there is already wording for a change to apply to — Tala's or the creator's own.
+  // Either way the next message is a revision rather than a first request, and the box says so.
+  const written = thread.length > 0 || personal.trim().length > 0 || general.trim().length > 0;
   // The general link opens the invitation for reading and cannot authorize a party RSVP, so a
   // custom message that asks for one would promise something the link cannot deliver. Worth
   // saying out loud, not worth blocking: it is the creator's message.
   const generalPromisesReply = /\brsvp\b|\breply\b|\brespond\b/i.test(general);
+
+  /**
+   * Asks Tala for wording and puts what comes back into the fields.
+   *
+   * The fields as they stand go with the request, so "make it shorter" shortens what is on
+   * screen — which may be Tala's last answer, the creator's edit of it, or wording they saved
+   * weeks ago. Without that the model would only ever be revising its own previous reply.
+   *
+   * A message Tala left alone is left alone here too, so asking about the personal wording
+   * never quietly rewrites the general one. Nothing is saved: this fills the same fields the
+   * creator types into, and their own Save is still the only thing that commits.
+   *
+   * One turn spends one message from the daily Tala allowance, the same as a question.
+   */
+  async function write() {
+    const text = request.trim();
+    if (!text || isWriting || isPending) return;
+
+    const current = { general: general.trim() || null, personal: personal.trim() || null };
+    const turn: AssistantApiMessage[] = [...thread, { content: text, role: "user" }];
+
+    setThread(turn);
+    setRequest("");
+    setIsWriting(true);
+    setMessage(null);
+
+    const result = await requestShareMessages(
+      invitation.invitationId,
+      shareMessageConversationPayload(turn, current),
+    );
+
+    if (result.status === "refused") {
+      // The request stays in the thread so it can be read and asked again, which is the rule
+      // the floating panel already follows for a refused turn.
+      setMessage(result.message);
+      setIsWriting(false);
+      return;
+    }
+
+    if (result.status === "questions") {
+      setThread([
+        ...turn,
+        { content: shareMessageQuestionsMessage(result.questions), role: "assistant" },
+      ]);
+      setIsWriting(false);
+      return;
+    }
+
+    if (result.personal !== null) setPersonal(result.personal);
+    if (!personalOnly && result.general !== null) setGeneral(result.general);
+
+    setThread([
+      ...turn,
+      { content: shareMessageWrittenMessage(result.questions), role: "assistant" },
+    ]);
+    setIsWriting(false);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -140,7 +223,7 @@ export function GuestShareMessageEditor({
           <button
             aria-label="Close invitation message editor"
             className={styles.modalClose}
-            disabled={isPending}
+            disabled={isPending || isWriting}
             onClick={onClose}
             type="button"
           >
@@ -149,10 +232,73 @@ export function GuestShareMessageEditor({
         </header>
 
         <form
-          aria-busy={isPending || undefined}
+          aria-busy={isPending || isWriting || undefined}
           className={styles.editPartyForm}
           onSubmit={(event) => void submit(event)}
         >
+          {assistantAvailable ? (
+            <section className={styles.organizer}>
+              <label htmlFor="share-message-request">
+                <span>
+                  {written ? "Tell Tala what to change" : "Describe it and let Tala write it"}
+                </span>
+                <small>
+                  {written
+                    ? "Tala can see what is in the fields, so say what to change — shorter, warmer, mention something in particular. Each message uses one of today's Tala messages."
+                    : "Say how you want it to sound and what it should mention. Tala fills the fields below and you edit or save it yourself — nothing is sent to anyone."}
+                </small>
+              </label>
+
+              {/*
+                The exchange, not the wording.
+
+                Tala's replies here are one sentence and any questions under it; the message
+                itself goes into the fields and its preview, where a creator reads it against
+                real invitation data rather than as a quotation inside a chat.
+              */}
+              {thread.length > 0 ? (
+                <ol className={styles.organizerThread}>
+                  {thread.map((entry, index) => (
+                    // Append-only within this dialog and never reordered, so the position is a
+                    // stable identity where the text is not.
+                    <li data-role={entry.role} key={index}>
+                      <span className={styles.organizerRole}>
+                        {entry.role === "user" ? "You" : "Tala"}
+                      </span>
+                      {entry.role === "assistant" ? (
+                        <AssistantAnswer text={entry.content} />
+                      ) : (
+                        <p>{entry.content}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+
+              <textarea
+                disabled={isPending || isWriting}
+                id="share-message-request"
+                maxLength={MAX_MESSAGE_CHARACTERS}
+                onChange={(event) => setRequest(event.target.value)}
+                placeholder={
+                  written
+                    ? "Shorter, and mention that it is a garden ceremony"
+                    : "Warm but short, and call them by their nickname"
+                }
+                rows={3}
+                value={request}
+              />
+              <button
+                className={styles.organizeAction}
+                disabled={isPending || isWriting || request.trim().length === 0}
+                onClick={() => void write()}
+                type="button"
+              >
+                {isWriting ? "Writing…" : written ? "Send to Tala" : "Write with Tala"}
+              </button>
+            </section>
+          ) : null}
+
           {/*
             The label wraps nothing here: a hint inside a <label> becomes part of the field's
             accessible name, so screen-reader users would hear the whole placeholder list every
@@ -162,7 +308,7 @@ export function GuestShareMessageEditor({
             <label htmlFor="personal-share-message">Personal message, for one guest party</label>
             <textarea
               aria-describedby="personal-share-message-hint"
-              disabled={isPending}
+              disabled={isPending || isWriting}
               id="personal-share-message"
               maxLength={2000}
               onChange={(event) => setPersonal(event.currentTarget.value)}
@@ -185,7 +331,7 @@ export function GuestShareMessageEditor({
               </label>
               <textarea
                 aria-describedby="general-share-message-hint"
-                disabled={isPending}
+                disabled={isPending || isWriting}
                 id="general-share-message"
                 maxLength={2000}
                 onChange={(event) => setGeneral(event.currentTarget.value)}
@@ -227,7 +373,7 @@ export function GuestShareMessageEditor({
           ) : null}
           <div className={styles.dialogActions}>
             <button
-              disabled={isPending || (!personal && (personalOnly || !general))}
+              disabled={isPending || isWriting || (!personal && (personalOnly || !general))}
               onClick={() => {
                 setPersonal("");
                 if (!personalOnly) setGeneral("");
@@ -237,10 +383,10 @@ export function GuestShareMessageEditor({
             >
               Reset to default
             </button>
-            <button disabled={isPending} onClick={onClose} type="button">
+            <button disabled={isPending || isWriting} onClick={onClose} type="button">
               Cancel
             </button>
-            <button disabled={isPending} type="submit">
+            <button disabled={isPending || isWriting} type="submit">
               {isPending ? "Saving..." : "Save message"}
             </button>
           </div>

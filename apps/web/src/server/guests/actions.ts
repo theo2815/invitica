@@ -24,11 +24,8 @@ import {
   updateInvitationShareMessages,
 } from "./guests";
 import { guestNamesSchema, guestPartyInputSchema } from "./party-input";
-import {
-  buildPersonalInvitationMessage,
-  GENERAL_MESSAGE_TOKENS,
-  PERSONAL_MESSAGE_TOKENS,
-} from "./sharing";
+import { generalShareMessageSchema, personalShareMessageSchema } from "./share-message-input";
+import { buildPersonalInvitationMessage } from "./sharing";
 import {
   decryptGuestLinkToken,
   encryptGuestLinkToken,
@@ -235,33 +232,10 @@ export async function setGuestInvitationSentAction(
   }
 }
 
-/**
- * A creator-authored message. Blank clears the customisation and restores the generated default,
- * which is why an empty string is accepted rather than rejected.
- */
-function shareMessageSchema(allowed: readonly string[]) {
-  return z
-    .string()
-    .max(2000)
-    .transform((value) => value.trim())
-    .refine(
-      (value) => value === "" || value.includes("{link}"),
-      "Keep {link} so guests can open the invitation.",
-    )
-    .refine((value) => {
-      for (const [, token] of value.matchAll(/\{([a-zA-Z]+)\}/g)) {
-        // An unrecognised placeholder would be pasted to a guest as literal "{name}" text.
-        if (!allowed.includes(token as string)) return false;
-      }
-      return true;
-    }, "Use only the placeholders listed below.")
-    .transform((value) => (value === "" ? null : value));
-}
-
 const shareMessagesSchema = z.strictObject({
-  general: shareMessageSchema(GENERAL_MESSAGE_TOKENS),
+  general: generalShareMessageSchema,
   invitationId: uuidSchema,
-  personal: shareMessageSchema(PERSONAL_MESSAGE_TOKENS),
+  personal: personalShareMessageSchema,
 });
 
 /** Saves the creator's own share wording, or clears it back to the generated default. */

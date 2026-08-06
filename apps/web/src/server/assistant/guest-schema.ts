@@ -17,6 +17,19 @@
 export const MAX_GUEST_OUTPUT_TOKENS = 4_000;
 
 /**
+ * How many questions one unclear list may come back with.
+ *
+ * The same numbers the drafting intake settled on, and for the same founder decision: a
+ * creator has twenty messages a day, so asking one thing per turn would spend the day on an
+ * interview. Bounded here rather than in the schema because the structured-output subset
+ * rejects `maxItems` outright.
+ */
+export const MAX_GUEST_QUESTIONS = 5;
+
+/** Long enough for a real question about a list, short enough that five fit in a reply. */
+export const MAX_GUEST_QUESTION_CHARACTERS = 200;
+
+/**
  * `singleRecipient` is the Romance branch, and it is expressed by leaving fields out rather
  * than by asking for them and checking the answer.
  *
@@ -50,8 +63,20 @@ export function buildGuestPartySchema(singleRecipient: boolean): Record<string, 
         },
         type: "array",
       },
+      /**
+       * The second outcome, and it costs nothing to offer.
+       *
+       * The drafting path needed a whole extra call to reach the same two answers, because a
+       * whole-invitation grammar will not compile beside anything else. This grammar is one
+       * flat array, so a second array of strings sits next to it comfortably — the questions
+       * come back from the call that was already being made.
+       *
+       * Required rather than optional, so it spends nothing against the optional-parameter
+       * ceiling. An empty array is how the model says it has nothing to ask.
+       */
+      questions: { items: { type: "string" }, type: "array" },
     },
-    required: ["parties"],
+    required: ["parties", "questions"],
     type: "object",
   };
 }

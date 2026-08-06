@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 
-import { assistantGuestsRequestSchema } from "../../../../../src/contracts/assistant-api";
+import { assistantMessageRequestSchema } from "../../../../../src/contracts/assistant-api";
 import {
   budgetRefusalMessage,
   consumeAssistantMessage,
   markAssistantMisconfigured,
 } from "../../../../../src/server/assistant/budget";
 import {
-  ASSISTANT_GUESTS_MODEL,
+  ASSISTANT_MESSAGE_MODEL,
   createClaudeProvider,
 } from "../../../../../src/server/assistant/claude";
-import { guestListSystemPrompt } from "../../../../../src/server/assistant/guest-prompt";
-import { resolveGuestPartyProposal } from "../../../../../src/server/assistant/guest-proposal";
-import {
-  buildGuestPartySchema,
-  MAX_GUEST_OUTPUT_TOKENS,
-} from "../../../../../src/server/assistant/guest-schema";
 import { logAssistantRequest } from "../../../../../src/server/assistant/log";
+import { shareMessageSystemPrompt } from "../../../../../src/server/assistant/message-prompt";
+import { resolveShareMessageProposal } from "../../../../../src/server/assistant/message-proposal";
+import {
+  buildShareMessageSchema,
+  MAX_MESSAGE_OUTPUT_TOKENS,
+} from "../../../../../src/server/assistant/message-schema";
 import {
   type AssistantFailure,
   AssistantProviderError,
@@ -27,13 +27,13 @@ import { loadDeliveredGuestInvitation } from "../../../../../src/server/guests/g
 import { readJsonRequest } from "../../guest-desk/responses";
 
 /**
- * Larger than the document route's ceiling, because the creator's own paste is the payload
- * here rather than a short description of one. Twenty messages at the contract's 2,000
- * characters, plus an invitation id.
+ * Sized like the guest route rather than the document one. The creator's current wording
+ * rides in the conversation, so a thread can carry two 2,000-character messages per turn on
+ * top of what they typed.
  */
 const MAX_REQUEST_BYTES = 48_000;
 
-/** One call, but a fifty-row answer. Sized like the document route for the same reason. */
+/** Two short templates. Well inside the ceiling the document route needs. */
 export const maxDuration = 60;
 
 const assistantResponseHeaders = {
@@ -53,8 +53,8 @@ function assistantError(message: string, status: number) {
 export async function POST(request: Request) {
   const startedAt = Date.now();
 
-  // Same order as the other two assistant routes: the cheapest gate first, the budget before
-  // the provider, and nothing billed for a request that was never going to be answered.
+  // The same order as the other three assistant routes: the cheapest gate first, the budget
+  // before the provider, and nothing billed for a request that was never going to be answered.
   const session = await getOptionalConfirmedUser();
   if (!session) return assistantError("Sign in again to continue.", 401);
 
@@ -70,9 +70,9 @@ export async function POST(request: Request) {
       creatorId,
       durationMs: Date.now() - startedAt,
       messageCount,
-      model: ASSISTANT_GUESTS_MODEL,
+      model: ASSISTANT_MESSAGE_MODEL,
       outcome,
-      stage: "guests",
+      stage: "message",
       ...(failure ? { failure } : {}),
       ...(usage ? { usage } : {}),
     });
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     return assistantError("That assistant request is not valid.", 400);
   }
 
-  const parsed = assistantGuestsRequestSchema.safeParse(body.input);
+  const parsed = assistantMessageRequestSchema.safeParse(body.input);
   if (!parsed.success) {
     log("invalid", 0);
     return assistantError("That assistant request is not valid.", 400);
@@ -92,9 +92,10 @@ export async function POST(request: Request) {
 
   const { invitationId, messages } = parsed.data;
 
-  // Guest parties belong to a published invitation, so this is the same load the Guest Desk
-  // and `createGuestPartiesAction` use — under the creator's own session, where RLS decides
-  // ownership. An invitation that is not theirs and one that is not published answer alike.
+  // The share message belongs to a published invitation — it carries its link. This is the
+  // same load the Guest Desk and `saveInvitationShareMessagesAction` use, under the creator's
+  // own session where RLS decides ownership. An invitation that is not theirs and one that is
+  // not published answer alike.
   const { data: workspaceId } = await session.supabase.rpc("ensure_personal_workspace");
   const invitation =
     typeof workspaceId === "string"
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
   if (!invitation) {
     log("invalid", messages.length);
     return assistantError(
-      "That invitation is not published yet, so it has no guest list. Publish it first.",
+      "That invitation is not published yet, so it has no link to write a message about. Publish it first.",
       404,
     );
   }
@@ -120,17 +121,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const singleRecipient = invitation.occasion === "Romance";
-  const provider = createClaudeProvider(ASSISTANT_GUESTS_MODEL);
+  const personalOnly = invitation.occasion === "Romance";
+  const provider = createClaudeProvider(ASSISTANT_MESSAGE_MODEL);
 
   let generation: Awaited<ReturnType<typeof provider.generate>>;
   try {
     generation = await provider.generate(
       {
-        maxOutputTokens: MAX_GUEST_OUTPUT_TOKENS,
+        maxOutputTokens: MAX_MESSAGE_OUTPUT_TOKENS,
         messages,
-        outputSchema: buildGuestPartySchema(singleRecipient),
-        systemPrompt: guestListSystemPrompt(singleRecipient, invitation.occasion),
+        outputSchema: buildShareMessageSchema(personalOnly),
+        systemPrompt: shareMessageSystemPrompt(invitation, personalOnly),
       },
       request.signal,
     );
@@ -146,7 +147,7 @@ export async function POST(request: Request) {
         message:
           error instanceof AssistantProviderError
             ? error.message
-            : "Tala could not organize that list. Try again in a moment.",
+            : "Tala could not write that message. Try again in a moment.",
         status: "refused",
       },
       { headers: assistantResponseHeaders, status: 200 },
@@ -154,30 +155,29 @@ export async function POST(request: Request) {
   }
 
   // The only path from model output to the client. Everything below has passed the same
-  // schema `createGuestPartiesAction` validates against; `generation.output` is never
-  // serialized into a response, and a refusal quotes nothing the model said.
-  const proposal = resolveGuestPartyProposal(generation.output, singleRecipient);
+  // schema the save validates against, so a proposal that would be rejected on save is never
+  // offered; `generation.output` is never serialized into a response, and a refusal quotes
+  // nothing the model said.
+  const proposal = resolveShareMessageProposal(generation.output, personalOnly);
 
   if (proposal.status === "rejected") {
     log("rejected_proposal", messages.length, generation.usage);
     return NextResponse.json(
       {
         message:
-          proposal.reason === "no_parties"
-            ? "Tala could not find any guests in that. Paste the list itself — one guest or family per line."
-            : "That list came back unreadable, so nothing was added. Try pasting it again.",
+          proposal.reason === "no_messages"
+            ? "Tala could not write a usable message from that. Say what you want it to sound like, or what it should mention."
+            : "That message came back unreadable, so nothing was changed. Try asking again.",
         status: "refused",
       },
       { headers: assistantResponseHeaders, status: 200 },
     );
   }
 
-  // Nothing to sort, but something worth asking. Logged as its own outcome so the share of
-  // turns that end in a question is readable rather than hidden inside `completed`.
   if (proposal.status === "questions") {
     log("asked_questions", messages.length, generation.usage);
     return NextResponse.json(
-      { invitationId, questions: proposal.questions, status: "questions" },
+      { questions: proposal.questions, status: "questions" },
       { headers: assistantResponseHeaders, status: 200 },
     );
   }
@@ -186,10 +186,10 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     {
-      invitationId,
-      parties: proposal.parties,
+      general: proposal.messages.general,
+      personal: proposal.messages.personal,
       questions: proposal.questions,
-      status: "parsed",
+      status: "written",
     },
     { headers: assistantResponseHeaders, status: 200 },
   );

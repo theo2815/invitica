@@ -19,6 +19,9 @@ import {
   conversationTitle,
   conversationWindow,
   draftedMessage,
+  guestConversationPayload,
+  guestListMessage,
+  guestQuestionsMessage,
   intakeQuestionsMessage,
   type ParsedGuestParty,
 } from "../../contracts/assistant-api";
@@ -388,9 +391,15 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       if (organizing) {
         setMessages(history);
 
+        // The rows already on screen ride with the turn, so "the Santos family is six" is
+        // answered against the list the creator is looking at rather than re-derived from
+        // their first paste. Built here and never stored: it must not enter the thread, and
+        // through the thread, history.
+        const carried = guestList?.invitationId === invitationId ? guestList.parties : undefined;
+
         const result = await requestGuestParties(
           invitationId,
-          conversationWindow(history),
+          guestConversationPayload(history, carried),
           controller.signal,
         );
 
@@ -408,17 +417,28 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Nothing could be sorted, and Tala said what it needs. The rows already on screen
+        // stay exactly as they are — a question is not a reason to take them away.
+        if (result.status === "questions") {
+          const asked: AssistantApiMessage[] = [
+            ...history,
+            { content: guestQuestionsMessage(result.questions), role: "assistant" },
+          ];
+          setMessages(asked);
+          settle();
+          void persist(asked);
+          return;
+        }
+
         setGuestList({ invitationId, parties: result.parties });
         // Invitica's own sentence, not the model's. The rows themselves are the answer and
         // they are listed underneath where a creator can count them; restating them as
-        // prose would be a second, less reliable copy of other people's names.
+        // prose would be a second, less reliable copy of other people's names. Any questions
+        // after it are the model's own words, because they are about this creator's list.
         const answered: AssistantApiMessage[] = [
           ...history,
           {
-            content:
-              result.parties.length === 1
-                ? "I found 1 invitation in that list. Open the Guest Desk to check it before anything is created."
-                : `I found ${result.parties.length} invitations in that list. Open the Guest Desk to check them before anything is created.`,
+            content: guestListMessage(result.parties.length, result.questions),
             role: "assistant",
           },
         ];
@@ -556,7 +576,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         void persist(settled);
       }
     },
-    [abilities, invitationId, messages, mode, persist, refreshUsage, surface],
+    [abilities, guestList, invitationId, messages, mode, persist, refreshUsage, surface],
   );
 
   /**

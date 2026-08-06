@@ -82,6 +82,22 @@ export const ASSISTANT_SELECTION_MODEL = "claude-haiku-4-5";
  */
 export const ASSISTANT_GUESTS_MODEL = "claude-haiku-4-5";
 
+/**
+ * The model that writes the message a creator sends with their invitation link.
+ *
+ * Haiku, and this is the workload it suits best of the five: the answer is two short
+ * templates, the placeholder rules are explicit in the prompt, and the invitation's own
+ * details are supplied rather than recalled. There is no document to keep consistent and no
+ * schema wide enough to strain a grammar.
+ *
+ * Unmeasured, like `ASSISTANT_GUESTS_MODEL` and unlike `ASSISTANT_DOCUMENT_MODEL`. The one
+ * quality that would justify a comparison is whether a larger model holds the placeholder
+ * contract more reliably, and that is the thing this path does not have to trust: a message
+ * missing `{link}` or carrying an invented placeholder is rejected by
+ * `share-message-input.ts` before a creator ever sees it.
+ */
+export const ASSISTANT_MESSAGE_MODEL = "claude-haiku-4-5";
+
 /** Well under the SDK's HTTP timeout, and long enough for a slow Philippine connection. */
 const REQUEST_TIMEOUT_MS = 30_000;
 

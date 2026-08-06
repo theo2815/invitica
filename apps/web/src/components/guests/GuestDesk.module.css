@@ -1648,6 +1648,54 @@
   resize: vertical;
 }
 
+/*
+  The exchange with Tala, above the box it is typed into.
+
+  Bounded rather than growing without limit: this sits inside a dialog whose real work is the
+  editable rows underneath, so a long conversation scrolls within itself instead of pushing
+  the list off the screen.
+*/
+.organizerThread {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 11rem;
+  margin: 0;
+  padding: 0.15rem 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* `AssistantAnswer` sets no size of its own and inherits, so sizing lives here once. */
+.organizerThread li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+/* Sender is carried by the label as well as the alignment, so it never depends on position. */
+.organizerThread li[data-role="user"] {
+  justify-items: end;
+  text-align: right;
+  background: transparent;
+}
+
+.organizerThread li > p {
+  margin: 0;
+}
+
+.organizerRole {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .organizeAction {
   justify-self: start;
   min-height: 2.75rem;

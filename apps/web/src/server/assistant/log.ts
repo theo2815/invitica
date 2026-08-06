@@ -4,10 +4,15 @@ import type { AssistantFailure, AssistantUsage } from "./provider";
 // inventing an identifier for one would put a stranger in the record.
 export type AssistantOutcome =
   /**
-   * Intake found nothing to draft and asked the creator for facts instead. The expensive
-   * call never ran, so this line carries no usage and the turn cost only the cheap one.
-   * Its own outcome because how often a request stops here is the question this feature
-   * raises, and `completed` with no usage would not answer it.
+   * The request was too unclear to answer, so the creator was asked instead of guessed at.
+   *
+   * On `document` this is intake finding nothing to draft, and the expensive second call
+   * never runs — so that line carries no usage and the turn cost only the cheap one. On
+   * `guests` the questions come back from the single call that was already made, so that
+   * line does carry usage.
+   *
+   * Its own outcome because how often a request stops here is the question these two
+   * features raise, and `completed` would not answer it.
    */
   | "asked_questions"
   | "completed"
@@ -56,7 +61,7 @@ export interface AssistantRequestLog {
    * it records the same five machine-readable facts as every other stage and not one more.
    * There is no field a name could be written to.
    */
-  stage: "document" | "guests" | "help" | "section-selection";
+  stage: "document" | "guests" | "help" | "message" | "section-selection";
   usage?: AssistantUsage;
 }
 

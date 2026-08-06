@@ -137,6 +137,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
       parties: parsed,
+      questions: [],
       status: "parsed",
     });
 
@@ -165,6 +166,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
       parties: parsed,
+      questions: [],
       status: "parsed",
     });
     vi.mocked(createGuestPartiesAction).mockResolvedValue({ count: 2, status: "created" });
@@ -189,10 +191,14 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     expect(sent.parties[1]?.guestNames).toEqual(["Kuya Jun", "Ate Mae"]);
   });
 
-  it("appends to rows already typed rather than replacing them", async () => {
+  it("sends rows already typed to Tala and lays out the whole list it answers with", async () => {
+    // Changed 2026-08-07. This used to append, because Tala could not see the screen and its
+    // answer only ever described the newest paste. It now receives the current rows and
+    // answers with the whole list, so appending would double every row it was given.
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
-      parties: [parsed[0] as (typeof parsed)[number]],
+      parties: [{ ...(parsed[0] as (typeof parsed)[number]) }, ...parsed.slice(1)],
+      questions: [],
       status: "parsed",
     });
 
@@ -205,12 +211,98 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
         target: { value: "Lola Remedios" },
       },
     );
+    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+      target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+
+    await waitFor(() => expect(requestGuestParties).toHaveBeenCalledTimes(1));
+
+    // The typed row went with the request, as Invitica's own record rather than as prose.
+    const sent = vi.mocked(requestGuestParties).mock.calls[0]?.[1] ?? [];
+    const record = sent.find((entry) => entry.content.startsWith("[Invitica —"));
+    expect(record?.role).toBe("assistant");
+    expect(record?.content).toContain("Lola Remedios");
+    // The creator's own message stays last, which the request contract requires.
+    expect(sent.at(-1)).toEqual({
+      content: "Tita Baby +2, Kuya Jun & Ate Mae",
+      role: "user",
+    });
+
+    await waitFor(() => expect(partyNameFields()).toEqual(["Tita Baby", "Kuya Jun & Ate Mae"]));
+  });
+
+  it("says so when a follow-up changed how many rows there are", async () => {
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: parsed,
+      questions: [],
+      status: "parsed",
+    });
+
+    renderDesk();
+    openComposer();
+
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
-      target: { value: "Tita Baby +2" },
+      target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    await waitFor(() => expect(partyNameFields()).toHaveLength(2));
 
-    await waitFor(() => expect(partyNameFields()).toEqual(["Lola Remedios", "Tita Baby"]));
+    // A second turn that comes back one row short. Nothing has been created, and the count is
+    // stated both ways so a wrong answer is visible immediately rather than on submit.
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: [parsed[0] as (typeof parsed)[number]],
+      questions: [],
+      status: "parsed",
+    });
+
+    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+      target: { value: "Take Kuya Jun and Ate Mae off the list" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+
+    await waitFor(() =>
+      expect(within(screen.getByRole("dialog")).getByRole("status").textContent).toContain(
+        "now 1 row, from 2",
+      ),
+    );
+    expect(partyNameFields()).toEqual(["Tita Baby"]);
+    expect(createGuestPartiesAction).not.toHaveBeenCalled();
+  });
+
+  it("asks rather than guessing, and leaves every row alone while it does", async () => {
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: parsed,
+      questions: [],
+      status: "parsed",
+    });
+
+    renderDesk();
+    openComposer();
+
+    fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
+      target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    await waitFor(() => expect(partyNameFields()).toHaveLength(2));
+
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      questions: ["Who are your ninongs, by name?", "Does each one get their own invitation?"],
+      status: "questions",
+    });
+
+    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+      target: { value: "Add my ninongs" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+
+    await waitFor(() => expect(screen.getByText(/Who are your ninongs, by name\?/)).toBeTruthy());
+    // A question is not a reason to take away work already done.
+    expect(partyNameFields()).toEqual(["Tita Baby", "Kuya Jun & Ate Mae"]);
+    expect(createGuestPartiesAction).not.toHaveBeenCalled();
   });
 
   it("reports a refusal and leaves the rows alone", async () => {
@@ -277,6 +369,7 @@ describe("organizing a guest list from the Tala panel", () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
       parties: parsed,
+      questions: [],
       status: "parsed",
     });
 
@@ -308,6 +401,7 @@ describe("organizing a guest list from the Tala panel", () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
       parties: parsed,
+      questions: [],
       status: "parsed",
     });
 
@@ -329,7 +423,55 @@ describe("organizing a guest list from the Tala panel", () => {
 
     const [, secondCall] = vi.mocked(requestGuestParties).mock.calls;
     const thread = secondCall?.[1] ?? [];
-    expect(thread.map((message) => message.role)).toEqual(["user", "assistant", "user"]);
+    // Four now, not three: Invitica's record of the rows on screen rides between the count
+    // sentence and the correction. Without it "Tita Baby is 4" was answered by re-deriving the
+    // whole list from the first paste, so a positional reference was guesswork.
+    expect(thread.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "assistant",
+      "user",
+    ]);
+    expect(thread[2]?.content).toContain(
+      "[Invitica — the rows currently on this creator's screen]",
+    );
+    expect(thread[2]?.content).toContain("Tita Baby");
     expect(thread.at(-1)?.content).toBe("Tita Baby is 4, not 3");
+  });
+
+  it("keeps the rows on screen when Tala asks a question instead", async () => {
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: parsed,
+      questions: [],
+      status: "parsed",
+    });
+
+    renderDesk({ withWidget: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize my guest list" }));
+
+    fireEvent.change(screen.getByLabelText("Paste your guest list"), {
+      target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Organize" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "2 invitations, not created yet" })).toBeTruthy(),
+    );
+
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      questions: ["Who are your ninongs, by name?"],
+      status: "questions",
+    });
+
+    fireEvent.change(screen.getByLabelText("Paste your guest list"), {
+      target: { value: "Add my ninongs" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Organize" }));
+
+    await waitFor(() => expect(screen.getByText(/Who are your ninongs, by name\?/)).toBeTruthy());
+    // The list already found stays listed. A question takes nothing away.
+    expect(screen.getByRole("heading", { name: "2 invitations, not created yet" })).toBeTruthy();
   });
 });

@@ -108,6 +108,21 @@ export const assistantGuestsRequestSchema = z.object({
 });
 
 /**
+ * Writing a creator's own invitation message, asked for against one invitation the same way
+ * the other two are. The server resolves it under the creator's own session and refuses one
+ * they do not own or have not published — an unpublished invitation has no link to write a
+ * message about.
+ *
+ * It carries a conversation rather than a single instruction, because refining wording is
+ * what this is for: "shorter", "less formal", "mention it is a garden ceremony" are all
+ * answers to the message that came before them.
+ */
+export const assistantMessageRequestSchema = z.object({
+  invitationId: z.string().uuid(),
+  messages: conversationSchema,
+});
+
+/**
  * How many parties one request may produce.
  *
  * `createGuestPartiesAction` accepts at most 50 in a single transaction and the composer
@@ -207,6 +222,68 @@ export function intakeQuestionsMessage(questions: readonly string[]): string {
 }
 
 /**
+ * What Tala says when rows come back, with anything still unclear underneath them.
+ *
+ * The count is Invitica's, for the reason the guest branch has always held it: the rows are
+ * listed below where a creator can read them, and restating other people's names as prose
+ * would be a second and less reliable copy. The questions are the model's own words, because
+ * they are about this creator's list and no fixed sentence could be.
+ */
+export function guestListMessage(count: number, questions: readonly string[] = []): string {
+  const found =
+    count === 1
+      ? "I found 1 invitation in that list. Open the Guest Desk to check it before anything is created."
+      : `I found ${count} invitations in that list. Open the Guest Desk to check them before anything is created.`;
+
+  if (questions.length === 0) return found;
+
+  return `${found}\n\nTo get the rest right, ${questionCount(questions)}:\n\n${questionList(questions)}`;
+}
+
+/**
+ * What Tala says when a list is too unclear to sort yet.
+ *
+ * The guest-list twin of `intakeQuestionsMessage`, and it exists for the same reason. A
+ * request naming no one — "add my ninongs", "the usual family" — used to end at
+ * `no_parties`, which reads as the feature failing rather than as a question nobody asked.
+ */
+export function guestQuestionsMessage(questions: readonly string[]): string {
+  return `Before I add anyone, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will sort the list from it.`;
+}
+
+/**
+ * The rows currently on the creator's screen, as a message the model reads back.
+ *
+ * This is what makes a follow-up a follow-up. Without it a correction — "the Santos family
+ * is six", "address Tita Baby as just Baby" — was answered by re-deriving the whole list
+ * from the original paste, so a positional reference was guesswork and every hand edit the
+ * creator had made in the composer was silently discarded.
+ *
+ * Invitica writes it, not the model, and it is data rather than prose. The alternative was
+ * letting Tala narrate the rows back into the thread, which would put a second and less
+ * reliable copy of other people's names in the conversation — and in history, since threads
+ * are saved. This never enters the thread at all: it is built at send time from the rows
+ * that exist right now, so it cannot drift from what is on screen and cannot be stored.
+ *
+ * Romance rows carry capacity 1 and no members, which is what they truly are. The model is
+ * never offered those two fields on that branch, so reading them here cannot teach it to
+ * answer with them.
+ */
+export function currentGuestRowsMessage(parties: readonly ParsedGuestParty[]): AssistantApiMessage {
+  const rows = parties
+    .map((party, at) => {
+      const members = party.guestNames.length > 0 ? party.guestNames.join(", ") : "none named";
+      return `${at + 1} | ${party.internalLabel} | ${party.recipientName} | ${party.capacity} | ${members}`;
+    })
+    .join("\n");
+
+  return {
+    content: `[Invitica — the rows currently on this creator's screen]\nnumber | name | envelope greeting | seats | named members\n${rows}`,
+    role: "assistant",
+  };
+}
+
+/**
  * The tail of a thread that is small enough to send.
  *
  * A saved conversation can be continued, so it can outgrow the twenty-message ceiling the
@@ -221,7 +298,95 @@ export function conversationWindow(
   return messages.slice(-MAX_CONVERSATION_MESSAGES);
 }
 
+/**
+ * A guest-list turn, with the rows it is about carried alongside it.
+ *
+ * Windowed to one short of the ceiling before the rows are spliced in, so a long thread
+ * plus its rows still fits the twenty the request contract accepts. The rows go immediately
+ * before the creator's newest message — near enough to read as its subject, and leaving a
+ * `user` message last, which `conversationSchema` requires.
+ */
+export function guestConversationPayload(
+  messages: readonly AssistantApiMessage[],
+  parties: null | readonly ParsedGuestParty[] | undefined,
+): AssistantApiMessage[] {
+  if (!parties || parties.length === 0) return conversationWindow(messages);
+
+  const windowed = messages.slice(-(MAX_CONVERSATION_MESSAGES - 1));
+  const newest = windowed.at(-1);
+  if (!newest) return conversationWindow(messages);
+
+  return [...windowed.slice(0, -1), currentGuestRowsMessage(parties), newest];
+}
+
+/**
+ * What Tala says when wording arrives, with anything still unclear underneath it.
+ *
+ * The sentence is Invitica's; the wording itself is in the fields and its preview, where a
+ * creator can read it against real invitation data rather than as a quotation in a chat.
+ */
+export function shareMessageWrittenMessage(questions: readonly string[] = []): string {
+  const written =
+    "I have written that into the fields below. Read it in the preview, then edit it or save it.";
+
+  if (questions.length === 0) return written;
+
+  return `${written}\n\nTo get it closer, ${questionCount(questions)}:\n\n${questionList(questions)}`;
+}
+
+/** What Tala says when there was nothing to write from yet. */
+export function shareMessageQuestionsMessage(questions: readonly string[]): string {
+  return `Before I write anything, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will write it from that.`;
+}
+
+/**
+ * The wording currently in the creator's fields, as a message the model reads back.
+ *
+ * The share-message twin of `currentGuestRowsMessage`, and it exists for the same reason:
+ * "make it shorter" is about what is on screen, which may be what Tala last wrote, what the
+ * creator has since typed over it, or wording they saved weeks ago. Without this the model
+ * would be shortening its own last answer and quietly discarding their edits.
+ *
+ * Built at send time and never stored, so it cannot drift from the fields it describes.
+ */
+export function currentShareMessagesMessage(messages: {
+  general: null | string;
+  personal: null | string;
+}): AssistantApiMessage {
+  const lines = [
+    `Personal: ${messages.personal ?? "(empty — Invitica's own wording is in use)"}`,
+    `General: ${messages.general ?? "(empty — Invitica's own wording is in use)"}`,
+  ];
+
+  return {
+    content: `[Invitica — the wording currently in the creator's fields]\n${lines.join("\n\n")}`,
+    role: "assistant",
+  };
+}
+
+/**
+ * A message-writing turn, with the wording it is about carried alongside it.
+ *
+ * Windowed one short of the ceiling before the record is spliced in, so a long thread plus
+ * its wording still fits the twenty the request contract accepts. The record goes immediately
+ * before the creator's newest message, leaving a `user` message last as `conversationSchema`
+ * requires.
+ */
+export function shareMessageConversationPayload(
+  messages: readonly AssistantApiMessage[],
+  current: null | { general: null | string; personal: null | string },
+): AssistantApiMessage[] {
+  if (!current || (!current.general && !current.personal)) return conversationWindow(messages);
+
+  const windowed = messages.slice(-(MAX_CONVERSATION_MESSAGES - 1));
+  const newest = windowed.at(-1);
+  if (!newest) return conversationWindow(messages);
+
+  return [...windowed.slice(0, -1), currentShareMessagesMessage(current), newest];
+}
+
 export type AssistantApiMessage = z.infer<typeof assistantMessageSchema>;
 export type AssistantApiRequest = z.infer<typeof assistantRequestSchema>;
 export type AssistantDocumentApiRequest = z.infer<typeof assistantDocumentRequestSchema>;
 export type AssistantGuestsApiRequest = z.infer<typeof assistantGuestsRequestSchema>;
+export type AssistantMessageApiRequest = z.infer<typeof assistantMessageRequestSchema>;

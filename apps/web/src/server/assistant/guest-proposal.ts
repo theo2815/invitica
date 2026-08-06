@@ -1,5 +1,6 @@
 import { MAX_PARSED_GUEST_PARTIES, type ParsedGuestParty } from "../../contracts/assistant-api";
 import { guestPartyInputSchema } from "../guests/party-input";
+import { MAX_GUEST_QUESTION_CHARACTERS, MAX_GUEST_QUESTIONS } from "./guest-schema";
 
 /**
  * Turns whatever the model returned into rows a creator may review, or a refusal.
@@ -16,14 +17,41 @@ import { guestPartyInputSchema } from "../guests/party-input";
  */
 
 export type GuestProposalOutcome =
-  | { parties: ParsedGuestParty[]; status: "proposed" }
-  /** Shaped like an answer, but nothing in it survived the contract. */
+  /** Rows to review. `questions` is what remained unclear after them, and is usually empty. */
+  | { parties: ParsedGuestParty[]; questions: string[]; status: "proposed" }
+  /**
+   * Nothing could be sorted, but the model knows what to ask.
+   *
+   * The outcome that keeps an unclear request from ending at a dead end. "Add my ninongs"
+   * names no one, so there is no row to offer and nothing wrong with the request either —
+   * what it needs is the question the creator can answer in one line.
+   */
+  | { questions: string[]; status: "questions" }
+  /** Shaped like an answer, but nothing in it survived the contract and nothing was asked. */
   | { reason: "no_parties"; status: "rejected" }
   /** Not shaped like an answer at all. */
   | { reason: "unreadable"; status: "rejected" };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The model's questions, bounded and trimmed.
+ *
+ * They are model-written prose reaching a creator, so they are held to the same rules the
+ * drafting intake's are: an over-long one is dropped rather than cut, because a sentence
+ * truncated mid-clause is worse than one never asked, and the batch is capped so a reply
+ * still fits in one message.
+ */
+function resolveQuestions(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && entry.length <= MAX_GUEST_QUESTION_CHARACTERS)
+    .slice(0, MAX_GUEST_QUESTIONS);
 }
 
 /**
@@ -43,6 +71,7 @@ export function resolveGuestPartyProposal(
   const named = output.parties;
   if (!Array.isArray(named)) return { reason: "unreadable", status: "rejected" };
 
+  const questions = resolveQuestions(output.questions);
   const parties: ParsedGuestParty[] = [];
 
   for (const entry of named) {
@@ -75,7 +104,13 @@ export function resolveGuestPartyProposal(
     if (parsed.success) parties.push(parsed.data);
   }
 
-  if (parties.length === 0) return { reason: "no_parties", status: "rejected" };
+  // Asking is a better answer than refusing, so it is checked first. A list that produced no
+  // usable row and no question is the only case left that is genuinely a failure.
+  if (parties.length === 0) {
+    return questions.length > 0
+      ? { questions, status: "questions" }
+      : { reason: "no_parties", status: "rejected" };
+  }
 
-  return { parties, status: "proposed" };
+  return { parties, questions, status: "proposed" };
 }

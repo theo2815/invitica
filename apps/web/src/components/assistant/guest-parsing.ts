@@ -11,7 +11,10 @@ import type { AssistantApiMessage, ParsedGuestParty } from "../../contracts/assi
  */
 
 export type GuestParsingResult =
-  | { invitationId: string; parties: ParsedGuestParty[]; status: "parsed" }
+  /** `questions` is what stayed unclear after the rows, and is usually empty. */
+  | { invitationId: string; parties: ParsedGuestParty[]; questions: string[]; status: "parsed" }
+  /** Nothing could be sorted, and Tala knows what to ask to get there. */
+  | { questions: string[]; status: "questions" }
   | { message: string; status: "refused" };
 
 export async function requestGuestParties(
@@ -23,6 +26,7 @@ export async function requestGuestParties(
     invitationId?: string;
     message?: string;
     parties?: ParsedGuestParty[];
+    questions?: string[];
     status?: string;
   };
 
@@ -47,9 +51,15 @@ export async function requestGuestParties(
     };
   }
 
+  const questions = Array.isArray(body.questions) ? body.questions : [];
+
+  if (body.status === "questions" && questions.length > 0) {
+    return { questions, status: "questions" };
+  }
+
   if (body.status !== "parsed" || !Array.isArray(body.parties)) {
     return { message: body.message ?? "Tala is unavailable right now.", status: "refused" };
   }
 
-  return { invitationId, parties: body.parties, status: "parsed" };
+  return { invitationId, parties: body.parties, questions, status: "parsed" };
 }

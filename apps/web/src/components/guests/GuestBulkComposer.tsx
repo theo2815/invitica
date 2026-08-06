@@ -3,12 +3,17 @@
 import { type ClipboardEvent, type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
+  type AssistantApiMessage,
+  guestConversationPayload,
+  guestListMessage,
+  guestQuestionsMessage,
   MAX_MESSAGE_CHARACTERS,
   MAX_PARSED_GUEST_PARTIES,
   type ParsedGuestParty,
 } from "../../contracts/assistant-api";
 import { createGuestPartiesAction } from "../../server/guests/actions";
 import type { GuestInvitationSummary } from "../../server/guests/guests";
+import { AssistantAnswer } from "../assistant/AssistantAnswer";
 import { requestGuestParties } from "../assistant/guest-parsing";
 import { Close, Plus, Trash } from "../Icons";
 import styles from "./GuestDesk.module.css";
@@ -60,6 +65,32 @@ function splitGuestNames(value: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The rows as they stand right now, in the shape the conversation carries them.
+ *
+ * This is what makes a follow-up here better than one in the floating panel: the panel can
+ * only send back what Tala last produced, while this sends what the creator is actually
+ * looking at — including every seat they corrected and every greeting they retyped. A
+ * request to change the third row therefore reaches the third row on screen.
+ *
+ * Blank rows are left out. An empty row is the composer's own placeholder, not a guest.
+ */
+function partiesFromRows(rows: readonly DraftRow[], singleRecipient: boolean): ParsedGuestParty[] {
+  return rows
+    .filter((row) => row.internalLabel.trim().length > 0)
+    .map((row) => {
+      const internalLabel = row.internalLabel.trim();
+      const capacity = Number(row.capacity);
+
+      return {
+        capacity: singleRecipient || !Number.isInteger(capacity) || capacity < 1 ? 1 : capacity,
+        guestNames: singleRecipient ? [] : splitGuestNames(row.guestNames),
+        internalLabel,
+        recipientName: row.recipientName.trim() || internalLabel,
+      };
+    });
+}
+
 function pastedRows(value: string, startId: number, singleRecipient: boolean): DraftRow[] {
   return value
     .split(/\r?\n/)
@@ -107,6 +138,15 @@ export function GuestBulkComposer({
   const [invalidRows, setInvalidRows] = useState<Set<number>>(new Set());
   const [pastedList, setPastedList] = useState("");
   const [isOrganizing, setIsOrganizing] = useState(false);
+  /**
+   * The exchange with Tala inside this dialog.
+   *
+   * It used to be one message with no memory: every press of Organize sent a single paste and
+   * nothing else, so "the Santos family is six" was read as a brand new list containing one
+   * family. The thread is what turns the box below into a conversation, and it is deliberately
+   * local — it is not the floating panel's thread and it is not saved to history.
+   */
+  const [thread, setThread] = useState<AssistantApiMessage[]>([]);
   const mutationIdRef = useRef(crypto.randomUUID());
 
   useEffect(() => {
@@ -194,12 +234,17 @@ export function GuestBulkComposer({
   }
 
   /**
-   * Sends the pasted list to Tala and appends whatever comes back as ordinary rows.
+   * Sends a turn to Tala, carrying the rows currently on screen, and lays the answer back out.
    *
-   * Appended rather than substituted, and blank rows dropped first, so a creator who has
-   * already typed three parties by hand keeps them — and so a list too long for one paste can
-   * be done in two. Every row lands in the same fields as a typed one and is corrected the
-   * same way, which is why this screen needs no second review table.
+   * The rows go with it because that is what makes this a conversation rather than a sequence
+   * of unrelated pastes. Tala answers with the whole list as it should now stand — the rows
+   * that did not change exactly as they read, plus the change asked for — so the answer
+   * replaces what is here instead of being appended to it. Appending a corrected list to the
+   * list it corrects would double every row.
+   *
+   * A creator who asks something Tala cannot sort safely gets questions back and keeps every
+   * row they already had. Nothing here creates anything: the rows land in the same fields a
+   * typed one lands in, and the existing Create button is still the only thing that acts.
    *
    * One turn spends one message from the daily allowance, the same as a question. That is why
    * the plain tab-separated paste below stays: a creator with a tidy spreadsheet should not
@@ -209,38 +254,55 @@ export function GuestBulkComposer({
     const text = pastedList.trim();
     if (!text || isOrganizing || isPending) return;
 
+    const carried = partiesFromRows(rows, singleRecipient);
+    const turn: AssistantApiMessage[] = [...thread, { content: text, role: "user" }];
+
+    setThread(turn);
+    setPastedList("");
     setIsOrganizing(true);
     setMessage(null);
 
-    const result = await requestGuestParties(invitation.invitationId, [
-      { content: text, role: "user" },
-    ]);
+    const result = await requestGuestParties(
+      invitation.invitationId,
+      guestConversationPayload(turn, carried),
+    );
 
     if (result.status === "refused") {
+      // The question stays in the thread so it can be read and asked again, which is the rule
+      // the floating panel already follows for a refused turn.
       setMessage(result.message);
       setIsOrganizing(false);
       return;
     }
 
-    let added = 0;
-    setRows((current) => {
-      const kept = current.filter((row) => row.internalLabel.trim().length > 0);
-      const room = MAX_PARSED_GUEST_PARTIES - kept.length;
-      const additions = result.parties.slice(0, Math.max(room, 0)).map((party) => {
+    if (result.status === "questions") {
+      setThread([...turn, { content: guestQuestionsMessage(result.questions), role: "assistant" }]);
+      setMessage("Tala needs a little more before it can sort that. Your rows are unchanged.");
+      setIsOrganizing(false);
+      return;
+    }
+
+    const kept = result.parties.slice(0, MAX_PARSED_GUEST_PARTIES);
+    setRows(() => {
+      const next = kept.map((party) => {
         const row = rowFromParty(party, nextIdRef.current);
         nextIdRef.current += 1;
         return row;
       });
-      added = additions.length;
-      const next = [...kept, ...additions];
       return next.length > 0 ? next : [emptyRow(nextIdRef.current++)];
     });
 
-    setPastedList("");
+    setThread([
+      ...turn,
+      { content: guestListMessage(kept.length, result.questions), role: "assistant" },
+    ]);
+    // The count is stated both ways when it moved. A creator who asked to change one row and
+    // sees "12 rows, was 40" has been told immediately that the answer was wrong, while
+    // nothing has been created and the list is still in front of them to fix.
     setMessage(
-      added < result.parties.length
-        ? `${added} of ${result.parties.length} rows were added. This screen holds ${MAX_PARSED_GUEST_PARTIES}, so create these first and then paste the rest.`
-        : `${added} ${added === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
+      carried.length > 0 && kept.length !== carried.length
+        ? `Your list is now ${kept.length} ${kept.length === 1 ? "row" : "rows"}, from ${carried.length}. Check it before you create anything.`
+        : `${kept.length} ${kept.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
     );
     setIsOrganizing(false);
   }
@@ -319,6 +381,11 @@ export function GuestBulkComposer({
     if (createdCount !== null) onCreated(createdCount);
   }
 
+  // Whether Tala already has something to work from on this screen — its own answer, or rows
+  // the creator typed. Either way the next message is a change to a list rather than a first
+  // paste, and the box says so.
+  const started = thread.length > 0 || rows.some((row) => row.internalLabel.trim().length > 0);
+
   return (
     <div className={styles.backdrop}>
       <section
@@ -362,22 +429,53 @@ export function GuestBulkComposer({
           {organizingAvailable ? (
             <section className={styles.organizer}>
               <label htmlFor="guest-list-paste">
-                <span>Paste a messy list and let Tala sort it</span>
+                <span>
+                  {started ? "Tell Tala what to change" : "Paste a messy list and let Tala sort it"}
+                </span>
                 <small>
-                  Names, nicknames, and counts like &ldquo;+2&rdquo; in whatever order they are
-                  already in. Their names are sent to Invitica&rsquo;s AI provider to be read, and
-                  you check every row below before anything is created.
+                  {started
+                    ? "Tala can see the rows below, so say what to change in a sentence — a seat count, a greeting, a name, or someone to add. Each message uses one of today's Tala messages."
+                    : "Names, nicknames, and counts like “+2” in whatever order they are already in. Their names are sent to Invitica’s AI provider to be read, and you check every row below before anything is created."}
                 </small>
               </label>
+
+              {/*
+                The exchange, not a transcript of the rows.
+
+                Tala's own replies are counts and questions; the rows themselves are the
+                editable table below and are never restated here, so other people's names
+                appear once on this screen rather than twice.
+              */}
+              {thread.length > 0 ? (
+                <ol className={styles.organizerThread}>
+                  {thread.map((entry, index) => (
+                    // Append-only within this dialog and never reordered, so the position is
+                    // a stable identity where the text is not.
+                    <li data-role={entry.role} key={index}>
+                      <span className={styles.organizerRole}>
+                        {entry.role === "user" ? "You" : "Tala"}
+                      </span>
+                      {entry.role === "assistant" ? (
+                        <AssistantAnswer text={entry.content} />
+                      ) : (
+                        <p>{entry.content}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+
               <textarea
                 disabled={isPending || isOrganizing}
                 id="guest-list-paste"
                 maxLength={MAX_MESSAGE_CHARACTERS}
                 onChange={(event) => setPastedList(event.target.value)}
                 placeholder={
-                  singleRecipient
-                    ? "Mia Santos, Ana Cruz, Tita Baby"
-                    : "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5)"
+                  started
+                    ? "The Santos family is 6, and address Tita Baby as just Baby"
+                    : singleRecipient
+                      ? "Mia Santos, Ana Cruz, Tita Baby"
+                      : "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5)"
                 }
                 rows={3}
                 value={pastedList}
@@ -388,7 +486,13 @@ export function GuestBulkComposer({
                 onClick={() => void organize()}
                 type="button"
               >
-                {isOrganizing ? "Organizing…" : "Organize with Tala"}
+                {isOrganizing
+                  ? started
+                    ? "Updating…"
+                    : "Organizing…"
+                  : started
+                    ? "Send to Tala"
+                    : "Organize with Tala"}
               </button>
             </section>
           ) : null}

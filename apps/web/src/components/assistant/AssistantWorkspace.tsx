@@ -10,6 +10,7 @@ import { describeProposalChanges } from "../../lib/invitations/proposal-diff";
 import { getMapTileKey } from "../../lib/map-tile-key";
 import { loadAssistantInvitationAction } from "../../server/assistant/actions";
 import type { CreatorImageAsset } from "../../server/media/library";
+import { Select } from "../forms/Select";
 import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import { useAssistant } from "./AssistantProvider";
 import styles from "./AssistantWorkspace.module.css";
@@ -139,8 +140,8 @@ export function AssistantWorkspace({
     return (
       <section className={styles.workspace}>
         <p className={styles.empty}>
-          The assistant drafts into an invitation you have already started. Create one from a
-          template first, then come back and describe your event.
+          Tala drafts into an invitation you have already started. Create one from a template first,
+          then come back and describe your event.
         </p>
       </section>
     );
@@ -152,19 +153,18 @@ export function AssistantWorkspace({
   return (
     <section className={styles.workspace}>
       <div className={styles.picker}>
-        <label htmlFor={pickerId}>Draft into</label>
-        <select
+        <Select
+          disabled={loadState === "loading"}
           id={pickerId}
-          onChange={(event) => void select(event.target.value)}
+          label="Draft into"
+          onChange={(value) => void select(value)}
+          options={invitations.map((invitation) => ({
+            label: `${invitation.title} · ${invitation.templateName}`,
+            value: invitation.invitationId,
+          }))}
+          placeholder="Choose an invitation…"
           value={invitationId ?? ""}
-        >
-          <option value="">Choose an invitation…</option>
-          {invitations.map((invitation) => (
-            <option key={invitation.invitationId} value={invitation.invitationId}>
-              {invitation.title} · {invitation.templateName}
-            </option>
-          ))}
-        </select>
+        />
         <p>
           Only invitations you have already started appear here. Nothing is saved from this page —
           you apply a draft in the editor.
@@ -186,7 +186,7 @@ export function AssistantWorkspace({
       {staged ? (
         <section aria-labelledby="assistant-page-proposal" className={styles.proposal}>
           <div>
-            <p className={styles.eyebrow}>Assistant draft</p>
+            <p className={styles.eyebrow}>Tala&apos;s draft</p>
             <h2 id="assistant-page-proposal">This is a draft. Nothing has been saved.</h2>
             <p className={styles.proposalNote}>
               Apply it to open your invitation with this draft ready, then keep it there to save.

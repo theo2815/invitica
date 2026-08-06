@@ -122,7 +122,7 @@ export async function POST(request: Request) {
         const message =
           error instanceof AssistantProviderError
             ? error.message
-            : "The assistant could not finish that answer.";
+            : "Tala could not finish that answer.";
         controller.enqueue(encoder.encode(`\n\n${message}`));
 
         const failure = error instanceof AssistantProviderError ? error.failure : undefined;

@@ -2,19 +2,18 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { ArrowUpRight, Close } from "../Icons";
 import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
 import { AssistantConversation } from "./AssistantConversation";
 import { useAssistant } from "./AssistantProvider";
+import { TalaMascot } from "./TalaMascot";
+import { TalaPresence } from "./TalaPresence";
 
 const COMPACT_QUERY = "(max-width: 900px)";
 const ASSISTANT_PAGE = "/dashboard/assistant";
 
-/**
- * Starts `false` on both the server and the first client render, then corrects after mount.
- * That order matters: the desktop-only expand control must never appear on a phone, not even
- * for one frame, so the desktop branch is the one that arrives late.
- */
+/** Starts `false` on the server and first client render, then follows the shared breakpoint. */
 function useCompactViewport() {
   const [isCompact, setIsCompact] = useState(false);
 
@@ -39,12 +38,6 @@ export function AssistantWidget() {
   const panelRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLButtonElement>(null);
   const [leaving, setLeaving] = useState(false);
-
-  // Available in the editor again. Stage one withheld it because leaving the editor could
-  // discard keystrokes from a draft save that had not been sent, and there was no way to
-  // settle one first; `useDraftFlush` is that way. On mobile the sheet already fills the
-  // screen, so expanding it would do nothing.
-  const showExpand = !isCompact;
 
   /**
    * Saves before it navigates, and never the other way round. The editor's own link guard
@@ -108,7 +101,7 @@ export function AssistantWidget() {
     <div className={styles.widget} data-open={isOpen}>
       {isOpen ? (
         <div
-          aria-label="Invitica assistant"
+          aria-label="Tala, Invitica's AI assistant"
           aria-modal={isCompact ? true : undefined}
           className={styles.panel}
           id={panelId}
@@ -116,21 +109,23 @@ export function AssistantWidget() {
           role="dialog"
         >
           <header className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelEyebrow}>Assistant</p>
-              <h2 className={styles.panelTitle}>How Invitica works</h2>
+            <div className={styles.panelIdentity}>
+              <TalaPresence className={styles.panelMascot} size="compact" />
+              <div className={styles.panelHeading}>
+                <p className={styles.panelEyebrow}>Invitica AI</p>
+                <h2 className={styles.panelTitle}>Tala</h2>
+              </div>
             </div>
             <div className={styles.panelActions}>
-              {showExpand ? (
-                <button
-                  className={styles.panelAction}
-                  disabled={leaving}
-                  onClick={() => void openFullView()}
-                  type="button"
-                >
-                  {leaving ? "Saving…" : "Open full view"}
-                </button>
-              ) : null}
+              <button
+                className={styles.panelAction}
+                disabled={leaving}
+                onClick={() => void openFullView()}
+                type="button"
+              >
+                {leaving ? "Saving…" : "Open full view"}
+                {leaving ? null : <ArrowUpRight />}
+              </button>
               <button
                 className={styles.panelAction}
                 onClick={() => {
@@ -157,10 +152,10 @@ export function AssistantWidget() {
         type="button"
       >
         <span aria-hidden="true" className={styles.bubbleGlyph}>
-          {isOpen ? "×" : "?"}
+          {isOpen ? <Close /> : <TalaMascot size="compact" state="idle" />}
         </span>
         <span className={styles.visuallyHidden}>
-          {isOpen ? "Close the Invitica assistant" : "Ask the Invitica assistant"}
+          {isOpen ? "Close Tala" : "Ask Tala, Invitica's AI assistant"}
         </span>
       </button>
     </div>

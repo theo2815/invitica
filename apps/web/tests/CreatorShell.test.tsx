@@ -2,13 +2,15 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DashboardError from "../app/dashboard/error";
 import DashboardLoading from "../app/dashboard/loading";
+import { CreatorNavigation } from "../src/components/dashboard/CreatorNavigation";
 import { CreatorShell } from "../src/components/dashboard/CreatorShell";
 
 const refresh = vi.fn();
+let pathname = "/dashboard/invitations/71000000-0000-4000-8000-000000000001";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh }),
-  usePathname: () => "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
+  usePathname: () => pathname,
 }));
 
 vi.mock("../src/server/auth/actions", () => ({
@@ -28,7 +30,10 @@ window.matchMedia = ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  pathname = "/dashboard/invitations/71000000-0000-4000-8000-000000000001";
+});
 
 describe("creator workspace shell", () => {
   it("keeps desktop and mobile navigation around the route content", () => {
@@ -64,6 +69,35 @@ describe("creator workspace shell", () => {
 
     const otherPage = within(desktopNavigation).getByRole("link", { name: "Templates" });
     expect(fireEvent.click(otherPage)).toBe(true);
+  });
+
+  it("gives Tala a desktop destination without adding a mobile destination", () => {
+    pathname = "/dashboard/assistant";
+    render(
+      <>
+        <CreatorNavigation showAssistant variant="desktop" />
+        <CreatorNavigation showAssistant variant="mobile" />
+      </>,
+    );
+
+    const desktopNavigation = screen.getByRole("navigation", { name: "Creator workspace" });
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "Mobile creator workspace",
+    });
+
+    expect(
+      within(desktopNavigation).getByRole("link", { name: "Tala" }).getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      within(desktopNavigation)
+        .getByRole("link", { name: "Overview" })
+        .getAttribute("aria-current"),
+    ).toBeNull();
+    expect(within(mobileNavigation).queryByRole("link", { name: "Tala" })).toBeNull();
+    expect(within(mobileNavigation).getAllByRole("link")).toHaveLength(4);
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "Home" }).getAttribute("aria-current"),
+    ).toBeNull();
   });
 
   it("restores focus after the profile menu closes", () => {

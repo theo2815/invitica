@@ -124,10 +124,10 @@ function providerError(error: unknown): AssistantProviderError {
       ? // Says plainly that this is Invitica's problem. A creator told to "try again later"
         // for a bad key would keep trying, and keep failing, for as long as it took someone
         // to notice.
-        "The assistant is not set up correctly, so it cannot answer right now. This is a problem on Invitica's side, not with your invitation."
+        "Tala is not set up correctly, so it cannot answer right now. This is a problem on Invitica's side, not with your invitation."
       : failure.kind === "transient"
-        ? "The assistant is busy right now. Try again in a moment."
-        : "The assistant could not answer that. Try again later.";
+        ? "Tala is busy right now. Try again in a moment."
+        : "Tala could not answer that. Try again later.";
 
   return new AssistantProviderError(message, {
     cause: error,
@@ -194,7 +194,7 @@ export function createClaudeProvider(model: string = ASSISTANT_MODEL): Assistant
         throw new AssistantProviderError(
           message.stop_reason === "max_tokens"
             ? "That invitation was too long to draft in one go. Try describing one part of it."
-            : "The assistant could not draft that invitation. Try describing it again.",
+            : "Tala could not draft that invitation. Try describing it again.",
           {
             cause: error,
             // The call itself succeeded and was billed; the answer was unusable. That is a

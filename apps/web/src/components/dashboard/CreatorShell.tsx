@@ -47,7 +47,7 @@ export function CreatorShell({ children, email, metadata }: CreatorShellProps) {
           <BrandMark />
         </Link>
 
-        <CreatorNavigation variant="desktop" />
+        <CreatorNavigation showAssistant={assistant} variant="desktop" />
 
         <ProfileMenu creatorName={creatorName} email={email} variant="desktop" />
       </aside>

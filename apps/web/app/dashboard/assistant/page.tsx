@@ -5,6 +5,7 @@ import {
   AssistantWorkspace,
   type AssistantWorkspaceInvitation,
 } from "../../../src/components/assistant/AssistantWorkspace";
+import { TalaPresence } from "../../../src/components/assistant/TalaPresence";
 import { assistantEnabled } from "../../../src/server/assistant/budget";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import { listInvitationDrafts } from "../../../src/server/invitations/drafts";
@@ -37,26 +38,31 @@ export default async function AssistantPage() {
   return (
     <>
       <header className={styles.pageHeader}>
-        <div>
-          <p className={styles.eyebrow}>Assistant</p>
-          <h1>Ask, or draft an invitation</h1>
+        <TalaPresence className={styles.pageMascot} />
+        <div className={styles.pageHeading}>
+          <p className={styles.eyebrow}>Tala · Invitica AI</p>
+          <h1>Ask Tala, or draft an invitation</h1>
           <p className={styles.pageDescription}>
-            Answers come from Invitica&apos;s own help material. Choose an invitation and the
-            assistant can draft into it as well — you read the draft and apply it yourself, so
-            nothing changes until you say so.
+            Tala answers from Invitica&apos;s own help material. Choose an invitation and Tala can
+            draft into it as well — you read the draft and apply it yourself, so nothing changes
+            until you say so.
           </p>
         </div>
       </header>
 
-      <section className={styles.surface}>
-        <AssistantConversation />
-      </section>
+      <div className={styles.pageLayout}>
+        <section aria-label="Conversation with Tala" className={styles.surface}>
+          <AssistantConversation />
+        </section>
 
-      <AssistantWorkspace invitations={invitations} />
+        <div className={styles.workspaceColumn}>
+          <AssistantWorkspace invitations={invitations} />
+        </div>
+      </div>
 
       <footer className={styles.footer}>
-        <span>Invitica assistant</span>
-        <span>It drafts; you decide.</span>
+        <span>Tala is Invitica&apos;s AI assistant.</span>
+        <span>Tala drafts; you decide.</span>
       </footer>
     </>
   );

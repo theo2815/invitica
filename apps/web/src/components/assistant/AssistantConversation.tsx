@@ -75,7 +75,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
     <div className={styles.conversation}>
       {canDraft ? (
         <fieldset className={styles.modeSwitch}>
-          <legend className={styles.visuallyHidden}>What the assistant should do</legend>
+          <legend className={styles.visuallyHidden}>What Tala should do</legend>
           <button
             aria-pressed={!drafting}
             disabled={isAnswering}
@@ -100,8 +100,8 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           <div className={styles.empty}>
             <p className={styles.emptyLead}>
               {drafting
-                ? "Describe your event and the assistant drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
-                : "Ask how anything in Invitica works. The assistant answers from Invitica's own help material, and it never changes your invitations."}
+                ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
+                : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
             </p>
             <ul className={styles.suggestions}>
               {suggestions.map((suggestion) => (
@@ -131,9 +131,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
               // biome-ignore lint/suspicious/noArrayIndexKey: append-only, never reordered
               key={index}
             >
-              <span className={styles.messageRole}>
-                {message.role === "user" ? "You" : "Assistant"}
-              </span>
+              <span className={styles.messageRole}>{message.role === "user" ? "You" : "Tala"}</span>
               <p className={styles.messageBody}>{message.content}</p>
             </li>
           ))}
@@ -151,8 +149,8 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
         <p aria-live="polite" className={styles.visuallyHidden}>
           {isAnswering
             ? drafting
-              ? "The assistant is drafting your invitation."
-              : "The assistant is answering."
+              ? "Tala is drafting your invitation."
+              : "Tala is answering."
             : ""}
         </p>
 
@@ -161,7 +159,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
 
       <form className={styles.composer} onSubmit={submit}>
         <label className={styles.visuallyHidden} htmlFor="assistant-composer">
-          {drafting ? "Describe your event" : "Ask the Invitica assistant"}
+          {drafting ? "Describe your event" : "Ask Tala"}
         </label>
         <textarea
           className={styles.input}

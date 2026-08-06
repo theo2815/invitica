@@ -96,17 +96,17 @@ export async function consumeAssistantMessage(
 export function budgetRefusalMessage(outcome: Exclude<AssistantBudgetOutcome, "allowed">) {
   switch (outcome) {
     case "creator_daily_limit":
-      return "You have used all of today's assistant messages. They refresh tomorrow.";
+      return "You have used all of today's messages with Tala. They refresh tomorrow.";
     case "global_monthly_limit":
-      return "The assistant has reached its limit for this month and will be back next month.";
+      return "Tala has reached the limit for this month and will be back next month.";
     case "disabled":
-      return "The assistant is switched off right now.";
+      return "Tala is switched off right now.";
     case "misconfigured":
       // Named as Invitica's fault, and explicit that it is not costing them messages. A
       // creator told to "try again in a moment" would keep spending an allowance on a
       // request that cannot succeed until someone fixes a setting.
-      return "The assistant is not set up correctly, so it is unavailable. This is a problem on Invitica's side — it is not using up your daily messages.";
+      return "Tala is not set up correctly, so it is unavailable. This is a problem on Invitica's side — it is not using up your daily messages.";
     default:
-      return "The assistant is unavailable right now. Try again in a moment.";
+      return "Tala is unavailable right now. Try again in a moment.";
   }
 }

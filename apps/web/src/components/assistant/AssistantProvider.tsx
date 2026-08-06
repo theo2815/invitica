@@ -137,7 +137,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           };
 
           if (body.status !== "proposed" || !body.document || !body.details) {
-            setNotice(body.message ?? "The assistant is unavailable right now.");
+            setNotice(body.message ?? "Tala is unavailable right now.");
             return;
           }
 
@@ -159,7 +159,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             },
           ]);
         } catch {
-          setNotice("Invitica could not reach the assistant. Check your connection and try again.");
+          setNotice("Invitica could not reach Tala. Check your connection and try again.");
         } finally {
           inFlight.current = false;
           setStatus("idle");
@@ -188,13 +188,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         if (response.headers.get("content-type")?.includes("application/json")) {
           const body = (await response.json()) as { message?: string };
           setMessages(history);
-          setNotice(body.message ?? "The assistant is unavailable right now.");
+          setNotice(body.message ?? "Tala is unavailable right now.");
           return;
         }
 
         if (!response.ok || !response.body) {
           setMessages(history);
-          setNotice("The assistant is unavailable right now. Try again in a moment.");
+          setNotice("Tala is unavailable right now. Try again in a moment.");
           return;
         }
 
@@ -211,11 +211,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
         if (!answer.trim()) {
           setMessages(history);
-          setNotice("The assistant did not manage an answer. Try asking again.");
+          setNotice("Tala did not manage an answer. Try asking again.");
         }
       } catch {
         setMessages(history);
-        setNotice("Invitica could not reach the assistant. Check your connection and try again.");
+        setNotice("Invitica could not reach Tala. Check your connection and try again.");
       } finally {
         inFlight.current = false;
         setStatus("idle");

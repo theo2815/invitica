@@ -34,31 +34,6 @@
   background: var(--surface, #fbf7f0);
 }
 
-.picker label {
-  font-size: 0.7rem;
-  font-weight: 760;
-}
-
-/* A native select: it is one value from a bounded list, it gets the platform's own
-   keyboard and screen-reader behaviour for free, and on a phone it opens the system
-   picker rather than a list this page would have to re-implement badly. */
-.picker select {
-  width: 100%;
-  min-height: 2.75rem;
-  padding: 0 0.6rem;
-  border: 1px solid var(--border, #d5cbbd);
-  border-radius: 0.3rem;
-  background: var(--surface, #fbf7f0);
-  color: var(--text, #29231f);
-  font: inherit;
-  font-size: 0.8rem;
-}
-
-.picker select:focus-visible {
-  outline: 2px solid var(--focus, #7d2b3f);
-  outline-offset: 2px;
-}
-
 .picker > p:last-child {
   margin: 0;
   color: var(--muted, #6d655e);

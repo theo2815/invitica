@@ -65,7 +65,7 @@ const rejectionMessage: Record<ProposalRejection, string> = {
     "That draft came back incomplete, so nothing was changed. Try describing the invitation again, or one section at a time.",
   section_not_in_draft:
     "That draft included a section this template does not have, so nothing was changed. Try asking again.",
-  unreadable: "The assistant could not draft that invitation. Try describing it again.",
+  unreadable: "Tala could not draft that invitation. Try describing it again.",
 };
 
 function assistantError(message: string, status: number) {
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         message:
           error instanceof AssistantProviderError
             ? error.message
-            : "The assistant could not draft that invitation. Try again in a moment.",
+            : "Tala could not draft that invitation. Try again in a moment.",
         status: "refused",
       },
       { headers: assistantResponseHeaders, status: 200 },

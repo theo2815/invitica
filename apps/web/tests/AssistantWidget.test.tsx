@@ -58,6 +58,7 @@ function renderWidget(children?: React.ReactNode) {
 
 beforeEach(() => {
   pathname = "/dashboard";
+  push.mockReset();
   setViewport(false);
 });
 
@@ -70,17 +71,21 @@ describe("the floating assistant", () => {
   it("opens from a labelled bubble and closes on Escape, returning focus", async () => {
     renderWidget();
 
-    const bubble = screen.getByRole("button", { name: "Ask the Invitica assistant" });
+    const bubble = screen.getByRole("button", {
+      name: "Ask Tala, Invitica's AI assistant",
+    });
     fireEvent.click(bubble);
 
-    const panel = await screen.findByRole("dialog", { name: "Invitica assistant" });
+    const panel = await screen.findByRole("dialog", {
+      name: "Tala, Invitica's AI assistant",
+    });
     expect(panel).toBeTruthy();
 
     fireEvent.keyDown(document, { key: "Escape" });
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "Ask the Invitica assistant" }),
+      screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }),
     );
   });
 
@@ -88,7 +93,7 @@ describe("the floating assistant", () => {
     vi.stubGlobal("fetch", answerWith("Open Guests & RSVPs, then copy each guest's link."));
 
     const view = renderWidget(<p>Overview</p>);
-    fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
     fireEvent.click(await screen.findByText("How do I send personalized links?"));
 
     await screen.findByText("Open Guests & RSVPs, then copy each guest's link.");
@@ -104,22 +109,39 @@ describe("the floating assistant", () => {
 
     expect(screen.getByText("Templates")).toBeTruthy();
     expect(screen.getByText("Open Guests & RSVPs, then copy each guest's link.")).toBeTruthy();
-    expect(screen.getByRole("dialog", { name: "Invitica assistant" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Tala, Invitica's AI assistant" })).toBeTruthy();
   });
 
-  it("shows the expand control on a desktop route and never on a phone", async () => {
+  it("shows the full-view action on desktop and mobile", async () => {
     renderWidget();
-    fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
     expect(await screen.findByRole("button", { name: "Open full view" })).toBeTruthy();
 
     cleanup();
     setViewport(true);
 
     renderWidget();
-    fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
     await screen.findByRole("dialog");
-    // The sheet already fills the screen, so expanding it would do nothing.
-    expect(screen.queryByRole("button", { name: "Open full view" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Open full view" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open full view" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/assistant"));
+  });
+
+  it("shows Tala thinking while an answer is pending", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => undefined)),
+    );
+    const view = renderWidget();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(await screen.findByText("How do I send personalized links?"));
+
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-tala-state="thinking"]')).toBeTruthy(),
+    );
+    expect(screen.getByText("Tala is answering.")).toBeTruthy();
   });
 
   it("offers the expand control inside the editor now that a draft can be settled first", async () => {
@@ -129,7 +151,7 @@ describe("the floating assistant", () => {
     pathname = "/dashboard/invitations/71000000-0000-4000-8000-000000000001";
     renderWidget();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
     await screen.findByRole("dialog");
 
     fireEvent.click(await screen.findByRole("button", { name: "Open full view" }));
@@ -140,7 +162,7 @@ describe("the floating assistant", () => {
     pathname = "/dashboard/assistant";
     renderWidget();
 
-    expect(screen.queryByRole("button", { name: "Ask the Invitica assistant" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask Tala, Invitica's AI assistant" })).toBeNull();
   });
 
   it("surfaces a refusal without leaving a half-written answer behind", async () => {
@@ -149,7 +171,7 @@ describe("the floating assistant", () => {
       vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
-            message: "You have used all of today's assistant messages. They refresh tomorrow.",
+            message: "You have used all of today's messages with Tala. They refresh tomorrow.",
             status: "refused",
           }),
           { headers: { "content-type": "application/json" } },
@@ -158,7 +180,7 @@ describe("the floating assistant", () => {
     );
 
     renderWidget();
-    fireEvent.click(screen.getByRole("button", { name: "Ask the Invitica assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
     fireEvent.click(await screen.findByText("How do I send personalized links?"));
 
     const alert = await screen.findByRole("alert");

@@ -33,9 +33,9 @@
   min-height: 2.75rem;
   border: 1px solid var(--accent, #7a3442);
   border-radius: 50%;
-  background: var(--accent, #7a3442);
+  background: var(--surface, #fffdf8);
   box-shadow: 0 0.75rem 1.75rem rgb(61 45 37 / 22%);
-  color: var(--background, #f7f3eb);
+  color: var(--accent, #7a3442);
   cursor: pointer;
   transition:
     background-color 160ms ease,
@@ -43,7 +43,7 @@
 }
 
 .bubble:hover {
-  background: #5d2632;
+  background: var(--surface-muted, #eee7da);
 }
 
 .bubble:active {
@@ -51,8 +51,18 @@
 }
 
 .bubbleGlyph {
-  font-size: 1.5rem;
-  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.bubbleGlyph > svg:not([data-tala-state]) {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.bubbleGlyph > svg[data-tala-state] {
+  width: 2.65rem;
+  height: 2.65rem;
 }
 
 .panel {
@@ -75,6 +85,22 @@
   gap: 0.75rem;
   padding: 0.9rem 1rem;
   border-bottom: 1px solid var(--border, #d5cbbd);
+}
+
+.panelIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.panelMascot {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.panelHeading {
+  min-width: 0;
 }
 
 .panelEyebrow {
@@ -111,6 +137,11 @@
   font-size: 0.8rem;
   text-decoration: none;
   cursor: pointer;
+}
+
+.panelAction svg {
+  width: 0.9rem;
+  margin-left: 0.3rem;
 }
 
 .panelAction:hover {
@@ -366,6 +397,37 @@
      top of the composer. The header's Close is the one way out, plus Escape. */
   .widget[data-open="true"] .bubble {
     display: none;
+  }
+
+  .panelHeader {
+    flex-wrap: wrap;
+    align-items: center;
+    padding-top: calc(0.9rem + env(safe-area-inset-top));
+  }
+
+  .panelEyebrow {
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+  }
+
+  .panelTitle {
+    margin-top: 0.05rem;
+    font-size: 0.98rem;
+  }
+
+  .panelMascot {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .panelActions {
+    flex-wrap: nowrap;
+    margin-left: auto;
+  }
+
+  .panelAction {
+    padding-inline: 0.45rem;
+    font-size: 0.75rem;
   }
 
   .composer {

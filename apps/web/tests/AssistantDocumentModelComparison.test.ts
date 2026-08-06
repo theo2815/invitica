@@ -8,6 +8,7 @@ import { parseInvitationDocument } from "@invitica/invitation-schema";
 import { resolveTemplateById, templateStarterDocument } from "@invitica/template-kit";
 import { describe, expect, it } from "vitest";
 
+import { describeSectionProgress } from "../src/lib/invitations/section-progress";
 import { ASSISTANT_SELECTION_MODEL, createClaudeProvider } from "../src/server/assistant/claude";
 import {
   currentDraftMessage,
@@ -17,10 +18,10 @@ import {
 import { resolveDocumentProposal } from "../src/server/assistant/document-proposal";
 import { buildProposalSchema } from "../src/server/assistant/document-schema";
 import {
-  buildSectionSelectionSchema,
-  MAX_SELECTION_OUTPUT_TOKENS,
-  resolveSectionSelection,
-  sectionSelectionSystemPrompt,
+  buildIntakeSchema,
+  intakeSystemPrompt,
+  MAX_INTAKE_OUTPUT_TOKENS,
+  resolveIntake,
 } from "../src/server/assistant/section-selection";
 import { DOCUMENT_PROMPT_FIXTURES } from "./fixtures/assistant-document-prompts";
 
@@ -132,19 +133,31 @@ describe.runIf(enabled)("document model comparison", () => {
           // measure a request the product never sends, and would hide the selection cost
           // that every draft now pays.
           const selection = await selector.generate({
-            maxOutputTokens: MAX_SELECTION_OUTPUT_TOKENS,
+            maxOutputTokens: MAX_INTAKE_OUTPUT_TOKENS,
             messages,
-            outputSchema: buildSectionSelectionSchema(document, manifest),
-            systemPrompt: sectionSelectionSystemPrompt(document, manifest),
+            outputSchema: buildIntakeSchema(document, manifest),
+            systemPrompt: intakeSystemPrompt(
+              document,
+              manifest,
+              describeSectionProgress(document, manifest),
+            ),
           });
 
-          const sections = resolveSectionSelection(selection.output, document, manifest);
+          const { questions, sections } = resolveIntake(selection.output, document, manifest);
           selectionTally.inputTokens += selection.usage.inputTokens;
           selectionTally.outputTokens += selection.usage.outputTokens;
-          console.info(`${model} · ${fixture.name} — sections: ${sections.join(", ") || "none"}`);
+          console.info(
+            `${model} · ${fixture.name} — sections: ${sections.join(", ") || "none"}; questions: ${questions.length}`,
+          );
 
           if (sections.length === 0) {
-            tally.failures.push(`${fixture.name}: named no sections`);
+            // Every fixture here states enough to draft from, so intake asking instead of
+            // drafting is a real miss on this fixture rather than the guided path working.
+            tally.failures.push(
+              questions.length > 0
+                ? `${fixture.name}: asked ${questions.length} questions instead of drafting`
+                : `${fixture.name}: named no sections`,
+            );
             continue;
           }
 

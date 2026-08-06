@@ -26,6 +26,16 @@ Once an invitation is selected, describe your event in **Draft my invitation** i
 words: the date, the place, the people. One run-on sentence is fine. Tala's draft appears in
 the preview and waits for **Keep these changes** or **Discard the draft**.
 
+**If Tala needs more before it can draft, it asks.** Say only "help me with my invitation" and
+it comes back with three to five short questions instead of an empty draft. Answer them in one
+message — all of them, or the ones you know. When your description already covers part of the
+invitation, Tala drafts that part first and asks about the rest underneath it, so you see
+something before you answer anything.
+
+On the **Tala** page, the panel beside the conversation lists every section of the selected
+invitation with its number and name, marked **Written** or **Starting text**. That is what is
+left to describe, and the numbers are the same ones on the section cards in your editor.
+
 If what you are typing belongs in one of the other tabs, Invitica offers to move it before you
 send: a line above the box suggests the tab and keeps what you have written. **Not now** puts
 the suggestion away. It is only ever a suggestion — you can ignore it, and the tab you are in

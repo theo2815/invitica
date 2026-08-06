@@ -4,6 +4,7 @@ import {
   ASSISTANT_MODE_LABELS,
   assistantDocumentRequestSchema,
 } from "../../../../../src/contracts/assistant-api";
+import { describeSectionProgress } from "../../../../../src/lib/invitations/section-progress";
 import {
   budgetRefusalMessage,
   consumeAssistantMessage,
@@ -31,10 +32,11 @@ import {
   type AssistantUsage,
 } from "../../../../../src/server/assistant/provider";
 import {
-  buildSectionSelectionSchema,
-  MAX_SELECTION_OUTPUT_TOKENS,
-  resolveSectionSelection,
-  sectionSelectionSystemPrompt,
+  type AssistantIntake,
+  buildIntakeSchema,
+  intakeSystemPrompt,
+  MAX_INTAKE_OUTPUT_TOKENS,
+  resolveIntake,
 } from "../../../../../src/server/assistant/section-selection";
 import { getOptionalConfirmedUser } from "../../../../../src/server/auth/session";
 import { loadInvitationDraft } from "../../../../../src/server/invitations/drafts";
@@ -107,7 +109,7 @@ export async function POST(request: Request) {
     });
   }
 
-  function logSelection(
+  function logIntake(
     outcome: Parameters<typeof logAssistantRequest>[0]["outcome"],
     messageCount: number,
     usage?: AssistantUsage,
@@ -171,37 +173,62 @@ export async function POST(request: Request) {
     );
   }
 
-  // First call: which sections is this even about? A schema covering every section of a
-  // wide template is rejected before any model reads it — see `section-selection.ts` — so
-  // the expensive call below is given a narrowed one.
+  // First call: what is this request about, and is there enough in it to draft from? A schema
+  // covering every section of a wide template is rejected before any model reads it — see
+  // `section-selection.ts` — so the expensive call below is given a narrowed one. The same
+  // call decides whether the expensive one should run at all.
+  //
+  // The progress list is computed here rather than asked for: which sections still hold the
+  // template's starting text is a diff between two documents the server already has, and
+  // paying a model to guess at it would be both slower and less reliable.
   const selector = createClaudeProvider(ASSISTANT_SELECTION_MODEL);
 
-  let sections: ReturnType<typeof resolveSectionSelection>;
+  let intake: AssistantIntake;
   try {
     const selection = await selector.generate(
       {
-        maxOutputTokens: MAX_SELECTION_OUTPUT_TOKENS,
+        maxOutputTokens: MAX_INTAKE_OUTPUT_TOKENS,
         messages: [draftMessage, ...messages],
-        outputSchema: buildSectionSelectionSchema(draft.document, draft.manifest),
-        systemPrompt: sectionSelectionSystemPrompt(draft.document, draft.manifest),
+        outputSchema: buildIntakeSchema(draft.document, draft.manifest),
+        systemPrompt: intakeSystemPrompt(
+          draft.document,
+          draft.manifest,
+          describeSectionProgress(draft.document, draft.manifest),
+        ),
       },
       request.signal,
     );
 
-    sections = resolveSectionSelection(selection.output, draft.document, draft.manifest);
-    logSelection("completed", messages.length, selection.usage);
+    intake = resolveIntake(selection.output, draft.document, draft.manifest);
+    logIntake("completed", messages.length, selection.usage);
   } catch (error) {
     const failure = error instanceof AssistantProviderError ? error.failure : undefined;
     if (failure?.kind === "configuration") markAssistantMisconfigured();
 
-    logSelection("provider_error", messages.length, undefined, failure);
+    logIntake("provider_error", messages.length, undefined, failure);
     return providerRefusal(error);
   }
 
+  const { questions, sections } = intake;
+
+  if (sections.length === 0 && questions.length > 0) {
+    // Nothing to draft yet, and the creator has been asked what is missing. The turn ends
+    // here having spent the cheap call and not the expensive one, so a vague request now
+    // costs *less* than it did when it produced a near-empty draft.
+    //
+    // The daily message was already consumed above, and deliberately so: refunding it would
+    // mean a creator could spend the model's time without limit by staying vague.
+    log("asked_questions", messages.length);
+    return NextResponse.json(
+      { questions, status: "questions" },
+      { headers: assistantResponseHeaders, status: 200 },
+    );
+  }
+
   if (sections.length === 0) {
-    // The creator's message was not about the invitation's content, or was too vague to
-    // place. Saying so is more useful than drafting a whole invitation nobody asked for,
-    // and it costs one cheap call rather than the expensive one.
+    // The creator's message was not about the invitation's content, and intake found nothing
+    // worth asking either. Saying so is more useful than drafting a whole invitation nobody
+    // asked for, and it costs one cheap call rather than the expensive one.
     //
     // The likeliest reason a message lands here is that it was a question about how Invitica
     // works, asked from the wrong tab. The composer offers to move those before they are sent;
@@ -260,6 +287,10 @@ export async function POST(request: Request) {
       // `/dashboard/assistant` cannot describe different invitations.
       details: proposal.details,
       document: proposal.document,
+      // What intake still wanted to know, carried alongside the draft rather than instead of
+      // it. Value first: the creator sees what their description already supported, and the
+      // questions are about the gap that is left.
+      questions,
       revision: draft.revision,
       status: "proposed",
     },

@@ -7,6 +7,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { describeProposalChanges } from "../../lib/invitations/proposal-diff";
+import {
+  countUnwrittenSections,
+  type SectionProgress,
+} from "../../lib/invitations/section-progress";
 import { getMapTileKey } from "../../lib/map-tile-key";
 import { loadAssistantInvitationAction } from "../../server/assistant/actions";
 import type { CreatorImageAsset } from "../../server/media/library";
@@ -25,9 +29,26 @@ interface LoadedInvitation {
   assets: readonly CreatorImageAsset[];
   document: InvitationDocument;
   rendererKey: TemplateRendererKey;
+  sections: readonly SectionProgress[];
 }
 
 type LoadState = "error" | "idle" | "loading";
+
+/**
+ * The heading over the section list, which is the whole point of the list.
+ *
+ * A creator glancing at this column wants one number: how much is left. Counting eleven rows
+ * to find it would make the list a puzzle rather than an answer, so the count is the heading
+ * and the rows are the detail underneath it.
+ */
+function sectionSummary(sections: readonly SectionProgress[]): string {
+  const left = countUnwrittenSections(sections);
+
+  if (left === 0) return "Every section has your own words in it.";
+  if (left === 1) return "1 section still has the template's starting text.";
+
+  return `${left} sections still have the template's starting text.`;
+}
 
 /**
  * The drafting surface for creators who are not in an editor.
@@ -47,6 +68,7 @@ export function AssistantWorkspace({
   const router = useRouter();
   const flushDraft = useDraftFlush();
   const pickerId = useId();
+  const progressId = useId();
   const mapTileKey = getMapTileKey();
 
   const [loaded, setLoaded] = useState<LoadedInvitation | null>(null);
@@ -82,6 +104,7 @@ export function AssistantWorkspace({
         assets: result.assets,
         document: result.document,
         rendererKey: result.rendererKey,
+        sections: result.sections,
       });
       setLoadState("idle");
     },
@@ -185,6 +208,41 @@ export function AssistantWorkspace({
         <p className={styles.status} role="alert">
           That invitation could not be opened. Choose it again, or open it from Invitations.
         </p>
+      ) : null}
+
+      {loaded && loaded.sections.length > 0 ? (
+        <section aria-labelledby={progressId} className={styles.progress}>
+          <div>
+            <p className={styles.eyebrow}>Sections</p>
+            <h2 id={progressId}>{sectionSummary(loaded.sections)}</h2>
+          </div>
+
+          {/*
+            An ordered list, numbered by the editor's own numbering rather than by the
+            browser's — a hidden section is still counted and still printed on its card, so
+            `list-style: none` plus the stored position is what keeps this column and the
+            editor saying the same thing about "Section 5".
+
+            State is carried by the words "Written" and "Starting text", never by colour
+            alone. Nothing here is interactive: it answers what is left, and the editor is
+            where a creator acts on the answer.
+          */}
+          <ol className={styles.sections}>
+            {loaded.sections.map((section) => (
+              <li key={section.type}>
+                <span className={styles.sectionName}>
+                  {section.position}. {section.name}
+                  {section.visible ? null : (
+                    <span className={styles.sectionHidden}> · Hidden from guests</span>
+                  )}
+                </span>
+                <span className={section.written ? styles.written : styles.unwritten}>
+                  {section.written ? "Written" : "Starting text"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
       ) : null}
 
       {staged ? (

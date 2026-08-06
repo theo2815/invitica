@@ -166,6 +166,47 @@ export function conversationTitle(messages: readonly AssistantApiMessage[]): str
 }
 
 /**
+ * The sentence a drafted proposal arrives with, and the batch of questions that may follow it.
+ *
+ * Invitica's words around the model's, the same way the guest-list count is. The draft itself
+ * is the answer and it is shown in the preview where a creator can judge it; restating it as
+ * prose would be a second, less reliable copy. The questions are the model's own text, because
+ * they are about this creator's invitation and no fixed sentence could be.
+ *
+ * Numbered rather than bulleted so a creator can answer "1 and 3" — `AssistantAnswer` renders
+ * `1.` as an ordered list, and the numbers are what makes a batch answerable in one message
+ * instead of five.
+ */
+function questionList(questions: readonly string[]): string {
+  return questions.map((question, at) => `${at + 1}. ${question}`).join("\n");
+}
+
+function questionCount(questions: readonly string[]): string {
+  return questions.length === 1 ? "one thing" : `${questions.length} things`;
+}
+
+/** What Tala says when a draft arrives, with or without anything still missing from it. */
+export function draftedMessage(questions: readonly string[] = []): string {
+  const drafted =
+    "I have drafted this into your invitation. Look it over in the preview, then keep it or discard it.";
+
+  if (questions.length === 0) return drafted;
+
+  return `${drafted}\n\nTo finish the rest, ${questionCount(questions)}:\n\n${questionList(questions)}`;
+}
+
+/**
+ * What Tala says when there was nothing to draft yet.
+ *
+ * No proposal is staged and no expensive call was made. A creator who wrote "help me with my
+ * wedding invitation" gets the questions that turn it into something draftable, rather than an
+ * empty draft they would read as the feature not working.
+ */
+export function intakeQuestionsMessage(questions: readonly string[]): string {
+  return `Before I draft anything, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will draft from it.`;
+}
+
+/**
  * The tail of a thread that is small enough to send.
  *
  * A saved conversation can be continued, so it can outgrow the twenty-message ceiling the

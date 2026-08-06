@@ -18,6 +18,8 @@ import {
   type AssistantMode,
   conversationTitle,
   conversationWindow,
+  draftedMessage,
+  intakeQuestionsMessage,
   type ParsedGuestParty,
 } from "../../contracts/assistant-api";
 import type { SectionDocumentDetails } from "../../lib/invitations/little-blessings-details";
@@ -358,9 +360,24 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             details?: SectionDocumentDetails;
             document?: InvitationDocument;
             message?: string;
+            questions?: string[];
             revision?: number;
             status?: string;
           };
+
+          const questions = body.questions ?? [];
+
+          // Intake found nothing to draft and asked instead. No proposal is staged, because
+          // there is none — the expensive call never ran. The questions go into the thread as
+          // an ordinary answer, so replying to them is just the next message.
+          if (body.status === "questions" && questions.length > 0) {
+            settled = [
+              ...history,
+              { content: intakeQuestionsMessage(questions), role: "assistant" },
+            ];
+            setMessages(settled);
+            return;
+          }
 
           if (body.status !== "proposed" || !body.document || !body.details) {
             setNotice(body.message ?? "Tala is unavailable right now.");
@@ -373,17 +390,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             invitationId,
             revision: body.revision ?? 0,
           });
-          // The thread carries a sentence Invitica wrote, not the model's output. The draft
-          // itself is the answer, and it is shown in the preview where the creator can judge
-          // it — restating it as prose would be a second, less reliable copy.
-          settled = [
-            ...history,
-            {
-              content:
-                "I have drafted this into your invitation. Look it over in the preview, then keep it or discard it.",
-              role: "assistant",
-            },
-          ];
+          // The sentence around the draft is Invitica's, not the model's: the draft itself is
+          // the answer and it is shown in the preview where the creator can judge it, so
+          // restating it as prose would be a second, less reliable copy. Any questions after
+          // it are the model's own words, because they are about this creator's invitation.
+          settled = [...history, { content: draftedMessage(questions), role: "assistant" }];
           setMessages(settled);
         } catch {
           if (controller.signal.aborted) setStopped(true);

@@ -10,6 +10,10 @@ import {
   assistantMessageSchema,
   MAX_CONVERSATION_TITLE_CHARACTERS,
 } from "../../contracts/assistant-api";
+import {
+  describeSectionProgress,
+  type SectionProgress,
+} from "../../lib/invitations/section-progress";
 import { requireConfirmedUser } from "../auth/session";
 import { loadInvitationDraft } from "../invitations/drafts";
 import { type CreatorImageAsset, listInvitationImageAssets } from "../media/library";
@@ -37,6 +41,15 @@ export type LoadAssistantInvitationResult =
       document: InvitationDocument;
       rendererKey: TemplateRendererKey;
       revision: number;
+      /**
+       * The numbered section list with each one marked written or still template text.
+       *
+       * Derived here rather than in the browser because it needs the template manifest, and
+       * the manifests carry every template's starter document — importing the registry into a
+       * client component to compute a list of eleven booleans would ship all of them to a
+       * creator on a phone. This costs no extra query: the draft is already loaded.
+       */
+      sections: readonly SectionProgress[];
       status: "loaded";
     }
   | { message: string; status: "error" };
@@ -73,6 +86,7 @@ export async function loadAssistantInvitationAction(
       document: draft.document,
       rendererKey: draft.manifest.rendererKey,
       revision: draft.revision,
+      sections: describeSectionProgress(draft.document, draft.manifest),
       status: "loaded",
     };
   } catch {

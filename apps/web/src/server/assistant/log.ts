@@ -3,6 +3,13 @@ import type { AssistantFailure, AssistantUsage } from "./provider";
 // A signed-out request is not logged at all: there is no creator to attribute it to, and
 // inventing an identifier for one would put a stranger in the record.
 export type AssistantOutcome =
+  /**
+   * Intake found nothing to draft and asked the creator for facts instead. The expensive
+   * call never ran, so this line carries no usage and the turn cost only the cheap one.
+   * Its own outcome because how often a request stops here is the question this feature
+   * raises, and `completed` with no usage would not answer it.
+   */
+  | "asked_questions"
   | "completed"
   | "invalid"
   | "provider_error"

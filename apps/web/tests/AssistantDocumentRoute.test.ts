@@ -83,10 +83,10 @@ function isSelectionRequest(request: AssistantGenerateRequest) {
  * the proposal. Unless a test says otherwise the selection names every section this draft
  * has, which keeps the narrowing out of the way of tests that are about something else.
  */
-function stubProvider(output: unknown, sections?: string[]) {
+function stubProvider(output: unknown, sections?: string[], questions: string[] = []) {
   const generate = vi.fn(async (request: AssistantGenerateRequest) => ({
     output: isSelectionRequest(request)
-      ? { sections: sections ?? proposableSections(draftDocument, littleBlessings) }
+      ? { questions, sections: sections ?? proposableSections(draftDocument, littleBlessings) }
       : output,
     stopReason: "end_turn",
     usage,
@@ -388,6 +388,92 @@ describe("the creator document-proposing route", () => {
     expect(body.message).toContain("which part of the invitation");
     // One call, not two: a request that changes nothing costs the cheap model only.
     expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the creator instead of drafting when there is nothing to draft from", async () => {
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const generate = stubProvider(
+      validProposal(),
+      [],
+      ["Who is being christened?", "What date is the christening?", "Which church?"],
+    );
+
+    const response = await POST(
+      request({
+        invitationId,
+        messages: [{ content: "help me with my invitation", role: "user" }],
+      }),
+    );
+    const body = (await response.json()) as {
+      document?: unknown;
+      questions: string[];
+      status: string;
+    };
+
+    expect(body.status).toBe("questions");
+    expect(body.questions).toHaveLength(3);
+    expect(body.document).toBeUndefined();
+    // The whole point: a vague request now costs the cheap call and not the expensive one,
+    // so it is cheaper than the near-empty draft it used to produce.
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("records asking as its own outcome, with no usage on the call that never ran", async () => {
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    stubProvider(validProposal(), [], ["What date?", "Where?", "Who is hosting?"]);
+
+    await POST(request({ invitationId, messages: [{ content: "help me", role: "user" }] }));
+
+    const line = logLine("document");
+    expect(line).toContain('"outcome":"asked_questions"');
+    // How often intake stops before the expensive call is the question this feature raises,
+    // and a line carrying document-model tokens it never spent could not answer it.
+    expect(line).not.toContain('"outputTokens"');
+    expect(logLine("section-selection")).toContain('"outcome":"completed"');
+  });
+
+  it("drafts what the description supports and carries the remaining questions with it", async () => {
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const generate = stubProvider(
+      validProposal("Amihan Reyes"),
+      ["hero"],
+      ["What date is the christening?"],
+    );
+
+    const response = await POST(
+      request({ invitationId, messages: [{ content: "It is for Amihan", role: "user" }] }),
+    );
+    const body = (await response.json()) as {
+      document: { sections: { props: Record<string, unknown>; type: string }[] };
+      questions: string[];
+      status: string;
+    };
+
+    // Value before the interrogation: the hero is drafted from what they did say, and the
+    // one thing still missing is asked alongside it rather than instead of it.
+    expect(body.status).toBe("proposed");
+    expect(body.questions).toEqual(["What date is the christening?"]);
+    expect(body.document.sections.find((section) => section.type === "hero")?.props.title).toBe(
+      "Amihan Reyes",
+    );
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("still refuses when intake names no section and asks nothing", async () => {
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    stubProvider(validProposal(), [], []);
+
+    const response = await POST(
+      request({ invitationId, messages: [{ content: "thanks, that's all", role: "user" }] }),
+    );
+    const body = (await response.json()) as { message: string; status: string };
+
+    expect(body.status).toBe("refused");
+    expect(logLine("document")).toContain('"outcome":"rejected_proposal"');
   });
 
   it("records a rejected draft as its own outcome rather than as a clean answer", async () => {

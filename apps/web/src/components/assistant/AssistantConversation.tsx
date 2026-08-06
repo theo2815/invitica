@@ -6,7 +6,10 @@ import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 
 import { MAX_MESSAGE_CHARACTERS } from "../../contracts/assistant-api";
 import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
+import { AssistantAnswer } from "./AssistantAnswer";
+import { AssistantHistory } from "./AssistantHistory";
 import { useAssistant } from "./AssistantProvider";
+import { TalaMascot } from "./TalaMascot";
 
 const HELP_SUGGESTIONS = [
   "How do I send personalized links?",
@@ -38,18 +41,42 @@ const GUEST_SUGGESTIONS = [
   "The Reyes family is 6, not 4",
 ];
 
+/** Roughly six lines before the composer stops growing and starts scrolling. */
+const MAX_COMPOSER_HEIGHT = 176;
+
+/** Close enough to the newest line that following the answer is what the creator wants. */
+const FOLLOW_THRESHOLD = 120;
+
 /**
  * The thread and its composer. One component, rendered by both the floating widget and
  * `/dashboard/assistant`, so the two cannot drift into two different chat surfaces.
  */
 export function AssistantConversation({ autoFocus = false }: { autoFocus?: boolean }) {
-  const { clear, close, guestList, invitationId, messages, mode, notice, send, setMode, status } =
-    useAssistant();
+  const {
+    close,
+    conversations,
+    editLastMessage,
+    guestList,
+    invitationId,
+    messages,
+    mode,
+    notice,
+    refreshConversations,
+    send,
+    setMode,
+    startNewConversation,
+    status,
+    stop,
+    stopped,
+  } = useAssistant();
   const router = useRouter();
   const flushDraft = useDraftFlush();
   const [draft, setDraft] = useState("");
   const [leaving, setLeaving] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<null | number>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
   const isAnswering = status === "answering";
   // The newest text, which grows by a chunk at a time while an answer streams.
@@ -60,11 +87,38 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   }, [autoFocus]);
 
   useEffect(() => {
-    // Follows the answer as it streams, so the newest line stays visible without the creator
-    // scrolling. `block: "nearest"` keeps that scroll inside the thread rather than dragging
-    // the whole dashboard along behind the panel.
-    if (latest) logEndRef.current?.scrollIntoView?.({ block: "nearest" });
+    const log = logRef.current;
+    if (!latest || !log) return;
+
+    // Follows the answer as it streams — but only while the creator is already at the
+    // bottom. Scrolling up to re-read an earlier answer used to be undone by the next
+    // chunk, which made a long answer impossible to read until it finished.
+    const distanceFromBottom = log.scrollHeight - log.scrollTop - log.clientHeight;
+    if (distanceFromBottom > FOLLOW_THRESHOLD) return;
+
+    // `block: "nearest"` keeps that scroll inside the thread rather than dragging the
+    // whole dashboard along behind the panel.
+    logEndRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [latest]);
+
+  useEffect(() => {
+    const node = composerRef.current;
+    // jsdom reports no layout, and a height of zero would be worse than the default rows.
+    if (!node || node.scrollHeight === 0) return;
+
+    // Grows with what is typed rather than staying two lines and scrolling inside itself,
+    // which on a phone hides most of a guest list while it is being checked. Cleared back
+    // to the default rows once the message is sent.
+    node.style.height = "auto";
+    node.style.height =
+      draft.length === 0 ? "" : `${Math.min(node.scrollHeight, MAX_COMPOSER_HEIGHT)}px`;
+  }, [draft]);
+
+  useEffect(() => {
+    if (copiedIndex === null) return;
+    const timer = window.setTimeout(() => setCopiedIndex(null), 2_000);
+    return () => window.clearTimeout(timer);
+  }, [copiedIndex]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -80,6 +134,38 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
       event.preventDefault();
       submit(event);
     }
+  }
+
+  /**
+   * Puts the creator's last message back in the composer for them to finish.
+   *
+   * The pair of this and **Stop** is the way out of a question sent by accident: stop the
+   * answer to a half-typed question, take the question back, complete it, send it again —
+   * all inside the conversation that was already going, rather than beside it.
+   */
+  function editLast() {
+    const text = editLastMessage();
+    if (text === null) return;
+    setDraft(text);
+    composerRef.current?.focus();
+  }
+
+  async function copyAnswer(index: number, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+    } catch {
+      // No clipboard permission, or an insecure origin. The answer is on screen and can
+      // still be selected, so there is nothing worth interrupting the creator with.
+    }
+  }
+
+  function toggleHistory() {
+    const opening = !showHistory;
+    setShowHistory(opening);
+    // Loaded when the list is asked for rather than on mount, so a creator who never opens
+    // it never spends the round trip.
+    if (opening) void refreshConversations();
   }
 
   /**
@@ -116,14 +202,51 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
       ? DOCUMENT_SUGGESTIONS
       : HELP_SUGGESTIONS;
   const parsedParties = guestList?.invitationId === invitationId ? guestList.parties : null;
+  const lastUserIndex = messages.map((message) => message.role).lastIndexOf("user");
+  // Between sending and the first token there is no assistant message at all, so this is
+  // what stands in for one. Previously an empty message was pushed instead, and an empty
+  // bubble with a border rendered as a bare horizontal line.
+  const isThinking = isAnswering && messages.at(-1)?.role !== "assistant";
+  const workingLabel = organizing
+    ? "Tala is reading your list"
+    : drafting
+      ? "Tala is drafting your invitation"
+      : "Tala is thinking";
 
   return (
     <div className={styles.conversation}>
-      {canDraft ? (
+      <div className={styles.threadBar}>
+        <button
+          className={styles.threadAction}
+          disabled={isAnswering || (messages.length === 0 && !showHistory)}
+          onClick={() => {
+            setShowHistory(false);
+            startNewConversation();
+          }}
+          type="button"
+        >
+          New chat
+        </button>
+        <button
+          aria-expanded={showHistory}
+          className={styles.threadAction}
+          data-active={showHistory}
+          onClick={toggleHistory}
+          type="button"
+        >
+          {showHistory
+            ? "Back to chat"
+            : conversations.length > 0
+              ? `History (${conversations.length})`
+              : "History"}
+        </button>
+      </div>
+
+      {canDraft && !showHistory ? (
         <fieldset className={styles.modeSwitch}>
           <legend className={styles.visuallyHidden}>What Tala should do</legend>
           <button
-            aria-pressed={!drafting}
+            aria-pressed={!drafting && !organizing}
             disabled={isAnswering}
             onClick={() => setMode("help")}
             type="button"
@@ -149,105 +272,152 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
         </fieldset>
       ) : null}
 
-      <div className={styles.log}>
-        {messages.length === 0 && !notice ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyLead}>
-              {organizing
-                ? "Paste your guest list however it already exists and Tala sorts it into invitations. You check every row in the Guest Desk first — nothing is created until you do. Their names are sent to Invitica's AI provider to be read."
-                : drafting
-                  ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
-                  : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
-            </p>
-            <ul className={styles.suggestions}>
-              {suggestions.map((suggestion) => (
-                <li key={suggestion}>
+      {showHistory ? (
+        <div className={styles.log}>
+          <AssistantHistory onOpened={() => setShowHistory(false)} />
+        </div>
+      ) : (
+        <div className={styles.log} ref={logRef}>
+          {messages.length === 0 && !notice ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyLead}>
+                {organizing
+                  ? "Paste your guest list however it already exists and Tala sorts it into invitations. You check every row in the Guest Desk first — nothing is created until you do. Their names are sent to Invitica's AI provider to be read, and this conversation is saved to your history until you delete it."
+                  : drafting
+                    ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
+                    : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
+              </p>
+              <ul className={styles.suggestions}>
+                {suggestions.map((suggestion) => (
+                  <li key={suggestion}>
+                    <button
+                      className={styles.suggestion}
+                      disabled={isAnswering}
+                      onClick={() => void send(suggestion)}
+                      type="button"
+                    >
+                      {suggestion}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <ol className={styles.messages}>
+            {messages.map((message, index) => (
+              <li
+                className={styles.message}
+                data-role={message.role}
+                // Messages are append-only within a turn and never reordered, so the
+                // position is a stable identity. Their text is not: an answer's content
+                // changes on every streamed chunk, which would remount the node on each
+                // token if it were the key.
+                key={index}
+              >
+                <span className={styles.messageRole}>
+                  {message.role === "user" ? "You" : "Tala"}
+                </span>
+
+                {message.role === "assistant" ? (
+                  <div className={styles.messageBody}>
+                    <AssistantAnswer text={message.content} />
+                  </div>
+                ) : (
+                  <p className={styles.messageBody}>{message.content}</p>
+                )}
+
+                {message.role === "assistant" && !isAnswering ? (
                   <button
-                    className={styles.suggestion}
-                    disabled={isAnswering}
-                    onClick={() => void send(suggestion)}
+                    className={styles.messageAction}
+                    onClick={() => void copyAnswer(index, message.content)}
                     type="button"
                   >
-                    {suggestion}
+                    {copiedIndex === index ? "Copied" : "Copy"}
                   </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+                ) : null}
 
-        <ol className={styles.messages}>
-          {messages.map((message, index) => (
-            <li
-              className={styles.message}
-              data-role={message.role}
-              // Messages are append-only and never reordered, so the position is a stable
-              // identity. Their text is not: an answer's content changes on every streamed
-              // chunk, which would remount the node on each token if it were the key.
-              // biome-ignore lint/suspicious/noArrayIndexKey: append-only, never reordered
-              key={index}
-            >
-              <span className={styles.messageRole}>{message.role === "user" ? "You" : "Tala"}</span>
-              <p className={styles.messageBody}>{message.content}</p>
-            </li>
-          ))}
-        </ol>
+                {message.role === "user" && index === lastUserIndex && !isAnswering ? (
+                  <button className={styles.messageAction} onClick={editLast} type="button">
+                    Edit
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ol>
 
-        {notice ? (
-          <p className={styles.notice} role="alert">
-            {notice}
-          </p>
-        ) : null}
-
-        {organizing && parsedParties ? (
-          <section aria-labelledby="assistant-guest-list" className={styles.guestList}>
-            <h3 className={styles.guestListHeading} id="assistant-guest-list">
-              {parsedParties.length === 1
-                ? "1 invitation, not created yet"
-                : `${parsedParties.length} invitations, not created yet`}
-            </h3>
-            <ul className={styles.guestRows}>
-              {parsedParties.map((party, index) => (
-                // Two rows may legitimately carry the same name — a creator with two guests
-                // called Tita Baby is not an error — so the position is the only stable
-                // identity here. The list is replaced whole and never reordered.
-                <li key={index}>
-                  <span>{party.internalLabel}</span>
-                  <span>
-                    {party.capacity === 1 ? "1 seat" : `${party.capacity} seats`}
-                    {party.guestNames.length > 0 ? ` · ${party.guestNames.join(", ")}` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <div className={styles.guestListActions}>
-              <button
-                className={styles.review}
-                disabled={leaving}
-                onClick={() => void reviewInGuestDesk()}
-                type="button"
-              >
-                {leaving ? "Opening…" : "Review in Guest Desk"}
-              </button>
+          {isThinking ? (
+            <div className={styles.thinking}>
+              <TalaMascot className={styles.thinkingMascot} size="compact" state="thinking" />
+              <span className={styles.thinkingLabel}>
+                {workingLabel}
+                <span aria-hidden="true" className={styles.thinkingDots}>
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </span>
             </div>
-          </section>
-        ) : null}
+          ) : null}
 
-        {/* The answer itself is not announced token by token — that would read every
-            fragment aloud. One polite status per turn is the useful amount. A draft has no
-            streamed text at all, so this status is the only signal that it is working. */}
-        <p aria-live="polite" className={styles.visuallyHidden}>
-          {isAnswering
-            ? organizing
-              ? "Tala is organizing your guest list."
-              : drafting
-                ? "Tala is drafting your invitation."
-                : "Tala is answering."
-            : ""}
-        </p>
+          {stopped && !isAnswering ? (
+            <p className={styles.stopped}>
+              You stopped this answer. That message still counted towards today&apos;s allowance —
+              edit your question above and send it again when you are ready.
+            </p>
+          ) : null}
 
-        <div ref={logEndRef} />
-      </div>
+          {notice ? (
+            <p className={styles.notice} role="alert">
+              {notice}
+            </p>
+          ) : null}
+
+          {organizing && parsedParties ? (
+            <section aria-labelledby="assistant-guest-list" className={styles.guestList}>
+              <h3 className={styles.guestListHeading} id="assistant-guest-list">
+                {parsedParties.length === 1
+                  ? "1 invitation, not created yet"
+                  : `${parsedParties.length} invitations, not created yet`}
+              </h3>
+              <ul className={styles.guestRows}>
+                {parsedParties.map((party, index) => (
+                  // Two rows may legitimately carry the same name — a creator with two
+                  // guests called Tita Baby is not an error — so the position is the only
+                  // stable identity here. The list is replaced whole and never reordered.
+                  <li key={index}>
+                    <span>{party.internalLabel}</span>
+                    <span>
+                      {party.capacity === 1 ? "1 seat" : `${party.capacity} seats`}
+                      {party.guestNames.length > 0 ? ` · ${party.guestNames.join(", ")}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className={styles.guestListActions}>
+                <button
+                  className={styles.review}
+                  disabled={leaving}
+                  onClick={() => void reviewInGuestDesk()}
+                  type="button"
+                >
+                  {leaving ? "Opening…" : "Review in Guest Desk"}
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {/* The answer itself is not announced token by token — that would read every
+              fragment aloud. One polite status per turn is the useful amount. A draft has
+              no streamed text at all, so this status is the only signal that it is
+              working. */}
+          <p aria-live="polite" className={styles.visuallyHidden}>
+            {isAnswering ? `${workingLabel}.` : ""}
+          </p>
+
+          <div ref={logEndRef} />
+        </div>
+      )}
 
       <form className={styles.composer} onSubmit={submit}>
         <label className={styles.visuallyHidden} htmlFor="assistant-composer">
@@ -268,45 +438,30 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
                 : "Ask how something works…"
           }
           ref={composerRef}
-          // A pasted list is many lines where a question is one or two, so it gets room to
-          // be read back before it is sent.
+          // A pasted list is many lines where a question is one or two, so it starts with
+          // room to be read back before it is sent. It grows from there as one is typed.
           rows={organizing ? 4 : 2}
           value={draft}
         />
         <div className={styles.composerActions}>
-          {messages.length > 0 ? (
-            <button
-              className={styles.secondaryAction}
-              disabled={isAnswering}
-              onClick={clear}
-              type="button"
-            >
-              Start over
-            </button>
-          ) : (
-            <span />
-          )}
           {/* Only shown near the limit. A counter that is always on is noise. */}
           <span aria-hidden={remaining > 200} className={styles.counter}>
             {remaining <= 200 ? `${remaining} characters left` : ""}
           </span>
-          <button
-            className={styles.sendAction}
-            disabled={isAnswering || draft.trim().length === 0}
-            type="submit"
-          >
-            {isAnswering
-              ? organizing
-                ? "Organizing…"
-                : drafting
-                  ? "Drafting…"
-                  : "Answering…"
-              : organizing
-                ? "Organize"
-                : drafting
-                  ? "Draft"
-                  : "Ask"}
-          </button>
+
+          {isAnswering ? (
+            <button className={styles.stopAction} onClick={stop} type="button">
+              Stop
+            </button>
+          ) : (
+            <button
+              className={styles.sendAction}
+              disabled={draft.trim().length === 0}
+              type="submit"
+            >
+              {organizing ? "Organize" : drafting ? "Draft" : "Ask"}
+            </button>
+          )}
         </div>
       </form>
     </div>

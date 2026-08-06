@@ -17,6 +17,7 @@ export type GuestParsingResult =
 export async function requestGuestParties(
   invitationId: string,
   messages: AssistantApiMessage[],
+  signal?: AbortSignal,
 ): Promise<GuestParsingResult> {
   let body: {
     invitationId?: string;
@@ -33,9 +34,13 @@ export async function requestGuestParties(
       headers: { "content-type": "application/json" },
       method: "POST",
       referrerPolicy: "no-referrer",
+      ...(signal ? { signal } : {}),
     });
     body = await response.json();
   } catch {
+    // Includes the creator pressing Stop. The caller knows which it was from the signal
+    // and decides what to show; from here an abandoned request and a dead connection are
+    // the same thing — no answer arrived.
     return {
       message: "Invitica could not reach Tala. Check your connection and try again.",
       status: "refused",

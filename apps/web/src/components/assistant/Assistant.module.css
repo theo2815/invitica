@@ -156,6 +156,45 @@
   min-height: 0;
 }
 
+/* Thread-level controls: which conversation, rather than what the next message does.
+   Above the mode switch because starting a new thread or opening an old one changes the
+   conversation the mode applies to. */
+.threadBar {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: space-between;
+  padding: 0.5rem 1rem 0;
+}
+
+.threadAction {
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.threadAction:hover:not(:disabled) {
+  border-color: var(--border, #d5cbbd);
+  color: var(--text, #29231f);
+}
+
+.threadAction[data-active="true"] {
+  border-color: var(--border, #d5cbbd);
+  background: var(--surface-muted, #eee7da);
+  color: var(--text, #29231f);
+  font-weight: 700;
+}
+
+.threadAction:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* A segmented control, not tabs: the thread below is one conversation, and this changes
    what the next message does rather than switching between two views of it. */
 /* Three equal columns rather than two since guest-list organizing joined the modes. The
@@ -285,11 +324,151 @@
   background: var(--surface-muted, #eee7da);
   font-size: 0.88rem;
   line-height: 1.55;
+}
+
+/* The creator's own text is reproduced exactly, line breaks and all. An answer is not:
+   it arrives as Markdown and `AssistantAnswer` turns it into real blocks, so preserving
+   the model's arbitrary wrapping would fight the paragraphs it just built. */
+.message[data-role="user"] .messageBody {
   white-space: pre-wrap;
 }
 
 .message[data-role="assistant"] .messageBody {
   background: var(--surface, #fffdf8);
+}
+
+/* Copy and Edit. Quiet by default so a thread reads as a conversation rather than as a
+   row of controls, and always present rather than hover-revealed — a phone has no hover
+   and these are the two things a creator reaches for most. */
+.messageAction {
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: none;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.messageAction:hover {
+  color: var(--text, #29231f);
+}
+
+/* The rendered answer. Tight vertical rhythm: a two-sentence reply with one list should
+   read as a single short answer, not as a document. */
+.answer {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.answer p {
+  margin: 0;
+}
+
+.answerHeading {
+  font-weight: 700;
+}
+
+.answerList,
+.answerSteps {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.answerList li,
+.answerSteps li {
+  padding-left: 0.15rem;
+}
+
+.answerCode {
+  padding: 0.05rem 0.25rem;
+  border-radius: 0.2rem;
+  background: var(--surface-muted, #eee7da);
+  font-size: 0.92em;
+}
+
+/*
+  Tala, in the thread, while the answer is still coming.
+
+  Before this the thread pushed an empty message and the bordered bubble rendered as a
+  bare horizontal line — a loading state that looked like a rule. Tala standing in the
+  conversation says the same thing and says who is saying it.
+*/
+.thinking {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  margin-top: 0.9rem;
+}
+
+.thinkingMascot {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+}
+
+.thinkingLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  color: var(--muted, #6d655e);
+  font-size: 0.82rem;
+}
+
+.thinkingDots {
+  display: inline-flex;
+  gap: 0.18rem;
+}
+
+.thinkingDots i {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: currentcolor;
+  animation: assistant-typing 1.2s ease-in-out infinite;
+}
+
+.thinkingDots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinkingDots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes assistant-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+
+  30% {
+    opacity: 1;
+  }
+}
+
+/* The label carries the state on its own, so stopping the dots removes decoration and
+   no information. */
+@media (prefers-reduced-motion: reduce) {
+  .thinkingDots i {
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
+/* Not an alert: the creator did this on purpose, and `role="alert"` would interrupt a
+   screen reader to report their own button press back to them. */
+.stopped {
+  margin: 0.9rem 0 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .notice {
@@ -407,22 +586,132 @@
 }
 
 .counter {
+  flex: 1;
   color: var(--muted, #6d655e);
   font-size: 0.72rem;
 }
 
-.secondaryAction {
+/*
+  Occupies the send button's place while an answer runs, so the control a creator is
+  already looking at becomes the one that stops it. Outlined rather than filled: stopping
+  is a correction, not the action the composer is for.
+*/
+.stopAction {
   min-height: 2.75rem;
-  padding: 0 0.6rem;
-  border: none;
-  background: none;
-  color: var(--muted, #6d655e);
-  font-size: 0.8rem;
+  padding: 0 1.1rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--accent, #7a3442);
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.secondaryAction:hover:not(:disabled) {
+.stopAction:hover {
+  background: var(--surface-muted, #eee7da);
+}
+
+/* Saved threads, newest first. */
+.historyEmpty {
+  color: var(--muted, #6d655e);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.historyEmpty p {
+  margin: 0;
+}
+
+.historyList {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.historyItem {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.historyOpen {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 0.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
   color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.83rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.historyOpen:hover:not(:disabled) {
+  border-color: var(--border, #d5cbbd);
+}
+
+/* The open thread is marked by fill and weight together, so it does not rely on colour. */
+.historyOpen[aria-current="true"] {
+  border-color: var(--border, #d5cbbd);
+  background: var(--surface-muted, #eee7da);
+  font-weight: 700;
+}
+
+.historyTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyWhen {
+  flex: none;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.historyDelete,
+.historyDeleteConfirm,
+.historyDeleteCancel {
+  flex: none;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.historyDelete:hover,
+.historyDeleteCancel:hover {
+  border-color: var(--border, #d5cbbd);
+  color: var(--text, #29231f);
+}
+
+.historyConfirm {
+  display: flex;
+  flex: none;
+  gap: 0.15rem;
+}
+
+.historyDeleteConfirm {
+  border-color: var(--accent, #7d2b3f);
+  color: var(--accent, #7d2b3f);
+  font-weight: 700;
 }
 
 .sendAction {

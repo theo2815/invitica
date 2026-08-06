@@ -80,6 +80,55 @@ export interface ParsedGuestParty {
   recipientName: string;
 }
 
+/**
+ * How a saved thread appears in the history list.
+ *
+ * Deliberately not the messages. Opening the list must not pull every word a creator has
+ * ever written to Tala into the browser; the thread itself is loaded when one is chosen.
+ */
+export interface AssistantConversationSummary {
+  id: string;
+  title: string;
+  /** ISO 8601, as the database returns it. */
+  updatedAt: string;
+}
+
+/** Matches `assistant_conversations_title_bounds` in migration `0033`. */
+export const MAX_CONVERSATION_TITLE_CHARACTERS = 120;
+
+/**
+ * Names a thread from the creator's own first question.
+ *
+ * Invitica writes this, not the model. A title is not worth a billed call, and a
+ * model-written one would be a second place a creator's words could be quietly reworded.
+ */
+export function conversationTitle(messages: readonly AssistantApiMessage[]): string {
+  const first = messages.find((message) => message.role === "user")?.content ?? "";
+  const collapsed = first.replace(/\s+/g, " ").trim();
+
+  if (collapsed.length === 0) return "Untitled conversation";
+  if (collapsed.length <= MAX_CONVERSATION_TITLE_CHARACTERS) return collapsed;
+
+  // An ellipsis rather than a hard cut, so a truncated title reads as truncated instead
+  // of as a creator who stopped mid-word.
+  return `${collapsed.slice(0, MAX_CONVERSATION_TITLE_CHARACTERS - 1).trimEnd()}…`;
+}
+
+/**
+ * The tail of a thread that is small enough to send.
+ *
+ * A saved conversation can be continued, so it can outgrow the twenty-message ceiling the
+ * request contract enforces. Without this the twenty-first turn would be refused as an
+ * invalid request — a validation error where the creator sees only a working thread that
+ * suddenly stopped working. Trimming the head loses the oldest context, which is the
+ * cheaper of the two failures.
+ */
+export function conversationWindow(
+  messages: readonly AssistantApiMessage[],
+): AssistantApiMessage[] {
+  return messages.slice(-MAX_CONVERSATION_MESSAGES);
+}
+
 export type AssistantApiMessage = z.infer<typeof assistantMessageSchema>;
 export type AssistantApiRequest = z.infer<typeof assistantRequestSchema>;
 export type AssistantDocumentApiRequest = z.infer<typeof assistantDocumentRequestSchema>;

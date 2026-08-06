@@ -141,7 +141,9 @@ describe("the floating assistant", () => {
     await waitFor(() =>
       expect(view.container.querySelector('[data-tala-state="thinking"]')).toBeTruthy(),
     );
-    expect(screen.getByText("Tala is answering.")).toBeTruthy();
+    // The polite status now says what the visible indicator beside Tala says, so a
+    // screen-reader user and a sighted one are told the same thing.
+    expect(screen.getByText("Tala is thinking.")).toBeTruthy();
   });
 
   it("offers the expand control inside the editor now that a draft can be settled first", async () => {

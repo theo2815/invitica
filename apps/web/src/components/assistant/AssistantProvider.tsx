@@ -11,8 +11,20 @@ import {
   useState,
 } from "react";
 
-import type { AssistantApiMessage, ParsedGuestParty } from "../../contracts/assistant-api";
+import {
+  type AssistantApiMessage,
+  type AssistantConversationSummary,
+  conversationTitle,
+  conversationWindow,
+  type ParsedGuestParty,
+} from "../../contracts/assistant-api";
 import type { SectionDocumentDetails } from "../../lib/invitations/little-blessings-details";
+import {
+  deleteAssistantConversationAction,
+  listAssistantConversationsAction,
+  loadAssistantConversationAction,
+  saveAssistantConversationAction,
+} from "../../server/assistant/actions";
 import { requestGuestParties } from "./guest-parsing";
 
 export type AssistantStatus = "answering" | "idle";
@@ -62,11 +74,20 @@ export interface AssistantGuestList {
 }
 
 interface AssistantContextValue {
-  clear: () => void;
   clearGuestList: () => void;
   clearProposal: () => void;
   close: () => void;
+  /** The saved conversation this thread is being written to, or null before its first save. */
+  conversationId: null | string;
+  conversations: AssistantConversationSummary[];
+  deleteConversation: (conversationId: string) => Promise<void>;
+  /**
+   * Rewinds to just before the creator's last message and hands its text back, so the
+   * composer can be refilled with it.
+   */
+  editLastMessage: () => null | string;
   guestList: AssistantGuestList | null;
+  historyStatus: AssistantHistoryStatus;
   /** The invitation the creator is currently working on, or null off an editor. */
   invitationId: null | string;
   isOpen: boolean;
@@ -74,12 +95,22 @@ interface AssistantContextValue {
   mode: AssistantMode;
   notice: null | string;
   open: () => void;
+  openConversation: (conversationId: string) => Promise<void>;
   proposal: AssistantProposal | null;
+  refreshConversations: () => Promise<void>;
   send: (text: string) => Promise<void>;
   setInvitationId: (invitationId: null | string) => void;
   setMode: (mode: AssistantMode) => void;
+  /** Starts a fresh thread. The one on screen stays in history rather than being lost. */
+  startNewConversation: () => void;
   status: AssistantStatus;
+  /** Abandons the answer in flight. Whatever arrived stays on screen. */
+  stop: () => void;
+  /** True from the moment the creator stops an answer until they send the next one. */
+  stopped: boolean;
 }
+
+export type AssistantHistoryStatus = "idle" | "loading";
 
 const AssistantContext = createContext<AssistantContextValue | null>(null);
 
@@ -119,9 +150,72 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [invitationId, setInvitationId] = useState<null | string>(null);
   const [proposal, setProposal] = useState<AssistantProposal | null>(null);
   const [guestList, setGuestList] = useState<AssistantGuestList | null>(null);
+  const [conversationId, setConversationIdState] = useState<null | string>(null);
+  const [conversations, setConversations] = useState<AssistantConversationSummary[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<AssistantHistoryStatus>("idle");
+  const [stopped, setStopped] = useState(false);
   // One answer at a time. Without this a second Enter while the first answer is still
   // streaming would spend a second message from the daily allowance and interleave the two.
   const inFlight = useRef(false);
+  /**
+   * The answer currently in flight, so Stop can abandon it.
+   *
+   * A streamed help answer stops where it stopped and keeps what arrived. A draft or a
+   * guest parse is one request, so stopping abandons the response rather than shortening
+   * it — the message was already spent and the model may still finish server-side. That is
+   * what the creator asked for: a way out of a turn they did not mean to start.
+   */
+  const abortRef = useRef<AbortController | null>(null);
+  /**
+   * Read by `persist`, which runs after several awaits.
+   *
+   * A ref rather than the state above because a creator who opens a different saved thread
+   * mid-answer must not have the answer written into it — the closure `send` captured
+   * would still hold the old id.
+   */
+  const conversationIdRef = useRef<null | string>(null);
+
+  const setConversationId = useCallback((next: null | string) => {
+    conversationIdRef.current = next;
+    setConversationIdState(next);
+  }, []);
+
+  const refreshConversations = useCallback(async () => {
+    try {
+      setConversations(await listAssistantConversationsAction());
+    } catch {
+      // History is a convenience over a conversation that already works without it. A list
+      // that will not load leaves the creator talking to Tala, not looking at an error.
+    }
+  }, []);
+
+  /**
+   * Writes the thread to history after a turn settles.
+   *
+   * Deliberately not awaited by the caller and deliberately silent on failure: a save that
+   * did not happen costs a record, and interrupting the creator over it would cost the
+   * conversation they were having.
+   */
+  const persist = useCallback(
+    async (thread: AssistantApiMessage[]) => {
+      if (thread.length === 0) return;
+
+      try {
+        const saved = await saveAssistantConversationAction({
+          conversationId: conversationIdRef.current,
+          messages: thread,
+          title: conversationTitle(thread),
+        });
+
+        if (!saved) return;
+        setConversationId(saved);
+        await refreshConversations();
+      } catch {
+        // As above.
+      }
+    },
+    [refreshConversations, setConversationId],
+  );
 
   const send = useCallback(
     async (text: string) => {
@@ -131,55 +225,80 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       const drafting = mode === "document" && invitationId !== null;
       const organizing = mode === "guests" && invitationId !== null;
 
+      const controller = new AbortController();
+      abortRef.current = controller;
       inFlight.current = true;
       setNotice(null);
+      setStopped(false);
       setStatus("answering");
 
+      // Filtered so an answer that failed halfway cannot send an empty message the
+      // contract rejects, and windowed so a thread continued from history cannot outgrow
+      // the twenty messages one request may carry.
+      const history: AssistantApiMessage[] = [
+        ...messages.filter((message) => message.content.trim().length > 0),
+        { content: question, role: "user" },
+      ];
+
+      function settle() {
+        abortRef.current = null;
+        inFlight.current = false;
+        setStatus("idle");
+      }
+
       if (organizing) {
-        const history: AssistantApiMessage[] = [
-          ...messages.filter((message) => message.content.trim().length > 0),
-          { content: question, role: "user" },
-        ];
         setMessages(history);
 
-        const result = await requestGuestParties(invitationId, history);
+        const result = await requestGuestParties(
+          invitationId,
+          conversationWindow(history),
+          controller.signal,
+        );
+
+        if (controller.signal.aborted) {
+          setStopped(true);
+          settle();
+          void persist(history);
+          return;
+        }
 
         if (result.status === "refused") {
           setNotice(result.message);
-        } else {
-          setGuestList({ invitationId, parties: result.parties });
-          // Invitica's own sentence, not the model's. The rows themselves are the answer and
-          // they are listed underneath where a creator can count them; restating them as
-          // prose would be a second, less reliable copy of other people's names.
-          setMessages([
-            ...history,
-            {
-              content:
-                result.parties.length === 1
-                  ? "I found 1 invitation in that list. Open the Guest Desk to check it before anything is created."
-                  : `I found ${result.parties.length} invitations in that list. Open the Guest Desk to check them before anything is created.`,
-              role: "assistant",
-            },
-          ]);
+          settle();
+          void persist(history);
+          return;
         }
 
-        inFlight.current = false;
-        setStatus("idle");
+        setGuestList({ invitationId, parties: result.parties });
+        // Invitica's own sentence, not the model's. The rows themselves are the answer and
+        // they are listed underneath where a creator can count them; restating them as
+        // prose would be a second, less reliable copy of other people's names.
+        const answered: AssistantApiMessage[] = [
+          ...history,
+          {
+            content:
+              result.parties.length === 1
+                ? "I found 1 invitation in that list. Open the Guest Desk to check it before anything is created."
+                : `I found ${result.parties.length} invitations in that list. Open the Guest Desk to check them before anything is created.`,
+            role: "assistant",
+          },
+        ];
+        setMessages(answered);
+        settle();
+        void persist(answered);
         return;
       }
 
       if (drafting) {
-        const history: AssistantApiMessage[] = [
-          ...messages.filter((message) => message.content.trim().length > 0),
-          { content: question, role: "user" },
-        ];
         setMessages(history);
+        let settled = history;
 
         try {
           const response = await fetch("/api/creator/assistant/document", {
-            body: JSON.stringify({ invitationId, messages: history }),
+            body: JSON.stringify({ invitationId, messages: conversationWindow(history) }),
             headers: { "content-type": "application/json" },
             method: "POST",
+            signal: controller.signal,
           });
 
           const body = (await response.json()) as {
@@ -204,50 +323,49 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           // The thread carries a sentence Invitica wrote, not the model's output. The draft
           // itself is the answer, and it is shown in the preview where the creator can judge
           // it — restating it as prose would be a second, less reliable copy.
-          setMessages([
+          settled = [
             ...history,
             {
               content:
                 "I have drafted this into your invitation. Look it over in the preview, then keep it or discard it.",
               role: "assistant",
             },
-          ]);
+          ];
+          setMessages(settled);
         } catch {
-          setNotice("Invitica could not reach Tala. Check your connection and try again.");
+          if (controller.signal.aborted) setStopped(true);
+          else setNotice("Invitica could not reach Tala. Check your connection and try again.");
         } finally {
-          inFlight.current = false;
-          setStatus("idle");
+          settle();
+          void persist(settled);
         }
 
         return;
       }
 
-      // Built before the empty placeholder is added, and filtered, so an answer that failed
-      // halfway cannot send an empty message the contract will reject.
-      const history: AssistantApiMessage[] = [
-        ...messages.filter((message) => message.content.trim().length > 0),
-        { content: question, role: "user" },
-      ];
-
-      setMessages([...history, { content: "", role: "assistant" }]);
+      // The question goes up on its own. Stage one paired it with an empty assistant
+      // message so the thread had somewhere to stream into; that empty bubble is what
+      // rendered as a bare horizontal line, and `isThinking` in the conversation now
+      // covers the gap until the first chunk arrives.
+      setMessages(history);
+      let settled = history;
 
       try {
         const response = await fetch("/api/creator/assistant", {
-          body: JSON.stringify({ messages: history }),
+          body: JSON.stringify({ messages: conversationWindow(history) }),
           headers: { "content-type": "application/json" },
           method: "POST",
+          signal: controller.signal,
         });
 
         // A refusal and an error both come back as JSON; only a real answer streams as text.
         if (response.headers.get("content-type")?.includes("application/json")) {
           const body = (await response.json()) as { message?: string };
-          setMessages(history);
           setNotice(body.message ?? "Tala is unavailable right now.");
           return;
         }
 
         if (!response.ok || !response.body) {
-          setMessages(history);
           setNotice("Tala is unavailable right now. Try again in a moment.");
           return;
         }
@@ -260,22 +378,119 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           const { done, value } = await reader.read();
           if (done) break;
           answer += decoder.decode(value, { stream: true });
-          setMessages([...history, { content: answer, role: "assistant" }]);
+          settled = [...history, { content: answer, role: "assistant" }];
+          setMessages(settled);
         }
 
-        if (!answer.trim()) {
+        // A stopped answer keeps what arrived. Only an answer that was allowed to run and
+        // produced nothing is a failure worth saying so about.
+        if (!answer.trim() && !controller.signal.aborted) {
+          settled = history;
           setMessages(history);
           setNotice("Tala did not manage an answer. Try asking again.");
         }
       } catch {
-        setMessages(history);
-        setNotice("Invitica could not reach Tala. Check your connection and try again.");
+        if (controller.signal.aborted) setStopped(true);
+        else setNotice("Invitica could not reach Tala. Check your connection and try again.");
       } finally {
-        inFlight.current = false;
-        setStatus("idle");
+        if (controller.signal.aborted) setStopped(true);
+        settle();
+        void persist(settled);
       }
     },
-    [invitationId, messages, mode],
+    [invitationId, messages, mode, persist],
+  );
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  /**
+   * The way out of a question sent by accident.
+   *
+   * Enter sends, which is what makes the composer quick and also what makes a half-typed
+   * question reach Tala. This takes that message back off the thread and returns its text,
+   * so the creator finishes writing it and sends it again into the same conversation
+   * rather than starting another one beside it.
+   *
+   * Everything after it goes too — an answer to a question that is being rewritten is an
+   * answer to a question that no longer exists.
+   */
+  const editLastMessage = useCallback(() => {
+    if (inFlight.current) return null;
+
+    const index = messages.map((message) => message.role).lastIndexOf("user");
+    if (index === -1) return null;
+
+    const text = messages[index]?.content ?? null;
+    const rewound = messages.slice(0, index);
+
+    setMessages(rewound);
+    setNotice(null);
+    setStopped(false);
+    void persist(rewound);
+
+    return text;
+  }, [messages, persist]);
+
+  const startNewConversation = useCallback(() => {
+    abortRef.current?.abort();
+    setMessages([]);
+    setNotice(null);
+    setProposal(null);
+    setGuestList(null);
+    setStopped(false);
+    setConversationId(null);
+  }, [setConversationId]);
+
+  const openConversation = useCallback(
+    async (nextConversationId: string) => {
+      if (inFlight.current) return;
+
+      setHistoryStatus("loading");
+
+      try {
+        const thread = await loadAssistantConversationAction({
+          conversationId: nextConversationId,
+        });
+
+        if (!thread || thread.length === 0) {
+          setNotice("That conversation is no longer available.");
+          return;
+        }
+
+        setMessages(thread);
+        setConversationId(nextConversationId);
+        setNotice(null);
+        setStopped(false);
+        // A staged draft and parsed guest rows belong to the thread that produced them.
+        // Carrying them into a different conversation would offer a creator changes whose
+        // reasons are no longer on screen.
+        setProposal(null);
+        setGuestList(null);
+      } catch {
+        setNotice("That conversation could not be opened. Try again in a moment.");
+      } finally {
+        setHistoryStatus("idle");
+      }
+    },
+    [setConversationId],
+  );
+
+  const deleteConversation = useCallback(
+    async (targetConversationId: string) => {
+      try {
+        await deleteAssistantConversationAction({ conversationId: targetConversationId });
+      } catch {
+        return;
+      }
+
+      // Deleting the thread on screen empties it. Leaving it there would show a
+      // conversation the creator has just said they want no record of.
+      if (conversationIdRef.current === targetConversationId) startNewConversation();
+      await refreshConversations();
+    },
+    [refreshConversations, startNewConversation],
   );
 
   // Stable across renders because the editor holds it in a `useCallback` dependency list;
@@ -294,40 +509,54 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AssistantContextValue>(
     () => ({
-      clear: () => {
-        setMessages([]);
-        setNotice(null);
-        setProposal(null);
-        setGuestList(null);
-      },
       clearGuestList,
       clearProposal,
       close: () => setIsOpen(false),
+      conversationId,
+      conversations,
+      deleteConversation,
+      editLastMessage,
       guestList,
+      historyStatus,
       invitationId,
       isOpen,
       messages,
       mode,
       notice,
       open: () => setIsOpen(true),
+      openConversation,
       proposal,
+      refreshConversations,
       send,
       setInvitationId,
       setMode,
+      startNewConversation,
       status,
+      stop,
+      stopped,
     }),
     [
       clearGuestList,
       clearProposal,
+      conversationId,
+      conversations,
+      deleteConversation,
+      editLastMessage,
       guestList,
+      historyStatus,
       invitationId,
       isOpen,
       messages,
       mode,
       notice,
+      openConversation,
       proposal,
+      refreshConversations,
       send,
+      startNewConversation,
       status,
+      stop,
+      stopped,
     ],
   );
 

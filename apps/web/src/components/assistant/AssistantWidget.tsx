@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowUpRight, Close } from "../Icons";
+import { ArrowUpRight, Close, Collapse, Expand } from "../Icons";
 import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
 import { AssistantConversation } from "./AssistantConversation";
@@ -38,6 +38,16 @@ export function AssistantWidget() {
   const panelRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLButtonElement>(null);
   const [leaving, setLeaving] = useState(false);
+  /**
+   * Whether the panel is at its taller size.
+   *
+   * Held here rather than in the provider because it describes this control's geometry and
+   * nothing else — the page has no panel to expand. It survives closing, reopening, and
+   * navigating, because the widget is mounted by the shell and only ever renders `null`;
+   * a creator who has said once that they want the taller panel should not have to say it
+   * again on the next route.
+   */
+  const [expanded, setExpanded] = useState(false);
 
   /**
    * Saves before it navigates, and never the other way round. The editor's own link guard
@@ -57,6 +67,19 @@ export function AssistantWidget() {
       setLeaving(false);
     }
   }
+
+  /**
+   * Puts focus inside the sheet without opening the keyboard.
+   *
+   * Only on compact, and only because the sheet is modal: leaving focus on the bubble that
+   * the sheet has just hidden would strand a keyboard or screen-reader user outside the
+   * thing they opened. Desktop needs none of this — the panel is not modal, the page behind
+   * it stays usable, and the composer takes focus instead.
+   */
+  useEffect(() => {
+    if (!isOpen || !isCompact) return;
+    panelRef.current?.focus({ preventScroll: true });
+  }, [isCompact, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -104,9 +127,16 @@ export function AssistantWidget() {
           aria-label="Tala, Invitica's AI assistant"
           aria-modal={isCompact ? true : undefined}
           className={styles.panel}
+          data-expanded={expanded}
           id={panelId}
           ref={panelRef}
           role="dialog"
+          // The sheet takes the screen, so focus has to land inside it. It lands on the
+          // panel rather than the composer: focusing a textarea on a phone raises the
+          // keyboard over the thread the creator just opened, before they have read a
+          // word of it. On desktop the composer keeps the focus, because there is no
+          // keyboard to raise and typing is what they came to do.
+          tabIndex={isCompact ? -1 : undefined}
         >
           <header className={styles.panelHeader}>
             <div className={styles.panelIdentity}>
@@ -126,20 +156,40 @@ export function AssistantWidget() {
                 {leaving ? "Saving…" : "Open full view"}
                 {leaving ? null : <ArrowUpRight />}
               </button>
+
+              {/* Desktop only. The mobile sheet already fills the viewport, so there is
+                  nothing for this to do there. */}
+              {isCompact ? null : (
+                <button
+                  aria-pressed={expanded}
+                  className={styles.panelIconAction}
+                  onClick={() => setExpanded((current) => !current)}
+                  title={expanded ? "Use the smaller panel" : "Make the panel taller"}
+                  type="button"
+                >
+                  {expanded ? <Collapse /> : <Expand />}
+                  <span className={styles.visuallyHidden}>
+                    {expanded ? "Use the smaller panel" : "Make the panel taller"}
+                  </span>
+                </button>
+              )}
+
               <button
-                className={styles.panelAction}
+                className={styles.panelIconAction}
                 onClick={() => {
                   close();
                   bubbleRef.current?.focus();
                 }}
+                title="Close Tala"
                 type="button"
               >
-                Close
+                <Close />
+                <span className={styles.visuallyHidden}>Close Tala</span>
               </button>
             </div>
           </header>
 
-          <AssistantConversation autoFocus />
+          <AssistantConversation autoFocus={!isCompact} />
         </div>
       ) : null}
 

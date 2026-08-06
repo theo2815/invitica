@@ -82,27 +82,35 @@ export function TalaMascot({ className, size = "standard", state }: TalaMascotPr
   );
 }
 
-/** Simplified at navigation size, where facial detail would collapse into visual noise. */
+/**
+ * Tala at navigation size, where the character cannot survive.
+ *
+ * The sidebar renders this at 1.15rem — 18.4 px. Tala's own face is three pixels of detail
+ * there, and it made this the only navigation icon with one, beside a house, an envelope,
+ * four panes, and two figures. So the mark stops being a small Tala and starts naming what
+ * the destination holds, the way each of its four peers does: a conversation. The spark is
+ * what separates that conversation from one with a person, and it is Tala's own — the same
+ * form the mascot carries beside its wings.
+ *
+ * Stroked at 1.7 to match `Home`, `Envelope`, `Grid`, and `Users` exactly. The sparks are
+ * filled rather than stroked because a stroked four-point star closes up at this size.
+ */
 export function TalaMark() {
   return (
     <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
       <path
-        d="M12 2.8c1.5 0 2 4.1 3.2 4.9s5.2-.5 6 .7c.9 1.2-2.5 3.6-2.5 5s3.4 3.8 2.5 5c-.8 1.2-4.8-.1-6 .7S13.5 21.2 12 21.2s-2-4.1-3.2-4.9-5.2.5-6-.7c-.9-1.2 2.5-3.6 2.5-5S1.9 7.6 2.8 6.4c.8-1.2 4.8.1 6-.7S10.5 2.8 12 2.8Z"
+        d="M5.5 4h13A2.5 2.5 0 0 1 21 6.5v7a2.5 2.5 0 0 1-2.5 2.5h-7.2L7 19.6V16H5.5A2.5 2.5 0 0 1 3 13.5v-7A2.5 2.5 0 0 1 5.5 4Z"
         stroke="currentColor"
         strokeLinejoin="round"
-        strokeWidth="1.5"
+        strokeWidth="1.7"
       />
       <path
-        d="M8.7 11.3h.01M15.3 11.3h.01"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="2"
+        d="M11.2 6.4C11.2 9.45 11.75 10 14.8 10c-3.05 0-3.6.55-3.6 3.6 0-3.05-.55-3.6-3.6-3.6 3.05 0 3.6-.55 3.6-3.6Z"
+        fill="currentColor"
       />
       <path
-        d="M9.5 14c1.6 1.6 3.4 1.6 5 0"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.4"
+        d="M17.6 5.2c0 1.42.28 1.7 1.7 1.7-1.42 0-1.7.28-1.7 1.7 0-1.42-.28-1.7-1.7-1.7 1.42 0 1.7-.28 1.7-1.7Z"
+        fill="currentColor"
       />
     </svg>
   );

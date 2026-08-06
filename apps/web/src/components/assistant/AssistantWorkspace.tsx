@@ -4,7 +4,7 @@ import type { InvitationDocument } from "@invitica/invitation-schema";
 import { resolveTemplateRenderer } from "@invitica/renderer";
 import type { TemplateRendererKey } from "@invitica/template-kit";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { describeProposalChanges } from "../../lib/invitations/proposal-diff";
 import {
@@ -17,6 +17,7 @@ import type { CreatorImageAsset } from "../../server/media/library";
 import { Select } from "../forms/Select";
 import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import { useAssistant } from "./AssistantProvider";
+import { AssistantUsageMeter } from "./AssistantUsage";
 import styles from "./AssistantWorkspace.module.css";
 
 export interface AssistantWorkspaceInvitation {
@@ -60,8 +61,11 @@ function sectionSummary(sections: readonly SectionProgress[]): string {
  * renderer the editor and the published page use.
  */
 export function AssistantWorkspace({
+  children,
   invitations,
 }: {
+  /** The conversation. Passed in so one grid can order it against the picker per width. */
+  children: ReactNode;
   invitations: readonly AssistantWorkspaceInvitation[];
 }) {
   const { clearProposal, invitationId, proposal, setInvitationId, setMode } = useAssistant();
@@ -69,6 +73,7 @@ export function AssistantWorkspace({
   const flushDraft = useDraftFlush();
   const pickerId = useId();
   const progressId = useId();
+  const introId = useId();
   const mapTileKey = getMapTileKey();
 
   const [loaded, setLoaded] = useState<LoadedInvitation | null>(null);
@@ -163,61 +168,109 @@ export function AssistantWorkspace({
     }
   }
 
-  if (invitations.length === 0) {
-    return (
-      <section className={styles.workspace}>
-        <p className={styles.empty}>
-          Tala drafts into an invitation you have already started. Create one from a template first,
-          then come back and describe your event.
-        </p>
-      </section>
-    );
-  }
-
   const Renderer = loaded ? resolveTemplateRenderer(loaded.rendererKey) : null;
   const shownDocument = staged?.document ?? loaded?.document ?? null;
+  const hasInvitations = invitations.length > 0;
 
+  /*
+    The page's whole layout, with the conversation passed in as a child.
+
+    It owns all three regions because the order they belong in changes with the width. On a
+    phone the picker has to come before the conversation — it is what unlocks two of Tala's
+    three tabs, and burying it under a 22 rem chat meant scrolling past the tool to find the
+    thing that switches the tool on. On a wide screen the conversation takes its own column
+    and everything else stacks beside it. One grid can say both; two sibling elements in a
+    page could not.
+  */
   return (
-    <section className={styles.workspace}>
-      <div className={styles.picker}>
-        <Select
-          disabled={loadState === "loading"}
-          id={pickerId}
-          label="Draft into"
-          onChange={(value) => void select(value)}
-          options={invitations.map((invitation) => ({
-            label: `${invitation.title} · ${invitation.templateName}`,
-            value: invitation.invitationId,
-          }))}
-          placeholder="Choose an invitation…"
-          value={invitationId ?? ""}
-        />
-        <p>
-          Only invitations you have already started appear here. Nothing is saved from this page —
-          you apply a draft in the editor.
-        </p>
+    <div className={styles.layout}>
+      <div className={styles.pickerArea}>
+        <div className={styles.picker}>
+          <Select
+            disabled={loadState === "loading" || !hasInvitations}
+            id={pickerId}
+            label="Draft into"
+            onChange={(value) => void select(value)}
+            options={invitations.map((invitation) => ({
+              label: `${invitation.title} · ${invitation.templateName}`,
+              value: invitation.invitationId,
+            }))}
+            placeholder={hasInvitations ? "Choose an invitation…" : "No invitations yet"}
+            value={invitationId ?? ""}
+          />
+          <p>
+            {hasInvitations
+              ? "Choosing one lets Tala draft into it and read a guest list for it. Nothing is saved from this page — you apply a draft in the editor."
+              : "Tala drafts into an invitation you have already started. Create one from a template first, then come back and describe your event."}
+          </p>
+        </div>
+
+        <AssistantUsageMeter />
       </div>
 
-      {loadState === "loading" ? (
-        <p className={styles.status} role="status">
-          Opening that invitation…
-        </p>
-      ) : null}
+      <div className={styles.conversationArea}>{children}</div>
 
-      {loadState === "error" ? (
-        <p className={styles.status} role="alert">
-          That invitation could not be opened. Choose it again, or open it from Invitations.
-        </p>
-      ) : null}
+      <div className={styles.detailArea}>
+        {loadState === "loading" ? (
+          <p className={styles.status} role="status">
+            Opening that invitation…
+          </p>
+        ) : null}
 
-      {loaded && loaded.sections.length > 0 ? (
-        <section aria-labelledby={progressId} className={styles.progress}>
-          <div>
-            <p className={styles.eyebrow}>Sections</p>
-            <h2 id={progressId}>{sectionSummary(loaded.sections)}</h2>
-          </div>
+        {loadState === "error" ? (
+          <p className={styles.status} role="alert">
+            That invitation could not be opened. Choose it again, or open it from Invitations.
+          </p>
+        ) : null}
 
-          {/*
+        {/*
+          What Tala can do, and what each one needs, before a creator has chosen anything.
+
+          It mirrors the three tabs in the conversation exactly, in the same words, because
+          a creator opening this page for the first time otherwise sees a chat box and a
+          dropdown and has to guess that the two are related. Replaced by real content the
+          moment an invitation is loaded.
+        */}
+        {!loaded && loadState === "idle" ? (
+          <section aria-labelledby={introId} className={styles.intro}>
+            <p className={styles.eyebrow}>Getting started</p>
+            <h2 id={introId}>Three things Tala can do</h2>
+            <ul className={styles.introList}>
+              <li>
+                <strong>Answer a question</strong>
+                <span>
+                  Ready now. Ask how publishing, personalized links, or replies work and Tala
+                  answers from Invitica&apos;s own help material.
+                </span>
+              </li>
+              <li>
+                <strong>Draft my invitation</strong>
+                <span>
+                  {hasInvitations
+                    ? "Choose an invitation above, then describe your event. You read the draft and apply it yourself."
+                    : "Needs an invitation. Create one from a template first."}
+                </span>
+              </li>
+              <li>
+                <strong>Organize my guest list</strong>
+                <span>
+                  Paste a list the way it already exists and Tala sorts it into invitations. Needs
+                  an invitation you have published, and you create the rows yourself in the Guest
+                  Desk.
+                </span>
+              </li>
+            </ul>
+          </section>
+        ) : null}
+
+        {loaded && loaded.sections.length > 0 ? (
+          <section aria-labelledby={progressId} className={styles.progress}>
+            <div>
+              <p className={styles.eyebrow}>Sections</p>
+              <h2 id={progressId}>{sectionSummary(loaded.sections)}</h2>
+            </div>
+
+            {/*
             An ordered list, numbered by the editor's own numbering rather than by the
             browser's — a hidden section is still counted and still printed on its card, so
             `list-style: none` plus the stored position is what keeps this column and the
@@ -227,93 +280,94 @@ export function AssistantWorkspace({
             alone. Nothing here is interactive: it answers what is left, and the editor is
             where a creator acts on the answer.
           */}
-          <ol className={styles.sections}>
-            {loaded.sections.map((section) => (
-              <li key={section.type}>
-                <span className={styles.sectionName}>
-                  {section.position}. {section.name}
-                  {section.visible ? null : (
-                    <span className={styles.sectionHidden}> · Hidden from guests</span>
-                  )}
-                </span>
-                <span className={section.written ? styles.written : styles.unwritten}>
-                  {section.written ? "Written" : "Starting text"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
-      {staged ? (
-        <section aria-labelledby="assistant-page-proposal" className={styles.proposal}>
-          <div>
-            <p className={styles.eyebrow}>Tala&apos;s draft</p>
-            <h2 id="assistant-page-proposal">This is a draft. Nothing has been saved.</h2>
-            <p className={styles.proposalNote}>
-              Apply it to open your invitation with this draft ready, then keep it there to save.
-              Your invitation is unchanged until you do.
-            </p>
-          </div>
-
-          {changes.length > 0 ? (
-            <ul className={styles.changes}>
-              {changes.map((change) => (
-                <li key={change.type}>
-                  <strong>{change.type}</strong>
-                  <span>
-                    {[
-                      change.visibility === "shown"
-                        ? "now shown to guests"
-                        : change.visibility === "hidden"
-                          ? "now hidden from guests"
-                          : null,
-                      change.fields.length > 0 ? `changes the ${change.fields.join(", ")}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+            <ol className={styles.sections}>
+              {loaded.sections.map((section) => (
+                <li key={section.type}>
+                  <span className={styles.sectionName}>
+                    {section.position}. {section.name}
+                    {section.visible ? null : (
+                      <span className={styles.sectionHidden}> · Hidden from guests</span>
+                    )}
+                  </span>
+                  <span className={section.written ? styles.written : styles.unwritten}>
+                    {section.written ? "Written" : "Starting text"}
                   </span>
                 </li>
               ))}
-            </ul>
-          ) : (
-            <p className={styles.proposalNote}>
-              This draft matches what your invitation already says.
+            </ol>
+          </section>
+        ) : null}
+
+        {staged ? (
+          <section aria-labelledby="assistant-page-proposal" className={styles.proposal}>
+            <div>
+              <p className={styles.eyebrow}>Tala&apos;s draft</p>
+              <h2 id="assistant-page-proposal">This is a draft. Nothing has been saved.</h2>
+              <p className={styles.proposalNote}>
+                Apply it to open your invitation with this draft ready, then keep it there to save.
+                Your invitation is unchanged until you do.
+              </p>
+            </div>
+
+            {changes.length > 0 ? (
+              <ul className={styles.changes}>
+                {changes.map((change) => (
+                  <li key={change.type}>
+                    <strong>{change.type}</strong>
+                    <span>
+                      {[
+                        change.visibility === "shown"
+                          ? "now shown to guests"
+                          : change.visibility === "hidden"
+                            ? "now hidden from guests"
+                            : null,
+                        change.fields.length > 0 ? `changes the ${change.fields.join(", ")}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.proposalNote}>
+                This draft matches what your invitation already says.
+              </p>
+            )}
+
+            <div className={styles.proposalActions}>
+              <button
+                className={styles.apply}
+                disabled={applying}
+                onClick={() => void applyToInvitation()}
+                type="button"
+              >
+                {applying ? "Opening…" : "Apply to invitation"}
+              </button>
+              <button onClick={() => clearProposal()} type="button">
+                Discard the draft
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        {Renderer && shownDocument ? (
+          <div className={styles.previewPanel}>
+            <p className={styles.eyebrow}>
+              {staged ? "Draft preview" : "Your invitation now"} · Shared renderer
             </p>
-          )}
-
-          <div className={styles.proposalActions}>
-            <button
-              className={styles.apply}
-              disabled={applying}
-              onClick={() => void applyToInvitation()}
-              type="button"
-            >
-              {applying ? "Opening…" : "Apply to invitation"}
-            </button>
-            <button onClick={() => clearProposal()} type="button">
-              Discard the draft
-            </button>
+            <div className={styles.previewFrame}>
+              <Renderer
+                audience="personalized"
+                document={shownDocument}
+                mapTileKey={mapTileKey}
+                mode="preview"
+                resolveImage={resolveImage}
+              />
+            </div>
           </div>
-        </section>
-      ) : null}
-
-      {Renderer && shownDocument ? (
-        <div className={styles.previewPanel}>
-          <p className={styles.eyebrow}>
-            {staged ? "Draft preview" : "Your invitation now"} · Shared renderer
-          </p>
-          <div className={styles.previewFrame}>
-            <Renderer
-              audience="personalized"
-              document={shownDocument}
-              mapTileKey={mapTileKey}
-              mode="preview"
-              resolveImage={resolveImage}
-            />
-          </div>
-        </div>
-      ) : null}
-    </section>
+        ) : null}
+      </div>
+    </div>
   );
 }

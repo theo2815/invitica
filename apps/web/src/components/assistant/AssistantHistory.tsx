@@ -52,55 +52,70 @@ export function AssistantHistory({ onOpened }: { onOpened: () => void }) {
   }
 
   return (
-    <ul className={styles.historyList}>
-      {conversations.map((conversation) => (
-        <li className={styles.historyItem} key={conversation.id}>
-          <button
-            aria-current={conversation.id === conversationId ? "true" : undefined}
-            className={styles.historyOpen}
-            disabled={historyStatus === "loading"}
-            onClick={() => {
-              void openConversation(conversation.id);
-              onOpened();
-            }}
-            type="button"
-          >
-            <span className={styles.historyTitle}>{conversation.title}</span>
-            <span className={styles.historyWhen}>{describeWhen(conversation.updatedAt)}</span>
-          </button>
+    <>
+      {/*
+        Opening a saved thread used to say nothing at all. The rows went disabled and the
+        panel sat there until the messages arrived — on a slow connection, which is the
+        normal one here, that reads as a list that has stopped working. The empty list had
+        a loading sentence; a populated one, which is every list a creator actually has,
+        had none.
+      */}
+      {historyStatus === "loading" ? (
+        <p className={styles.historyLoading} role="status">
+          Opening that conversation…
+        </p>
+      ) : null}
 
-          {confirming === conversation.id ? (
-            <span className={styles.historyConfirm}>
-              <button
-                className={styles.historyDeleteConfirm}
-                onClick={() => {
-                  setConfirming(null);
-                  void deleteConversation(conversation.id);
-                }}
-                type="button"
-              >
-                Delete
-              </button>
-              <button
-                className={styles.historyDeleteCancel}
-                onClick={() => setConfirming(null)}
-                type="button"
-              >
-                Keep
-              </button>
-            </span>
-          ) : (
+      <ul className={styles.historyList}>
+        {conversations.map((conversation) => (
+          <li className={styles.historyItem} key={conversation.id}>
             <button
-              className={styles.historyDelete}
-              onClick={() => setConfirming(conversation.id)}
+              aria-current={conversation.id === conversationId ? "true" : undefined}
+              className={styles.historyOpen}
+              disabled={historyStatus === "loading"}
+              onClick={() => {
+                void openConversation(conversation.id);
+                onOpened();
+              }}
               type="button"
             >
-              <span className={styles.visuallyHidden}>Delete “{conversation.title}”</span>
-              <span aria-hidden="true">×</span>
+              <span className={styles.historyTitle}>{conversation.title}</span>
+              <span className={styles.historyWhen}>{describeWhen(conversation.updatedAt)}</span>
             </button>
-          )}
-        </li>
-      ))}
-    </ul>
+
+            {confirming === conversation.id ? (
+              <span className={styles.historyConfirm}>
+                <button
+                  className={styles.historyDeleteConfirm}
+                  onClick={() => {
+                    setConfirming(null);
+                    void deleteConversation(conversation.id);
+                  }}
+                  type="button"
+                >
+                  Delete
+                </button>
+                <button
+                  className={styles.historyDeleteCancel}
+                  onClick={() => setConfirming(null)}
+                  type="button"
+                >
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                className={styles.historyDelete}
+                onClick={() => setConfirming(conversation.id)}
+                type="button"
+              >
+                <span className={styles.visuallyHidden}>Delete “{conversation.title}”</span>
+                <span aria-hidden="true">×</span>
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

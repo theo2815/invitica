@@ -1,0 +1,123 @@
+/*
+  Today's allowance, on `/dashboard/assistant`.
+
+  Deliberately quiet at every level except the last one. A creator with fourteen messages
+  left is being informed; a creator with none is being stopped, and only that state earns
+  the accent. State is carried by the sentence in every case — the fill, the weight, and
+  the border repeat it rather than replacing it.
+*/
+.meter {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: var(--surface, #fffdf8);
+}
+
+.meter[data-level="spent"] {
+  border-color: color-mix(in srgb, var(--accent, #7a3442) 45%, var(--border, #d5cbbd));
+  background: color-mix(in srgb, var(--accent, #7a3442) 6%, var(--surface, #fffdf8));
+}
+
+.meterHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.meterLabel {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.meterCount {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+}
+
+.meterCount strong {
+  color: var(--text, #29231f);
+  font-size: 1rem;
+}
+
+.meter[data-level="low"] .meterCount strong,
+.meter[data-level="spent"] .meterCount strong {
+  color: var(--accent, #7a3442);
+}
+
+/*
+  A bar, not a ring: the quantity is a fraction of a fixed cap read at a glance, and a
+  straight run of it is the shortest path from "how full" to a number. 0.35rem tall so it
+  sits under the sentence as a rule rather than competing with it.
+*/
+.track {
+  overflow: hidden;
+  height: 0.35rem;
+  border-radius: 0.2rem;
+  background: var(--surface-muted, #eee7da);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent, #7a3442) 55%, var(--border, #d5cbbd));
+  transition: width 220ms ease;
+}
+
+.meter[data-level="low"] .fill,
+.meter[data-level="spent"] .fill {
+  background: var(--accent, #7a3442);
+}
+
+.meterDetail,
+.meterStatus {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.meter[data-level="spent"] .meterDetail {
+  color: var(--text, #29231f);
+}
+
+.retry {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: var(--accent, #7a3442);
+}
+
+/*
+  The same allowance in the composer's action row, sharing the slot the character counter
+  uses. No new vertical space in a panel that has none to give.
+*/
+.line {
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+}
+
+.line[data-level="low"],
+.line[data-level="spent"] {
+  color: var(--accent, #7a3442);
+  font-weight: 700;
+}

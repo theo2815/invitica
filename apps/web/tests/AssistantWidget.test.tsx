@@ -67,7 +67,34 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * Sends a message the way a creator does.
+ *
+ * The starting examples used to send on one tap and these cases used them as a shortcut.
+ * They now fill the composer instead — a tap must not spend one of twenty daily messages on
+ * a question nobody has finished reading — so sending is typing and pressing the button.
+ */
+async function ask(question: string) {
+  const composer = await screen.findByRole("textbox", { name: "Ask Tala" });
+  fireEvent.change(composer, { target: { value: question } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+}
+
 describe("the floating assistant", () => {
+  it("puts a starting example in the composer instead of spending a message on it", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWidget();
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(await screen.findByText("How do I send personalized links?"));
+
+    expect((screen.getByRole("textbox", { name: "Ask Tala" }) as HTMLTextAreaElement).value).toBe(
+      "How do I send personalized links?",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("opens from a labelled bubble and closes on Escape, returning focus", async () => {
     renderWidget();
 
@@ -94,7 +121,7 @@ describe("the floating assistant", () => {
 
     const view = renderWidget(<p>Overview</p>);
     fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
-    fireEvent.click(await screen.findByText("How do I send personalized links?"));
+    await ask("How do I send personalized links?");
 
     await screen.findByText("Open Guests & RSVPs, then copy each guest's link.");
 
@@ -136,7 +163,7 @@ describe("the floating assistant", () => {
     const view = renderWidget();
 
     fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
-    fireEvent.click(await screen.findByText("How do I send personalized links?"));
+    await ask("How do I send personalized links?");
 
     await waitFor(() =>
       expect(view.container.querySelector('[data-tala-state="thinking"]')).toBeTruthy(),
@@ -183,7 +210,7 @@ describe("the floating assistant", () => {
 
     renderWidget();
     fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
-    fireEvent.click(await screen.findByText("How do I send personalized links?"));
+    await ask("How do I send personalized links?");
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("refresh tomorrow");

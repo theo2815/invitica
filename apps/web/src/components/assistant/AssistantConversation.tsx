@@ -14,6 +14,7 @@ import styles from "./Assistant.module.css";
 import { AssistantAnswer } from "./AssistantAnswer";
 import { AssistantHistory } from "./AssistantHistory";
 import { useAssistant } from "./AssistantProvider";
+import { AssistantUsageLine } from "./AssistantUsage";
 import { TalaMascot } from "./TalaMascot";
 
 const HELP_SUGGESTIONS = [
@@ -217,8 +218,50 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   }
 
   const remaining = MAX_MESSAGE_CHARACTERS - draft.length;
-  const drafting = mode === "document";
-  const organizing = mode === "guests";
+
+  /**
+   * What this surface can actually do with the invitation it has, if any.
+   *
+   * Drafting needs the shared section-document editor; organizing needs a published
+   * invitation. Whoever put the invitation in context stated both, and both default to
+   * false, so an unset surface offers neither.
+   */
+  const canDraft = invitationId !== null && abilities.canDraft;
+  const canOrganize = invitationId !== null && abilities.canOrganize;
+
+  /**
+   * The mode that is really in force, which is not always the one that was chosen.
+   *
+   * Mode survives navigation and the invitation does not, so a creator who left the Guest
+   * Desk in organizing mode used to arrive on the next route with the composer still
+   * labelled "Paste your guest list" while `send` quietly routed the message to the help
+   * endpoint — a guest list pasted into a box that named it, answered as a question. The
+   * provider now resets the mode when its invitation goes away; this is the same rule
+   * applied again at the point of rendering, so no future caller can reopen the gap.
+   */
+  const effectiveMode: AssistantMode =
+    (mode === "document" && !canDraft) || (mode === "guests" && !canOrganize) ? "help" : mode;
+  const drafting = effectiveMode === "document";
+  const organizing = effectiveMode === "guests";
+
+  /**
+   * Why a tab is unavailable, in one line under the switch.
+   *
+   * The tabs are shown everywhere now, so this is the difference between a control that
+   * looks broken and one a creator knows how to unlock. Silent when everything is
+   * available, because there is nothing to explain.
+   *
+   * Kept to one line at 390 px. Measured: this sits above the thread on the mobile sheet at
+   * all times, so every line it wraps to is a line of conversation the creator loses.
+   */
+  const modeHint =
+    !canDraft && !canOrganize
+      ? "Open an invitation to draft or organize."
+      : !canDraft
+        ? "Drafting needs this invitation's own editor."
+        : !canOrganize
+          ? "Organizing needs a published invitation."
+          : null;
 
   /**
    * Which tab what they are typing belongs in, if it is plainly not this one.
@@ -242,10 +285,6 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   // Hidden while an answer runs, because the mode buttons are disabled then and an offer that
   // cannot be taken is just noise.
   const offered = suggestion && suggestion.to !== dismissedMode && !isAnswering ? suggestion : null;
-  // Both drafting and organizing need an invitation to work against. Off an editor, and
-  // before a creator has picked one, there is nothing to offer — so the choice is not shown
-  // rather than shown and refused.
-  const canDraft = invitationId !== null;
   const suggestions = organizing
     ? GUEST_SUGGESTIONS
     : drafting
@@ -292,35 +331,49 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
         </button>
       </div>
 
-      {canDraft && !showHistory ? (
-        <fieldset className={styles.modeSwitch}>
-          <legend className={styles.visuallyHidden}>What Tala should do</legend>
-          <button
-            aria-pressed={!drafting && !organizing}
-            disabled={isAnswering}
-            onClick={() => setMode("help")}
-            type="button"
-          >
-            {ASSISTANT_MODE_LABELS.help}
-          </button>
-          <button
-            aria-pressed={drafting}
-            disabled={isAnswering}
-            onClick={() => setMode("document")}
-            type="button"
-          >
-            {ASSISTANT_MODE_LABELS.document}
-          </button>
-          <button
-            aria-pressed={organizing}
-            disabled={isAnswering}
-            onClick={() => setMode("guests")}
-            type="button"
-          >
-            {ASSISTANT_MODE_LABELS.guests}
-          </button>
-        </fieldset>
-      ) : null}
+      {/*
+        Shown on every surface, not only where all three work.
+
+        Hiding the switch until an invitation was in context meant a creator on Overview,
+        Templates, or Invitations saw no evidence Tala did anything but answer questions —
+        two of its three jobs were invisible on the routes a new creator spends their first
+        session in. Unavailable tabs are disabled and the line underneath says what unlocks
+        them, which is the honest version of the same information: the capability exists,
+        here is how to reach it. Nothing is offered that would then refuse.
+      */}
+      {showHistory ? null : (
+        <div className={styles.modeGroup}>
+          <fieldset className={styles.modeSwitch}>
+            <legend className={styles.visuallyHidden}>What Tala should do</legend>
+            <button
+              aria-pressed={!drafting && !organizing}
+              disabled={isAnswering}
+              onClick={() => setMode("help")}
+              type="button"
+            >
+              {ASSISTANT_MODE_LABELS.help}
+            </button>
+            <button
+              aria-pressed={drafting}
+              disabled={isAnswering || !canDraft}
+              onClick={() => setMode("document")}
+              type="button"
+            >
+              {ASSISTANT_MODE_LABELS.document}
+            </button>
+            <button
+              aria-pressed={organizing}
+              disabled={isAnswering || !canOrganize}
+              onClick={() => setMode("guests")}
+              type="button"
+            >
+              {ASSISTANT_MODE_LABELS.guests}
+            </button>
+          </fieldset>
+
+          {modeHint ? <p className={styles.modeHint}>{modeHint}</p> : null}
+        </div>
+      )}
 
       {showHistory ? (
         <div className={styles.log}>
@@ -337,13 +390,29 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
                     ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
                     : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
               </p>
+              {/*
+                These fill the composer; they no longer send.
+
+                Sending on one tap spent a message from a twenty-message day on a question
+                the creator had not finished reading, with no way back except Stop and
+                Edit. Filling the composer is the same rule the mode-routing offer already
+                follows — it changes what is about to happen and leaves the sending to the
+                person. It also turns each one into a starting point they can adjust, which
+                is what an example of how to phrase a request is for.
+              */}
+              <p className={styles.suggestionsLead}>
+                Pick one to put it in the box below, then edit it before you send.
+              </p>
               <ul className={styles.suggestions}>
                 {suggestions.map((suggestion) => (
                   <li key={suggestion}>
                     <button
                       className={styles.suggestion}
                       disabled={isAnswering}
-                      onClick={() => void send(suggestion)}
+                      onClick={() => {
+                        setDraft(suggestion);
+                        composerRef.current?.focus();
+                      }}
                       type="button"
                     >
                       {suggestion}
@@ -514,10 +583,18 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           value={draft}
         />
         <div className={styles.composerActions}>
-          {/* Only shown near the limit. A counter that is always on is noise. */}
-          <span aria-hidden={remaining > 200} className={styles.counter}>
-            {remaining <= 200 ? `${remaining} characters left` : ""}
-          </span>
+          {/*
+            One slot, two things that are never both urgent. The character counter appears
+            only within 200 characters of the limit and takes the slot when it does: a
+            message about to be cut short matters more right now than how many are left
+            today. The rest of the time the day's allowance sits here, which costs the panel
+            no height at all — this row already existed.
+          */}
+          {remaining <= 200 ? (
+            <span className={styles.counter}>{remaining} characters left</span>
+          ) : (
+            <AssistantUsageLine />
+          )}
 
           {isAnswering ? (
             <button className={styles.stopAction} onClick={stop} type="button">

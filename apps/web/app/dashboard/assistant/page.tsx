@@ -42,28 +42,24 @@ export default async function AssistantPage() {
         <div className={styles.pageHeading}>
           <p className={styles.eyebrow}>Tala · Invitica AI</p>
           <h1>Ask Tala, or draft an invitation</h1>
+          {/* The three jobs are listed in full beside the picker, where a creator is
+              already deciding what to do. This says the one thing that governs all of
+              them: Tala proposes, and nothing it produces is saved without a click. */}
           <p className={styles.pageDescription}>
-            Tala answers from Invitica&apos;s own help material. Choose an invitation and Tala can
-            draft into it as well — you read the draft and apply it yourself, so nothing changes
-            until you say so.
+            Tala answers from Invitica&apos;s own help material, drafts into an invitation you
+            choose, and sorts a pasted guest list. It never saves anything — you read what it
+            produces and apply it yourself.
           </p>
         </div>
       </header>
 
-      <div className={styles.pageLayout}>
+      {/* The workspace owns the layout, so the invitation picker can sit above the
+          conversation on a phone and beside it on a wide screen. */}
+      <AssistantWorkspace invitations={invitations}>
         <section aria-label="Conversation with Tala" className={styles.surface}>
           <AssistantConversation />
         </section>
-
-        <div className={styles.workspaceColumn}>
-          <AssistantWorkspace invitations={invitations} />
-        </div>
-      </div>
-
-      <footer className={styles.footer}>
-        <span>Tala is Invitica&apos;s AI assistant.</span>
-        <span>Tala drafts; you decide.</span>
-      </footer>
+      </AssistantWorkspace>
     </>
   );
 }

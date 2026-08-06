@@ -21,6 +21,7 @@ vi.mock("../src/server/assistant/actions", () => ({
   listAssistantConversationsAction: async () => [],
   loadAssistantConversationAction: async () => null,
   loadAssistantInvitationAction: (input: unknown) => loadInvitation(input),
+  readAssistantUsageAction: async () => null,
   saveAssistantConversationAction: async () => null,
 }));
 
@@ -67,7 +68,11 @@ function renderWorkspace() {
           invitations={[
             { invitationId, templateName: "Garden Promise", title: "Amihan and Rafael" },
           ]}
-        />
+        >
+          {/* The page passes its conversation in so one grid can order the two per width.
+              These cases are about the column beside it, so a stand-in is enough. */}
+          <div data-testid="conversation" />
+        </AssistantWorkspace>
       </DraftFlushProvider>
     </AssistantProvider>,
   );

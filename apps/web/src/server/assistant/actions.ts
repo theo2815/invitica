@@ -23,6 +23,7 @@ import {
   loadAssistantConversation,
   saveAssistantConversation,
 } from "./conversations";
+import { type AssistantUsage, readAssistantUsage } from "./usage";
 
 const invitationSchema = z.strictObject({ invitationId: z.string().uuid() });
 const conversationSchema = z.strictObject({ conversationId: z.string().uuid() });
@@ -140,4 +141,20 @@ export async function deleteAssistantConversationAction(input: unknown): Promise
 
   const { supabase, user } = await requireConfirmedUser();
   await deleteAssistantConversation(supabase, user.id, parsed.data.conversationId);
+}
+
+/**
+ * Today's allowance, re-read after a turn settles.
+ *
+ * The page renders the first value on the server, so the meter is correct before any
+ * JavaScript runs. This is what keeps it correct afterwards, and it is deliberately a
+ * fresh read rather than a decrement in the browser: a refused message spends nothing, a
+ * message sent on a phone counts against the same day as one sent on a laptop, and the
+ * Manila midnight rollover happens whether or not this tab noticed.
+ *
+ * Null on any failure, exactly like the reader it wraps.
+ */
+export async function readAssistantUsageAction(): Promise<AssistantUsage | null> {
+  const { supabase } = await requireConfirmedUser();
+  return readAssistantUsage(supabase);
 }

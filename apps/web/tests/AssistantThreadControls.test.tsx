@@ -27,6 +27,7 @@ vi.mock("../src/server/assistant/actions", () => ({
   deleteAssistantConversationAction: (input: unknown) => deleteConversation(input),
   listAssistantConversationsAction: () => listConversations(),
   loadAssistantConversationAction: (input: unknown) => loadConversation(input),
+  readAssistantUsageAction: async () => null,
   saveAssistantConversationAction: (input: unknown) => saveConversation(input),
 }));
 
@@ -75,6 +76,19 @@ function renderThread() {
   );
 }
 
+/**
+ * Sends a message the way a creator does.
+ *
+ * The starting examples fill the composer now rather than sending on one tap, so a stray
+ * press cannot spend one of twenty daily messages. Sending is typing and pressing the button.
+ */
+function ask(question: string) {
+  fireEvent.change(screen.getByRole("textbox", { name: "Ask Tala" }), {
+    target: { value: question },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+}
+
 beforeEach(() => {
   deleteConversation.mockClear();
   listConversations.mockClear();
@@ -96,7 +110,7 @@ describe("stopping and editing a message", () => {
     renderThread();
     expect(screen.getByRole("button", { name: "Ask" })).toBeTruthy();
 
-    fireEvent.click(screen.getByText("How do I send personalized links?"));
+    ask("How do I send personalized links?");
 
     const stop = await screen.findByRole("button", { name: "Stop" });
     expect(stop).toBeTruthy();
@@ -108,7 +122,7 @@ describe("stopping and editing a message", () => {
     vi.stubGlobal("fetch", answer.fetch);
 
     renderThread();
-    fireEvent.click(screen.getByText("How do I send personalized links?"));
+    ask("How do I send personalized links?");
 
     await screen.findByRole("button", { name: "Stop" });
     answer.push("Open Guests & RSVPs");
@@ -128,7 +142,7 @@ describe("stopping and editing a message", () => {
     vi.stubGlobal("fetch", answer.fetch);
 
     renderThread();
-    fireEvent.click(screen.getByText("How do I send personalized links?"));
+    ask("How do I send personalized links?");
     await screen.findByRole("button", { name: "Stop" });
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
@@ -146,7 +160,7 @@ describe("stopping and editing a message", () => {
     vi.stubGlobal("fetch", answer.fetch);
 
     renderThread();
-    fireEvent.click(screen.getByText("How do I send personalized links?"));
+    ask("How do I send personalized links?");
     await screen.findByRole("button", { name: "Stop" });
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 

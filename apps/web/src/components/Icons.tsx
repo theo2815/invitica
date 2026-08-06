@@ -241,6 +241,34 @@ export function Trash({ className }: IconProps) {
   );
 }
 
+export function Expand({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+export function Collapse({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 export function Close({ className }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">

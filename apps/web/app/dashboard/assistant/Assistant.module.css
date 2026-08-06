@@ -37,20 +37,12 @@
   line-height: 1.6;
 }
 
-.pageLayout {
-  display: grid;
-  gap: 1.25rem;
-  align-items: start;
-}
-
-.workspaceColumn {
-  min-width: 0;
-}
-
 /*
   A fixed height rather than a growing page. The composer stays reachable without scrolling
   to the bottom of an ever-longer thread, which is the whole reason the full view exists.
   `dvh` so the mobile browser's collapsing address bar does not push the composer off screen.
+
+  The grid placement lives in `AssistantWorkspace.module.css`, which owns the three regions.
 */
 .surface {
   display: flex;
@@ -63,23 +55,7 @@
   box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 7%);
 }
 
-.footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border, #d5cbbd);
-  color: var(--muted, #6d655e);
-  font-size: 0.78rem;
-}
-
 @media (min-width: 1180px) {
-  .pageLayout {
-    grid-template-columns: minmax(20rem, 0.85fr) minmax(26rem, 1.15fr);
-  }
-
   .surface {
     position: sticky;
     top: 2rem;

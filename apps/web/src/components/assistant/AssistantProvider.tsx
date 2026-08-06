@@ -27,11 +27,26 @@ import {
   deleteAssistantConversationAction,
   listAssistantConversationsAction,
   loadAssistantConversationAction,
+  readAssistantUsageAction,
   saveAssistantConversationAction,
 } from "../../server/assistant/actions";
+import type { AssistantUsage } from "../../server/assistant/usage";
 import { requestGuestParties } from "./guest-parsing";
 
 export type AssistantStatus = "answering" | "idle";
+
+/**
+ * How much is known about today's allowance.
+ *
+ * `idle` is not `unavailable`. Before a creator opens Tala nothing has been asked, and a
+ * meter that reported "unavailable" for a question nobody put would be a false alarm on
+ * every dashboard page. The read happens when the assistant is first opened, so a creator
+ * who never uses it never pays for the round trip — which matters on the connections this
+ * product is built for.
+ */
+export type AssistantUsageStatus = "idle" | "loading" | "ready" | "unavailable";
+
+export type { AssistantUsage };
 
 /**
  * The page the creator is on, in the words they would use for it.
@@ -151,6 +166,11 @@ interface AssistantContextValue {
   stop: () => void;
   /** True from the moment the creator stops an answer until they send the next one. */
   stopped: boolean;
+  /** Today's allowance, or null until it has been read successfully. */
+  usage: AssistantUsage | null;
+  /** Reads today's allowance again. Safe to call repeatedly; it never writes. */
+  refreshUsage: () => Promise<void>;
+  usageStatus: AssistantUsageStatus;
 }
 
 export type AssistantHistoryStatus = "idle" | "loading";
@@ -198,6 +218,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<AssistantConversationSummary[]>([]);
   const [historyStatus, setHistoryStatus] = useState<AssistantHistoryStatus>("idle");
   const [stopped, setStopped] = useState(false);
+  const [usage, setUsage] = useState<AssistantUsage | null>(null);
+  const [usageStatus, setUsageStatus] = useState<AssistantUsageStatus>("idle");
+  // One read at a time. Opening the panel and finishing a turn in the same moment would
+  // otherwise put two identical round trips on a connection that may not have room for one.
+  const usageInFlight = useRef(false);
   const surface = describeSurface(usePathname());
   // One answer at a time. Without this a second Enter while the first answer is still
   // streaming would spend a second message from the daily allowance and interleave the two.
@@ -230,10 +255,62 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setInvitationIdState(next);
       // Releasing the invitation releases the abilities with it. Left behind, they would
       // describe an invitation that is no longer on screen.
-      setAbilities(next && nextAbilities ? nextAbilities : NO_ABILITIES);
+      const resolved = next && nextAbilities ? nextAbilities : NO_ABILITIES;
+      setAbilities(resolved);
+
+      /**
+       * The mode goes with them when it can no longer be honoured.
+       *
+       * Mode survived navigation while the invitation did not, and nothing reconciled the
+       * two. A creator who left the Guest Desk in organizing mode arrived on the next route
+       * with `mode === "guests"` and no invitation: the tabs were hidden, so nothing showed
+       * it, the composer still said "Paste your guest list", and `send` fell through to the
+       * help endpoint because organizing needs both. They pasted a guest list into a box
+       * that asked for one and got an answer to it as a question.
+       *
+       * Falling back to help is the safe direction — it is the mode that needs nothing.
+       */
+      setMode((current) =>
+        (current === "document" && !resolved.canDraft) ||
+        (current === "guests" && !resolved.canOrganize)
+          ? "help"
+          : current,
+      );
     },
     [],
   );
+
+  /**
+   * Re-reads today's allowance from the database rather than counting in the browser.
+   *
+   * Counting here would be wrong in four ordinary ways: a refused message spends nothing,
+   * a reload forgets, a second device is invisible, and the Manila midnight rollover
+   * happens whether or not this tab is awake. The read is a primary-key lookup on one row
+   * and it never writes, so calling it after every turn costs a creator nothing.
+   *
+   * A failure leaves the last good numbers on screen if there are any, and only reports
+   * `unavailable` when there is nothing to show. A meter that blanks itself on one dropped
+   * request would be less useful than a slightly stale one.
+   */
+  const refreshUsage = useCallback(async () => {
+    if (usageInFlight.current) return;
+    usageInFlight.current = true;
+    setUsageStatus((current) => (current === "ready" ? current : "loading"));
+
+    try {
+      const next = await readAssistantUsageAction();
+      if (next) {
+        setUsage(next);
+        setUsageStatus("ready");
+      } else {
+        setUsageStatus((current) => (current === "ready" ? current : "unavailable"));
+      }
+    } catch {
+      setUsageStatus((current) => (current === "ready" ? current : "unavailable"));
+    } finally {
+      usageInFlight.current = false;
+    }
+  }, []);
 
   const refreshConversations = useCallback(async () => {
     try {
@@ -277,8 +354,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       const question = text.trim();
       if (!question || inFlight.current) return;
 
-      const drafting = mode === "document" && invitationId !== null;
-      const organizing = mode === "guests" && invitationId !== null;
+      // The abilities are checked here as well as when the mode was chosen. Routing a
+      // message is the last point at which a stale mode can still cost a creator the wrong
+      // endpoint, so it is the one place worth stating the rule twice.
+      const drafting = mode === "document" && invitationId !== null && abilities.canDraft;
+      const organizing = mode === "guests" && invitationId !== null && abilities.canOrganize;
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -299,6 +379,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         abortRef.current = null;
         inFlight.current = false;
         setStatus("idle");
+        // Every path through this function has spent a message by the time it settles,
+        // including the refused and the stopped ones — the allowance is taken before the
+        // provider is reached. Re-reading here is what keeps the meter honest about that.
+        void refreshUsage();
       }
 
       if (organizing) {
@@ -472,8 +556,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         void persist(settled);
       }
     },
-    [invitationId, messages, mode, persist, surface],
+    [abilities, invitationId, messages, mode, persist, refreshUsage, surface],
   );
+
+  /**
+   * Opening is the first moment a creator has asked anything about Tala, so it is the
+   * first moment worth reading their allowance. Every later read is a refresh.
+   */
+  const open = useCallback(() => {
+    setIsOpen(true);
+    void refreshUsage();
+  }, [refreshUsage]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -598,10 +691,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       messages,
       mode,
       notice,
-      open: () => setIsOpen(true),
+      open,
       openConversation,
       proposal,
       refreshConversations,
+      refreshUsage,
       send,
       setInvitationId,
       setMode,
@@ -609,6 +703,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       status,
       stop,
       stopped,
+      usage,
+      usageStatus,
     }),
     [
       abilities,
@@ -625,15 +721,19 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       messages,
       mode,
       notice,
+      open,
       openConversation,
       proposal,
       refreshConversations,
+      refreshUsage,
       send,
       setInvitationId,
       startNewConversation,
       status,
       stop,
       stopped,
+      usage,
+      usageStatus,
     ],
   );
 

@@ -18,6 +18,7 @@ vi.mock("../src/server/assistant/actions", () => ({
   deleteAssistantConversationAction: async () => undefined,
   listAssistantConversationsAction: () => listConversations(),
   loadAssistantConversationAction: async () => null,
+  readAssistantUsageAction: async () => null,
   saveAssistantConversationAction: (input: unknown) => saveConversation(input),
 }));
 

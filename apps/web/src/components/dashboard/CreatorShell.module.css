@@ -66,12 +66,16 @@
     color 160ms ease;
 }
 
+/* The glyph column is 1.25rem against a 1.15rem icon, so the gap is the only thing
+   separating mark from word. At 0.05rem they touched: 2.4 px at the default root size,
+   which read as one dense shape rather than an icon and a label. 0.65rem leaves the
+   longest label — Guests & RSVPs — 127 px of a 147 px column, so nothing wraps. */
 .navLinkContent {
   display: grid;
   min-height: 2.85rem;
   grid-template-columns: 1.25rem minmax(0, 1fr) 0.75rem;
   align-items: center;
-  gap: 0.05rem;
+  gap: 0.65rem;
   padding-inline: 0.8rem 0.55rem;
 }
 
@@ -99,6 +103,13 @@
   position: relative;
   background: var(--surface-muted);
   color: var(--accent);
+}
+
+/* The current destination answered a pointer with nothing at all, which reads as a disabled
+   control rather than as the page you are on. It still does not navigate — `WorkspaceLink`
+   drops the same-page default — so this deepens the fill instead of implying a trip. */
+.activeNavItem:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-muted));
 }
 
 .activeNavItem::before {

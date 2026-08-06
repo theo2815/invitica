@@ -1,20 +1,27 @@
 "use client";
 
-import { type ClipboardEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type ClipboardEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   type AssistantApiMessage,
   guestConversationPayload,
   guestListMessage,
   guestQuestionsMessage,
-  MAX_MESSAGE_CHARACTERS,
   MAX_PARSED_GUEST_PARTIES,
   type ParsedGuestParty,
 } from "../../contracts/assistant-api";
 import { createGuestPartiesAction } from "../../server/guests/actions";
 import type { GuestInvitationSummary } from "../../server/guests/guests";
-import { AssistantAnswer } from "../assistant/AssistantAnswer";
 import { requestGuestParties } from "../assistant/guest-parsing";
+import { type TalaPanelStatus, TalaTaskPanel } from "../assistant/TalaTaskPanel";
+import { DiscardChangesDialog } from "../feedback/DiscardChangesDialog";
 import { Close, Plus, Trash } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
@@ -36,6 +43,26 @@ interface DraftRow {
   internalLabel: string;
   recipientName: string;
 }
+
+/**
+ * Deliberately messy, and deliberately invented.
+ *
+ * They are examples of a list as it actually exists in a group chat, because a tidy example
+ * would teach a creator to tidy their list first — which is the work this removes. No name here
+ * belongs to anyone: fixtures never carry real guest data.
+ */
+const GUEST_SUGGESTIONS = [
+  "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5), Ninong Ramon",
+  "Lola Remedios and her two nurses on one invitation",
+];
+
+const RECIPIENT_SUGGESTIONS = [
+  "Mia Santos, Ana Cruz, Tita Baby, Ninong Ramon",
+  "Everyone from the Cruz side: Ate Bea, Kuya Nico, Lola Remedios",
+];
+
+/** How long a row that Tala just changed stays marked. Long enough to find, short enough to go. */
+const ARRIVED_MARK_MS = 2600;
 
 function emptyRow(id: number): DraftRow {
   return { capacity: "1", guestNames: "", id, internalLabel: "", recipientName: "" };
@@ -66,6 +93,23 @@ function splitGuestNames(value: string): string[] {
 }
 
 /**
+ * An untouched row is the composer's own placeholder, not a guest.
+ *
+ * The Create button used to count every row, so an empty composer offered **Create 1 party**
+ * and then refused it on validation. Rows that are blank in every field are left out of both
+ * the count and the submission; a row with anything in it at all is still validated, so a
+ * greeting typed without a name is reported rather than silently dropped.
+ */
+function isBlankRow(row: DraftRow): boolean {
+  return (
+    row.internalLabel.trim().length === 0 &&
+    row.recipientName.trim().length === 0 &&
+    row.guestNames.trim().length === 0 &&
+    row.capacity === "1"
+  );
+}
+
+/**
  * The rows as they stand right now, in the shape the conversation carries them.
  *
  * This is what makes a follow-up here better than one in the floating panel: the panel can
@@ -89,6 +133,22 @@ function partiesFromRows(rows: readonly DraftRow[], singleRecipient: boolean): P
         recipientName: row.recipientName.trim() || internalLabel,
       };
     });
+}
+
+/**
+ * Everything about one party that a creator would notice changing.
+ *
+ * Used to tell which rows an answer actually altered, so a correction marks the row it
+ * corrected instead of the whole list. Position is deliberately absent: a row that only moved
+ * has not changed.
+ */
+function partyKey(party: ParsedGuestParty): string {
+  return [
+    party.internalLabel,
+    party.recipientName,
+    String(party.capacity),
+    party.guestNames.join(", "),
+  ].join(" | ");
 }
 
 function pastedRows(value: string, startId: number, singleRecipient: boolean): DraftRow[] {
@@ -130,14 +190,30 @@ export function GuestBulkComposer({
       : [emptyRow(1)],
   );
   const [isPending, setIsPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(
-    staged.length > 0
-      ? `${staged.length} ${staged.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`
-      : null,
-  );
+  /** The form's own line, beside Create. Only the paste count here is not a failure. */
+  const [message, setMessage] = useState<{ text: string; tone: "danger" | "info" } | null>(null);
   const [invalidRows, setInvalidRows] = useState<Set<number>>(new Set());
   const [pastedList, setPastedList] = useState("");
   const [isOrganizing, setIsOrganizing] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  /** Rows an answer added or altered, marked briefly so the change is findable. */
+  const [arrivedRows, setArrivedRows] = useState<Set<number>>(new Set());
+  /**
+   * What Tala has to say about the last turn, beside the box it was typed into.
+   *
+   * Separate from `message`, which belongs to the form and its Create button. They used to
+   * share one line at the foot of the dialog — below a fifty-row list on a phone — and that
+   * line is styled `--danger`, so a successful count and a clarifying question both arrived
+   * looking like errors.
+   */
+  const [talaStatus, setTalaStatus] = useState<TalaPanelStatus | null>(
+    staged.length > 0
+      ? {
+          text: `${staged.length} ${staged.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
+          tone: "info",
+        }
+      : null,
+  );
   /**
    * The exchange with Tala inside this dialog.
    *
@@ -149,15 +225,45 @@ export function GuestBulkComposer({
   const [thread, setThread] = useState<AssistantApiMessage[]>([]);
   const mutationIdRef = useRef(crypto.randomUUID());
 
+  const readyRows = rows.filter((row) => !isBlankRow(row));
+  /**
+   * Whether closing now would throw away work.
+   *
+   * Rows handed over from the floating panel make this true from the moment the dialog opens,
+   * which is the case worth protecting most: nothing there was typed, so a stray Escape used
+   * to discard a whole parsed guest list that had already been paid for.
+   */
+  const dirty = readyRows.length > 0 || thread.length > 0 || pastedList.trim().length > 0;
+
+  const requestClose = useCallback(() => {
+    if (isPending || isOrganizing) return;
+    if (dirty) {
+      setConfirmingClose(true);
+      return;
+    }
+    onClose();
+  }, [dirty, isOrganizing, isPending, onClose]);
+
   useEffect(() => {
     firstFieldRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (arrivedRows.size === 0) return;
+    const timer = window.setTimeout(() => setArrivedRows(new Set()), ARRIVED_MARK_MS);
+    return () => window.clearTimeout(timer);
+  }, [arrivedRows]);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // The discard question owns the keyboard while it is open, including this trap. Without
+      // that, Tab from inside it walks back into the very form it is protecting.
+      if (confirmingClose) return;
       // Closing mid-parse would discard an answer that has already been billed, so the
       // dialog holds until it lands — the same rule the submit already follows.
       if (event.key === "Escape" && !isPending && !isOrganizing) {
         event.preventDefault();
-        onClose();
-        returnFocusRef.current?.focus();
+        requestClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -179,7 +285,9 @@ export function GuestBulkComposer({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOrganizing, isPending, onClose, returnFocusRef]);
+    // `requestClose` carries the answer to "does closing lose anything?", and a stale closure
+    // here would be a stale answer to the one question this dialog must not get wrong.
+  }, [confirmingClose, isOrganizing, isPending, requestClose]);
 
   function updateRow(id: number, updates: Partial<DraftRow>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...updates } : row)));
@@ -230,7 +338,10 @@ export function GuestBulkComposer({
       const index = current.findIndex((row) => row.id === rowId);
       return [...current.slice(0, index), ...available, ...current.slice(index + 1)].slice(0, 50);
     });
-    setMessage(`${available.length} rows prepared from your pasted list.`);
+    setMessage({
+      text: `${available.length} rows prepared from your pasted list.`,
+      tone: "info",
+    });
   }
 
   /**
@@ -260,6 +371,7 @@ export function GuestBulkComposer({
     setThread(turn);
     setPastedList("");
     setIsOrganizing(true);
+    setTalaStatus(null);
     setMessage(null);
 
     const result = await requestGuestParties(
@@ -268,29 +380,44 @@ export function GuestBulkComposer({
     );
 
     if (result.status === "refused") {
-      // The question stays in the thread so it can be read and asked again, which is the rule
-      // the floating panel already follows for a refused turn.
-      setMessage(result.message);
+      // The question stays in the thread so it can be read, and Try again puts it back in the
+      // box — a refusal used to leave the creator's own words nowhere they could reach them.
+      setTalaStatus({
+        retry: () => setPastedList(text),
+        text: result.message,
+        tone: "danger",
+      });
       setIsOrganizing(false);
       return;
     }
 
     if (result.status === "questions") {
       setThread([...turn, { content: guestQuestionsMessage(result.questions), role: "assistant" }]);
-      setMessage("Tala needs a little more before it can sort that. Your rows are unchanged.");
+      setTalaStatus({
+        text: "Answer what you can and Tala will sort the list from it. Your rows are unchanged.",
+        tone: "info",
+      });
       setIsOrganizing(false);
       return;
     }
 
     const kept = result.parties.slice(0, MAX_PARSED_GUEST_PARTIES);
+    const before = new Set(carried.map(partyKey));
+    const changed = new Set<number>();
+
     setRows(() => {
       const next = kept.map((party) => {
         const row = rowFromParty(party, nextIdRef.current);
         nextIdRef.current += 1;
+        if (!before.has(partyKey(party))) changed.add(row.id);
         return row;
       });
       return next.length > 0 ? next : [emptyRow(nextIdRef.current++)];
     });
+    // Only what actually moved. A follow-up that changes one seat count marks one row, so the
+    // creator can find the edit instead of re-reading a list that mostly did not change.
+    setArrivedRows(changed);
+    setInvalidRows(new Set());
 
     setThread([
       ...turn,
@@ -299,11 +426,13 @@ export function GuestBulkComposer({
     // The count is stated both ways when it moved. A creator who asked to change one row and
     // sees "12 rows, was 40" has been told immediately that the answer was wrong, while
     // nothing has been created and the list is still in front of them to fix.
-    setMessage(
-      carried.length > 0 && kept.length !== carried.length
-        ? `Your list is now ${kept.length} ${kept.length === 1 ? "row" : "rows"}, from ${carried.length}. Check it before you create anything.`
-        : `${kept.length} ${kept.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
-    );
+    setTalaStatus({
+      text:
+        carried.length > 0 && kept.length !== carried.length
+          ? `Your list is now ${kept.length} ${kept.length === 1 ? "row" : "rows"}, from ${carried.length}. Check it before you create anything.`
+          : `${kept.length} ${kept.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
+      tone: "info",
+    });
     setIsOrganizing(false);
   }
 
@@ -321,7 +450,14 @@ export function GuestBulkComposer({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalized = rows.map((row) => ({
+    const filled = rows.filter((row) => !isBlankRow(row));
+    if (filled.length === 0) {
+      setMessage({ text: "Add at least one name before creating anything.", tone: "danger" });
+      window.requestAnimationFrame(() => firstFieldRef.current?.focus());
+      return;
+    }
+
+    const normalized = filled.map((row) => ({
       capacity: singleRecipient ? 1 : Number(row.capacity),
       guestNames: splitGuestNames(row.guestNames),
       internalLabel: row.internalLabel.trim(),
@@ -341,15 +477,16 @@ export function GuestBulkComposer({
         party.guestNames.length > party.capacity ||
         party.guestNames.some((name) => name.length > 120)
       ) {
-        const row = rows[index];
+        const row = filled[index];
         if (row) invalid.add(row.id);
       }
     });
     setInvalidRows(invalid);
     if (invalid.size > 0) {
-      setMessage(
-        "Check the highlighted rows. Names and greetings are required, and members cannot exceed seats.",
-      );
+      setMessage({
+        text: "Check the highlighted rows. Names and greetings are required, and members cannot exceed seats.",
+        tone: "danger",
+      });
       const firstInvalidId = [...invalid][0];
       if (firstInvalidId !== undefined) {
         window.requestAnimationFrame(() => rowFieldRefs.current.get(firstInvalidId)?.focus());
@@ -367,24 +504,31 @@ export function GuestBulkComposer({
         parties: normalized,
       });
       if (result.status === "error") {
-        setMessage(result.message);
+        setMessage({ text: result.message, tone: "danger" });
         return;
       }
       createdCount = result.count;
     } catch {
-      setMessage(
-        "Invitica could not create these guest parties. Check your connection and try again.",
-      );
+      setMessage({
+        text: "Invitica could not create these guest parties. Check your connection and try again.",
+        tone: "danger",
+      });
     } finally {
       setIsPending(false);
     }
     if (createdCount !== null) onCreated(createdCount);
   }
 
-  // Whether Tala already has something to work from on this screen — its own answer, or rows
-  // the creator typed. Either way the next message is a change to a list rather than a first
-  // paste, and the box says so.
-  const started = thread.length > 0 || rows.some((row) => row.internalLabel.trim().length > 0);
+  /**
+   * What the box should say it is for, which is not the same as whether anything was sent.
+   *
+   * Three states, and the difference matters. A list on screen means the next message changes
+   * it. Questions with no list yet mean the next message answers them. A refused turn leaves
+   * the creator's own message in the thread and nothing else — that is still a first paste,
+   * and calling it a change would be describing work that does not exist.
+   */
+  const hasRows = rows.some((row) => row.internalLabel.trim().length > 0);
+  const answeringQuestions = !hasRows && thread.at(-1)?.role === "assistant";
 
   return (
     <div className={styles.backdrop}>
@@ -414,7 +558,7 @@ export function GuestBulkComposer({
               aria-label={singleRecipient ? "Close add recipients" : "Close add guests"}
               className={styles.modalClose}
               disabled={isPending || isOrganizing}
-              onClick={onClose}
+              onClick={requestClose}
               type="button"
             >
               <Close />
@@ -427,80 +571,56 @@ export function GuestBulkComposer({
           onSubmit={(event) => void submit(event)}
         >
           {organizingAvailable ? (
-            <section className={styles.organizer}>
-              <label htmlFor="guest-list-paste">
-                <span>
-                  {started ? "Tell Tala what to change" : "Paste a messy list and let Tala sort it"}
-                </span>
-                <small>
-                  {started
-                    ? "Tala can see the rows below, so say what to change in a sentence — a seat count, a greeting, a name, or someone to add. Each message uses one of today's Tala messages."
-                    : "Names, nicknames, and counts like “+2” in whatever order they are already in. Their names are sent to Invitica’s AI provider to be read, and you check every row below before anything is created."}
-                </small>
-              </label>
-
-              {/*
-                The exchange, not a transcript of the rows.
-
-                Tala's own replies are counts and questions; the rows themselves are the
-                editable table below and are never restated here, so other people's names
-                appear once on this screen rather than twice.
-              */}
-              {thread.length > 0 ? (
-                <ol className={styles.organizerThread}>
-                  {thread.map((entry, index) => (
-                    // Append-only within this dialog and never reordered, so the position is
-                    // a stable identity where the text is not.
-                    <li data-role={entry.role} key={index}>
-                      <span className={styles.organizerRole}>
-                        {entry.role === "user" ? "You" : "Tala"}
-                      </span>
-                      {entry.role === "assistant" ? (
-                        <AssistantAnswer text={entry.content} />
-                      ) : (
-                        <p>{entry.content}</p>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
-
-              <textarea
-                disabled={isPending || isOrganizing}
-                id="guest-list-paste"
-                maxLength={MAX_MESSAGE_CHARACTERS}
-                onChange={(event) => setPastedList(event.target.value)}
-                placeholder={
-                  started
-                    ? "The Santos family is 6, and address Tita Baby as just Baby"
-                    : singleRecipient
-                      ? "Mia Santos, Ana Cruz, Tita Baby"
-                      : "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5)"
-                }
-                rows={3}
-                value={pastedList}
-              />
-              <button
-                className={styles.organizeAction}
-                disabled={isPending || isOrganizing || pastedList.trim().length === 0}
-                onClick={() => void organize()}
-                type="button"
-              >
-                {isOrganizing
-                  ? started
-                    ? "Updating…"
-                    : "Organizing…"
-                  : started
-                    ? "Send to Tala"
-                    : "Organize with Tala"}
-              </button>
-            </section>
+            <TalaTaskPanel
+              busy={isOrganizing}
+              busyLabel={hasRows ? "Tala is updating your list" : "Tala is reading your list"}
+              className={styles.taskPanel}
+              disabled={isPending}
+              hint={
+                hasRows
+                  ? "Tala can see the rows below, so say what to change in a sentence — a seat count, a greeting, a name, or someone to add."
+                  : answeringQuestions
+                    ? "Answer what you can in one message. Tala sorts the list from it."
+                    : "Names, nicknames, and counts like “+2” in whatever order they are already in. Their names are sent to Invitica’s AI provider to be read, and you check every row below before anything is created."
+              }
+              inputId="guest-list-paste"
+              label={
+                hasRows
+                  ? "Tell Tala what to change"
+                  : answeringQuestions
+                    ? "Answer Tala's questions"
+                    : "Paste a messy list and let Tala sort it"
+              }
+              onChange={setPastedList}
+              onSend={() => void organize()}
+              placeholder={
+                hasRows
+                  ? "The Santos family is 6, and address Tita Baby as just Baby"
+                  : singleRecipient
+                    ? "Mia Santos, Ana Cruz, Tita Baby"
+                    : "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5)"
+              }
+              sendLabel={hasRows || answeringQuestions ? "Send to Tala" : "Organize with Tala"}
+              status={talaStatus}
+              suggestions={
+                hasRows || answeringQuestions
+                  ? undefined
+                  : singleRecipient
+                    ? RECIPIENT_SUGGESTIONS
+                    : GUEST_SUGGESTIONS
+              }
+              thread={thread}
+              value={pastedList}
+            />
           ) : null}
 
-          <div className={styles.bulkRows}>
+          {/* Dimmed while a turn runs, because these are the fields the answer is about to
+              replace. It is the only part of the dialog whose state is genuinely uncertain. */}
+          <div className={styles.bulkRows} data-waiting={isOrganizing || undefined}>
             {rows.map((row, index) => (
               <fieldset
                 className={styles.bulkRow}
+                data-arrived={arrivedRows.has(row.id) || undefined}
                 data-invalid={invalidRows.has(row.id)}
                 disabled={isPending || isOrganizing}
                 key={row.id}
@@ -593,23 +713,51 @@ export function GuestBulkComposer({
             </button>
           </div>
 
-          <p aria-live="polite" className={styles.dialogStatus} role="status">
-            {message}
+          <p
+            aria-live="polite"
+            className={styles.dialogStatus}
+            data-tone={message?.tone ?? "info"}
+            role="status"
+          >
+            {message?.text}
           </p>
           <div className={styles.dialogActions}>
-            <button disabled={isPending || isOrganizing} onClick={onClose} type="button">
+            <button disabled={isPending || isOrganizing} onClick={requestClose} type="button">
               Cancel
             </button>
-            <button disabled={isPending || isOrganizing} type="submit">
+            <button disabled={isPending || isOrganizing || readyRows.length === 0} type="submit">
               {isPending
                 ? "Preparing invitations..."
-                : singleRecipient
-                  ? `Create ${rows.length} ${rows.length === 1 ? "invitation" : "invitations"}`
-                  : `Create ${rows.length} ${rows.length === 1 ? "party" : "parties"}`}
+                : readyRows.length === 0
+                  ? singleRecipient
+                    ? "Create invitations"
+                    : "Create parties"
+                  : singleRecipient
+                    ? `Create ${readyRows.length} ${readyRows.length === 1 ? "invitation" : "invitations"}`
+                    : `Create ${readyRows.length} ${readyRows.length === 1 ? "party" : "parties"}`}
             </button>
           </div>
         </form>
       </section>
+
+      {confirmingClose ? (
+        <DiscardChangesDialog
+          confirmLabel="Discard"
+          description={
+            singleRecipient
+              ? "Nothing has been created yet. These recipients and your conversation with Tala will be gone."
+              : "Nothing has been created yet. These rows and your conversation with Tala will be gone."
+          }
+          eyebrow={singleRecipient ? "Add recipients" : "Add guests"}
+          onDiscard={() => {
+            setConfirmingClose(false);
+            onClose();
+            returnFocusRef.current?.focus();
+          }}
+          onKeepEditing={() => setConfirmingClose(false)}
+          title={singleRecipient ? "Discard these recipients?" : "Discard these guest rows?"}
+        />
+      ) : null}
     </div>
   );
 }

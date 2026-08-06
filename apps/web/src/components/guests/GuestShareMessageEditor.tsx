@@ -1,10 +1,9 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   type AssistantApiMessage,
-  MAX_MESSAGE_CHARACTERS,
   shareMessageConversationPayload,
   shareMessageQuestionsMessage,
   shareMessageWrittenMessage,
@@ -15,8 +14,9 @@ import {
   buildGeneralInvitationMessage,
   buildPersonalInvitationMessage,
 } from "../../server/guests/sharing";
-import { AssistantAnswer } from "../assistant/AssistantAnswer";
 import { requestShareMessages } from "../assistant/message-writing";
+import { type TalaPanelStatus, TalaTaskPanel } from "../assistant/TalaTaskPanel";
+import { DiscardChangesDialog } from "../feedback/DiscardChangesDialog";
 import { Close } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
@@ -32,6 +32,15 @@ interface GuestShareMessageEditorProps {
 
 /** Stand-in used only for the preview, so a creator sees a real message before saving. */
 const PREVIEW_RECIPIENT = "Ninang Anika";
+
+/**
+ * Examples of how to ask, written the way a creator would say it out loud rather than as
+ * well-formed commands. Offered only before anything has been said, and they fill the box.
+ */
+const MESSAGE_SUGGESTIONS = [
+  "Warm but short, and call them by their nickname",
+  "Mention that it is a garden ceremony and that the reception follows",
+];
 
 function previewOf(
   invitation: GuestInvitationSummary,
@@ -68,6 +77,15 @@ export function GuestShareMessageEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [request, setRequest] = useState("");
   const [isWriting, setIsWriting] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  /**
+   * What Tala has to say about the last turn, beside the box it was typed into.
+   *
+   * Separate from `message`, which is only ever a failed save. Sharing one line meant a
+   * clarifying question rendered through `.dialogStatus` — unconditionally `--danger` — so
+   * an ordinary question arrived looking like an error.
+   */
+  const [talaStatus, setTalaStatus] = useState<TalaPanelStatus | null>(null);
   /**
    * The exchange with Tala inside this dialog.
    *
@@ -76,14 +94,42 @@ export function GuestShareMessageEditor({
    */
   const [thread, setThread] = useState<AssistantApiMessage[]>([]);
 
+  /**
+   * Whether closing now would throw away wording.
+   *
+   * Compared against what the invitation actually held when this opened, so a creator who
+   * opened the editor and changed nothing is never asked a question with no answer worth
+   * giving.
+   */
+  const dirty =
+    thread.length > 0 ||
+    request.trim().length > 0 ||
+    personal !== (invitation.personalShareMessage ?? "") ||
+    (!personalOnly && general !== (invitation.generalShareMessage ?? ""));
+
+  const requestClose = useCallback(() => {
+    if (isPending || isWriting) return;
+    if (dirty) {
+      setConfirmingClose(true);
+      return;
+    }
+    onClose();
+  }, [dirty, isPending, isWriting, onClose]);
+
   useEffect(() => {
     firstFieldRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // The discard question owns the keyboard while it is open, including this trap. Without
+      // that, Tab from inside it walks back into the very form it is protecting.
+      if (confirmingClose) return;
       // Closing mid-write would discard an answer that has already been billed, so the dialog
       // holds until it lands — the same rule the Add guests composer follows.
       if (event.key === "Escape" && !isPending && !isWriting) {
         event.preventDefault();
-        onClose();
+        requestClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -105,12 +151,20 @@ export function GuestShareMessageEditor({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, isWriting, onClose]);
+    // `requestClose` carries the answer to "does closing lose anything?", and a stale closure
+    // here would be a stale answer to the one question this dialog must not get wrong.
+  }, [confirmingClose, isPending, isWriting, requestClose]);
 
   const preview = previewOf(invitation, personal, general);
-  // Whether there is already wording for a change to apply to — Tala's or the creator's own.
-  // Either way the next message is a revision rather than a first request, and the box says so.
-  const written = thread.length > 0 || personal.trim().length > 0 || general.trim().length > 0;
+  /**
+   * What the box should say it is for, which is not the same as whether anything was sent.
+   *
+   * Wording on screen means the next message revises it. Questions with no wording yet mean
+   * the next message answers them. A refused turn leaves the creator's own message in the
+   * thread and nothing else — that is still a first request.
+   */
+  const written = personal.trim().length > 0 || general.trim().length > 0;
+  const answeringQuestions = !written && thread.at(-1)?.role === "assistant";
   // The general link opens the invitation for reading and cannot authorize a party RSVP, so a
   // custom message that asks for one would promise something the link cannot deliver. Worth
   // saying out loud, not worth blocking: it is the creator's message.
@@ -139,6 +193,7 @@ export function GuestShareMessageEditor({
     setThread(turn);
     setRequest("");
     setIsWriting(true);
+    setTalaStatus(null);
     setMessage(null);
 
     const result = await requestShareMessages(
@@ -147,9 +202,9 @@ export function GuestShareMessageEditor({
     );
 
     if (result.status === "refused") {
-      // The request stays in the thread so it can be read and asked again, which is the rule
-      // the floating panel already follows for a refused turn.
-      setMessage(result.message);
+      // The request stays in the thread so it can be read, and Try again puts it back in the
+      // box — a refusal used to leave the creator's own words nowhere they could reach them.
+      setTalaStatus({ retry: () => setRequest(text), text: result.message, tone: "danger" });
       setIsWriting(false);
       return;
     }
@@ -159,10 +214,16 @@ export function GuestShareMessageEditor({
         ...turn,
         { content: shareMessageQuestionsMessage(result.questions), role: "assistant" },
       ]);
+      setTalaStatus({
+        text: "Answer what you can and Tala will write it from there. Your wording is unchanged.",
+        tone: "info",
+      });
       setIsWriting(false);
       return;
     }
 
+    const wrotePersonal = result.personal !== null;
+    const wroteGeneral = !personalOnly && result.general !== null;
     if (result.personal !== null) setPersonal(result.personal);
     if (!personalOnly && result.general !== null) setGeneral(result.general);
 
@@ -170,6 +231,21 @@ export function GuestShareMessageEditor({
       ...turn,
       { content: shareMessageWrittenMessage(result.questions), role: "assistant" },
     ]);
+    // Names which field moved, because a message Tala was not asked about is left exactly as
+    // it was — and two fields with one changed is not something a creator should have to spot.
+    setTalaStatus({
+      text:
+        wrotePersonal && wroteGeneral
+          ? "Both messages are filled in below. Read them, then save when you are happy."
+          : wroteGeneral
+            ? "The general message is filled in below. Your personal message is unchanged."
+            : wrotePersonal
+              ? personalOnly
+                ? "Your message is filled in below. Read it, then save when you are happy."
+                : "The personal message is filled in below. Your general message is unchanged."
+              : "Nothing changed. Try describing what you want in a little more detail.",
+      tone: "info",
+    });
     setIsWriting(false);
   }
 
@@ -224,7 +300,7 @@ export function GuestShareMessageEditor({
             aria-label="Close invitation message editor"
             className={styles.modalClose}
             disabled={isPending || isWriting}
-            onClick={onClose}
+            onClick={requestClose}
             type="button"
           >
             <Close />
@@ -237,66 +313,39 @@ export function GuestShareMessageEditor({
           onSubmit={(event) => void submit(event)}
         >
           {assistantAvailable ? (
-            <section className={styles.organizer}>
-              <label htmlFor="share-message-request">
-                <span>
-                  {written ? "Tell Tala what to change" : "Describe it and let Tala write it"}
-                </span>
-                <small>
-                  {written
-                    ? "Tala can see what is in the fields, so say what to change — shorter, warmer, mention something in particular. Each message uses one of today's Tala messages."
-                    : "Say how you want it to sound and what it should mention. Tala fills the fields below and you edit or save it yourself — nothing is sent to anyone."}
-                </small>
-              </label>
-
-              {/*
-                The exchange, not the wording.
-
-                Tala's replies here are one sentence and any questions under it; the message
-                itself goes into the fields and its preview, where a creator reads it against
-                real invitation data rather than as a quotation inside a chat.
-              */}
-              {thread.length > 0 ? (
-                <ol className={styles.organizerThread}>
-                  {thread.map((entry, index) => (
-                    // Append-only within this dialog and never reordered, so the position is a
-                    // stable identity where the text is not.
-                    <li data-role={entry.role} key={index}>
-                      <span className={styles.organizerRole}>
-                        {entry.role === "user" ? "You" : "Tala"}
-                      </span>
-                      {entry.role === "assistant" ? (
-                        <AssistantAnswer text={entry.content} />
-                      ) : (
-                        <p>{entry.content}</p>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
-
-              <textarea
-                disabled={isPending || isWriting}
-                id="share-message-request"
-                maxLength={MAX_MESSAGE_CHARACTERS}
-                onChange={(event) => setRequest(event.target.value)}
-                placeholder={
-                  written
-                    ? "Shorter, and mention that it is a garden ceremony"
-                    : "Warm but short, and call them by their nickname"
-                }
-                rows={3}
-                value={request}
-              />
-              <button
-                className={styles.organizeAction}
-                disabled={isPending || isWriting || request.trim().length === 0}
-                onClick={() => void write()}
-                type="button"
-              >
-                {isWriting ? "Writing…" : written ? "Send to Tala" : "Write with Tala"}
-              </button>
-            </section>
+            <TalaTaskPanel
+              busy={isWriting}
+              busyLabel="Tala is writing your message"
+              className={styles.taskPanel}
+              disabled={isPending}
+              hint={
+                written
+                  ? "Tala can see what is in the fields, so say what to change — shorter, warmer, mention something in particular."
+                  : answeringQuestions
+                    ? "Answer what you can in one message. Tala writes it from there."
+                    : "Say how you want it to sound and what it should mention. Tala fills the fields below and you edit or save it yourself — nothing is sent to anyone."
+              }
+              inputId="share-message-request"
+              label={
+                written
+                  ? "Tell Tala what to change"
+                  : answeringQuestions
+                    ? "Answer Tala's questions"
+                    : "Describe it and let Tala write it"
+              }
+              onChange={setRequest}
+              onSend={() => void write()}
+              placeholder={
+                written
+                  ? "Shorter, and mention that it is a garden ceremony"
+                  : "Warm but short, and call them by their nickname"
+              }
+              sendLabel={written || answeringQuestions ? "Send to Tala" : "Write with Tala"}
+              status={talaStatus}
+              suggestions={written || answeringQuestions ? undefined : MESSAGE_SUGGESTIONS}
+              thread={thread}
+              value={request}
+            />
           ) : null}
 
           {/*
@@ -353,6 +402,28 @@ export function GuestShareMessageEditor({
             </div>
           ) : null}
 
+          {/*
+            Beside the fields it empties, not in the footer beside Save.
+
+            At 430 px the footer stacks into a column, which put a control that clears both
+            messages directly above the one that saves them — three full-width buttons where
+            the destructive one came first.
+          */}
+          <div className={styles.shareMessageReset}>
+            <button
+              disabled={isPending || isWriting || (!personal && (personalOnly || !general))}
+              onClick={() => {
+                setPersonal("");
+                if (!personalOnly) setGeneral("");
+                setTalaStatus(null);
+                setMessage(null);
+              }}
+              type="button"
+            >
+              Reset to Invitica&apos;s wording
+            </button>
+          </div>
+
           <div className={styles.shareMessagePreview}>
             <p className={styles.eyebrow}>Preview</p>
             <h3>Personal</h3>
@@ -372,18 +443,7 @@ export function GuestShareMessageEditor({
             </p>
           ) : null}
           <div className={styles.dialogActions}>
-            <button
-              disabled={isPending || isWriting || (!personal && (personalOnly || !general))}
-              onClick={() => {
-                setPersonal("");
-                if (!personalOnly) setGeneral("");
-                setMessage(null);
-              }}
-              type="button"
-            >
-              Reset to default
-            </button>
-            <button disabled={isPending || isWriting} onClick={onClose} type="button">
+            <button disabled={isPending || isWriting} onClick={requestClose} type="button">
               Cancel
             </button>
             <button disabled={isPending || isWriting} type="submit">
@@ -392,6 +452,20 @@ export function GuestShareMessageEditor({
           </div>
         </form>
       </section>
+
+      {confirmingClose ? (
+        <DiscardChangesDialog
+          confirmLabel="Discard"
+          description="Your wording and your conversation with Tala will be gone. The message guests get now stays as it is."
+          eyebrow="Invitation message"
+          onDiscard={() => {
+            setConfirmingClose(false);
+            onClose();
+          }}
+          onKeepEditing={() => setConfirmingClose(false)}
+          title="Discard this message?"
+        />
+      ) : null}
     </div>
   );
 }

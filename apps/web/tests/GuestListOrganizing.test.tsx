@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AssistantProvider } from "../src/components/assistant/AssistantProvider";
@@ -263,11 +263,9 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
 
-    await waitFor(() =>
-      expect(within(screen.getByRole("dialog")).getByRole("status").textContent).toContain(
-        "now 1 row, from 2",
-      ),
-    );
+    // Beside the box it was typed into. The dialog's other status region belongs to the form
+    // and its Create button, which is a screen away on a phone.
+    await waitFor(() => expect(screen.getByText(/now 1 row, from 2/)).toBeTruthy());
     expect(partyNameFields()).toEqual(["Tita Baby"]);
     expect(createGuestPartiesAction).not.toHaveBeenCalled();
   });
@@ -319,14 +317,15 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
 
-    // Scoped to the dialog: the desk behind it owns a status region of its own.
-    await waitFor(() =>
-      expect(within(screen.getByRole("dialog")).getByRole("status").textContent).toContain(
-        "today's messages",
-      ),
-    );
+    await waitFor(() => expect(screen.getByText(/today's messages/)).toBeTruthy());
     expect(partyNameFields()).toEqual([""]);
     expect(createGuestPartiesAction).not.toHaveBeenCalled();
+
+    // Try again hands the paste back rather than leaving the creator's own words nowhere.
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect((screen.getByLabelText(/Paste a messy list/) as HTMLTextAreaElement).value).toBe(
+      "Tita Baby +2",
+    );
   });
 
   it("puts both of its controls inside the dialog's own focus trap", () => {
@@ -361,6 +360,220 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     expect(screen.queryByRole("button", { name: "Organize with Tala" })).toBeNull();
     // The manual and spreadsheet-paste paths are untouched by the flag.
     expect(screen.getAllByRole("textbox", { name: "Guest or party name" })).toHaveLength(1);
+  });
+
+  it("marks only the rows a follow-up actually changed", async () => {
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: parsed,
+      questions: [],
+      status: "parsed",
+    });
+
+    renderDesk();
+    openComposer();
+
+    fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
+      target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    await waitFor(() => expect(partyNameFields()).toHaveLength(2));
+
+    // One seat count moves. The other row comes back exactly as it went.
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: [
+        { ...(parsed[0] as (typeof parsed)[number]), capacity: 4 },
+        parsed[1] as (typeof parsed)[number],
+      ],
+      questions: [],
+      status: "parsed",
+    });
+
+    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+      target: { value: "Tita Baby is 4, not 3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+
+    await waitFor(() => {
+      const marked = screen
+        .getByRole("dialog")
+        .querySelectorAll('fieldset[data-arrived="true"] input[value="Tita Baby"]');
+      expect(marked).toHaveLength(1);
+    });
+    // The untouched row is not marked, so the edit is findable in a list of forty.
+    expect(
+      screen.getByRole("dialog").querySelectorAll('fieldset[data-arrived="true"]'),
+    ).toHaveLength(1);
+  });
+
+  it("offers examples that fill the box rather than spending a message", () => {
+    renderDesk();
+    openComposer();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5), Ninong Ramon",
+      }),
+    );
+
+    expect(requestGuestParties).not.toHaveBeenCalled();
+    expect((screen.getByLabelText(/Paste a messy list/) as HTMLTextAreaElement).value).toBe(
+      "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5), Ninong Ramon",
+    );
+  });
+
+  it("sends on Enter and breaks the line on Shift+Enter", async () => {
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: parsed,
+      questions: [],
+      status: "parsed",
+    });
+
+    renderDesk();
+    openComposer();
+
+    const box = screen.getByLabelText(/Paste a messy list/);
+    fireEvent.change(box, { target: { value: "Tita Baby +2" } });
+
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    expect(requestGuestParties).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(requestGuestParties).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("the Add guests composer's own controls", () => {
+  it("does not offer to create parties from an untouched row", () => {
+    renderDesk();
+    openComposer();
+
+    // It used to read "Create 1 party" beside one blank row, and then refuse it on validation.
+    const create = screen.getByRole("button", { name: "Create parties" }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Guest or party name" })[0] as Element,
+      { target: { value: "Lola Remedios" } },
+    );
+
+    expect(screen.getByRole("button", { name: "Create 1 party" })).toBeTruthy();
+  });
+
+  it("ignores a blank trailing row rather than failing validation on it", async () => {
+    vi.mocked(createGuestPartiesAction).mockResolvedValue({ count: 1, status: "created" });
+
+    renderDesk();
+    openComposer();
+
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Guest or party name" })[0] as Element,
+      { target: { value: "Lola Remedios" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add row" }));
+
+    // Two rows on screen, one of them the composer's own placeholder.
+    expect(screen.getAllByRole("textbox", { name: "Guest or party name" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Create 1 party" }));
+
+    await waitFor(() => expect(createGuestPartiesAction).toHaveBeenCalledTimes(1));
+    const sent = vi.mocked(createGuestPartiesAction).mock.calls[0]?.[0] as {
+      parties: { internalLabel: string }[];
+    };
+    expect(sent.parties.map((party) => party.internalLabel)).toEqual(["Lola Remedios"]);
+  });
+});
+
+describe("closing the Add guests composer with work in it", () => {
+  it("closes straight away when nothing has been typed", () => {
+    renderDesk();
+    openComposer();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("heading", { name: "Discard these guest rows?" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close add guests" })).toBeNull();
+  });
+
+  it("asks before discarding typed rows, and keeps them when the creator says so", () => {
+    renderDesk();
+    openComposer();
+
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Guest or party name" })[0] as Element,
+      { target: { value: "Lola Remedios" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close add guests" }));
+
+    expect(screen.getByRole("heading", { name: "Discard these guest rows?" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    expect(screen.queryByRole("heading", { name: "Discard these guest rows?" })).toBeNull();
+    expect(partyNameFields()).toEqual(["Lola Remedios"]);
+    expect(screen.getByRole("button", { name: "Close add guests" })).toBeTruthy();
+  });
+
+  it("asks about rows Tala handed over, which were never typed at all", async () => {
+    vi.mocked(requestGuestParties).mockResolvedValue({
+      invitationId: invitation.invitationId,
+      parties: parsed,
+      questions: [],
+      status: "parsed",
+    });
+
+    renderDesk({ withWidget: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize my guest list" }));
+    fireEvent.change(screen.getByLabelText("Paste your guest list"), {
+      target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Organize" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "2 invitations, not created yet" })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Review in Guest Desk" }));
+    await waitFor(() => expect(partyNameFields()).toHaveLength(2));
+
+    // Nothing here was typed, and a stray Escape used to discard a parsed list already paid for.
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("heading", { name: "Discard these guest rows?" })).toBeTruthy();
+    expect(partyNameFields()).toEqual(["Tita Baby", "Kuya Jun & Ate Mae"]);
+  });
+
+  it("treats Escape inside the question as Keep editing, never as Discard", () => {
+    renderDesk();
+    openComposer();
+
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Guest or party name" })[0] as Element,
+      { target: { value: "Lola Remedios" } },
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("heading", { name: "Discard these guest rows?" })).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("heading", { name: "Discard these guest rows?" })).toBeNull();
+    expect(partyNameFields()).toEqual(["Lola Remedios"]);
+    expect(screen.getByRole("button", { name: "Close add guests" })).toBeTruthy();
+  });
+
+  it("discards only when the creator chooses it explicitly", () => {
+    renderDesk();
+    openComposer();
+
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Guest or party name" })[0] as Element,
+      { target: { value: "Lola Remedios" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(screen.queryByRole("button", { name: "Close add guests" })).toBeNull();
+    expect(createGuestPartiesAction).not.toHaveBeenCalled();
   });
 });
 

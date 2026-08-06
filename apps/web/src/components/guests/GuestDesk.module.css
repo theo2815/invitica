@@ -832,6 +832,9 @@
 }
 
 .dialog {
+  /* Named because the sticky header has to cancel it out; see `.bulkHeader`. */
+  --dialog-pad-top: clamp(1.5rem, 5vw, 2.5rem);
+
   width: min(100%, 34rem);
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
@@ -856,9 +859,16 @@
   }
 }
 
+/*
+ * Editorial, not a headline.
+ *
+ * `clamp(2rem, 6vw, 3rem)` is the Guest Desk's own section scale, and applying it to a task
+ * dialog spent about 150 px on two wrapped lines of "Write your own message" before the work
+ * began. The eyebrow above it already names the surface.
+ */
 .dialog h2 {
-  font-size: clamp(2rem, 6vw, 3rem);
-  line-height: 1;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.1;
 }
 
 .dialog form {
@@ -886,11 +896,21 @@
   line-height: 1.5;
 }
 
+/*
+ * Danger by default, because every caller but one is reporting a failure and a silent change
+ * of meaning would be worse than the extra attribute. `data-tone="info"` is opted into by the
+ * Add guests composer, which also uses this slot to say how many rows a paste prepared —
+ * a neutral fact that had been rendering in error red.
+ */
 .dialogStatus {
   margin: 0;
   color: var(--danger);
   font-size: 0.68rem;
   line-height: 1.5;
+}
+
+.dialogStatus[data-tone="info"] {
+  color: var(--muted);
 }
 
 .dialogActions {
@@ -1481,18 +1501,29 @@
   margin-top: 1.25rem;
 }
 
-.bulkHeader {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
+/*
+ * Sticky at every width, not only on the mobile sheet.
+ *
+ * Both dialogs scroll inside themselves on a laptop too, and the row that scrolled away held
+ * the only Close control and the 1 / 50 count. A creator halfway down a forty-row list had no
+ * way out of the dialog without scrolling back to the top of it.
+ *
+ * The negative margin and the matching padding swap the dialog's own top padding for the
+ * header's. Without them the header sticks below that padding and rows scroll through the
+ * uncovered band above it — up to 2.5 rem of content sliding past over nothing.
+ */
+.bulkHeader,
 .dialogHeader {
+  position: sticky;
+  z-index: 2;
+  top: 0;
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
+  margin-top: calc(var(--dialog-pad-top) * -1);
+  padding-block: var(--dialog-pad-top) 0.75rem;
+  background: var(--surface);
 }
 
 .dialogHeader > div > p:not(.eyebrow) {
@@ -1557,6 +1588,39 @@
   grid-column: 1 / -1;
 }
 
+/*
+ * Reset lives with the fields it clears, not in the footer.
+ *
+ * At 430 px `.dialogActions` stacks into a column, which put "clear both messages" directly
+ * above "save both messages" as two identical full-width buttons.
+ */
+.shareMessageReset {
+  grid-column: 1 / -1;
+}
+
+.shareMessageReset button {
+  min-height: 2.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.shareMessageReset button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.shareMessageReset button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* The two message fields and their preview each need the dialog's full width to stay readable. */
 .shareMessageField {
   display: grid;
@@ -1606,125 +1670,33 @@
   color: var(--danger);
 }
 
-/* The fast path into the rows below, not a separate screen. It sits above them because it
-   is what most creators reach for first; the manual rows remain the whole feature without
-   it, and it is not rendered at all when the assistant is switched off. */
-.organizer {
-  display: grid;
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
-  padding: 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--surface-muted, #eee7da);
-}
-
-.organizer label {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.organizer label span {
-  font-size: 0.72rem;
-  font-weight: 760;
-}
-
-.organizer label small {
-  color: var(--muted);
-  font-size: 0.68rem;
-  line-height: 1.5;
-}
-
-.organizer textarea {
-  width: 100%;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  resize: vertical;
-}
-
 /*
-  The exchange with Tala, above the box it is typed into.
-
-  Bounded rather than growing without limit: this sits inside a dialog whose real work is the
-  editable rows underneath, so a long conversation scrolls within itself instead of pushing
-  the list off the screen.
-*/
-.organizerThread {
-  display: grid;
-  gap: 0.5rem;
-  max-height: 11rem;
-  margin: 0;
-  padding: 0.15rem 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-/* `AssistantAnswer` sets no size of its own and inherits, so sizing lives here once. */
-.organizerThread li {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
-  background: var(--surface);
-  font-size: 0.75rem;
-  line-height: 1.55;
-}
-
-/* Sender is carried by the label as well as the alignment, so it never depends on position. */
-.organizerThread li[data-role="user"] {
-  justify-items: end;
-  text-align: right;
-  background: transparent;
-}
-
-.organizerThread li > p {
-  margin: 0;
-}
-
-.organizerRole {
-  color: var(--muted);
-  font-size: 0.62rem;
-  font-weight: 760;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.organizeAction {
-  justify-self: start;
-  min-height: 2.75rem;
-  padding-inline: 0.9rem;
-  border: 1px solid var(--accent);
-  border-radius: 0.35rem;
-  background: var(--accent);
-  color: #ffffff;
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 760;
-  cursor: pointer;
-}
-
-.organizeAction:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-@media (max-width: 700px) {
-  .organizeAction {
-    justify-self: stretch;
-    width: 100%;
-  }
+ * `TalaTaskPanel`'s placement inside these two dialogs. Everything the panel looks like lives
+ * in its own module; this is only how wide it is and where it sits.
+ *
+ * Both halves of that mattered. In the message editor the panel inherited `.editPartyForm`'s
+ * two-column grid without spanning it, so Tala rendered at half the dialog while every field
+ * beneath it ran the full width. In the 74 rem Add guests dialog the opposite: a box for one
+ * sentence stretched to 1184 px, with its action stranded at the far bottom-left.
+ */
+.taskPanel {
+  max-width: 46rem;
+  grid-column: 1 / -1;
 }
 
 .bulkRows {
   display: grid;
   gap: 0.55rem;
+  transition: opacity 160ms ease;
+}
+
+/*
+ * These are the rows the answer in flight is about to replace, so they are the one part of the
+ * dialog whose state is genuinely uncertain while a turn runs. Nothing here depends on seeing
+ * it: the fields are already disabled and the panel above says what Tala is doing.
+ */
+.bulkRows[data-waiting="true"] {
+  opacity: 0.5;
 }
 
 .bulkRow {
@@ -1740,6 +1712,18 @@
   transition:
     border-color 160ms ease,
     background 160ms ease;
+}
+
+/*
+ * A row Tala just added or changed, marked for a couple of seconds.
+ *
+ * Only the rows that actually moved: a follow-up correcting one seat count marks one row, so
+ * the edit is findable in a list of forty instead of the creator re-reading all of it. The
+ * status line beside the box states the counts, so this marker is never the only evidence.
+ */
+.bulkRow[data-arrived="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0.2rem 0 0 var(--accent);
 }
 
 .bulkRow[data-invalid="true"] {
@@ -1878,41 +1862,24 @@
     place-items: stretch;
   }
 
-  .bulkDialog {
-    width: 100%;
-    max-height: 100dvh;
-    min-height: 100dvh;
-    align-self: stretch;
-    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
-      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-    border-radius: 0;
-  }
-
+  .bulkDialog,
   .editDialog {
+    /* The sheet reclaims its own padding, so the sticky header has to cancel this one. */
+    --dialog-pad-top: max(1rem, env(safe-area-inset-top));
+
     width: 100%;
     max-height: 100dvh;
     min-height: 100dvh;
     align-self: stretch;
-    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    padding: var(--dialog-pad-top) max(1rem, env(safe-area-inset-right))
       max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
     border-radius: 0;
   }
 
-  .bulkHeader,
-  .dialogHeader {
-    position: sticky;
-    z-index: 2;
-    top: 0;
-    padding-block: 0.25rem 0.75rem;
-    background: var(--surface);
-  }
-
-  .bulkHeader h2 {
-    font-size: 1.8rem;
-  }
-
+  /* Sticky is now the rule at every width; the sheet only needs its own type size. */
+  .bulkHeader h2,
   .dialogHeader h2 {
-    font-size: 1.8rem;
+    font-size: 1.45rem;
   }
 
   .bulkRow {

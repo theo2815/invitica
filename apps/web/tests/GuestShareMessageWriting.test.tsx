@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requestShareMessages } from "../src/components/assistant/message-writing";
@@ -197,12 +197,69 @@ describe("writing an invitation message with Tala", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
 
-    await waitFor(() =>
-      expect(within(screen.getByRole("dialog")).getByRole("alert").textContent).toContain(
-        "today's messages",
-      ),
-    );
+    // Beside the box it was typed into rather than at the foot of the dialog, and Try again
+    // hands the creator back the words that failed instead of leaving them nowhere.
+    await waitFor(() => expect(screen.getByText(/today's messages/)).toBeTruthy());
     expect(personalField().value).toBe(personal);
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect((screen.getByLabelText(/Tell Tala what to change/) as HTMLTextAreaElement).value).toBe(
+      "shorter",
+    );
+  });
+
+  it("offers examples that fill the box rather than spending a message", () => {
+    renderEditor();
+
+    const example = screen.getByRole("button", {
+      name: "Warm but short, and call them by their nickname",
+    });
+    fireEvent.click(example);
+
+    // Filling, not sending. One tap used to spend a message from a twenty-message day on a
+    // request the creator had not finished reading.
+    expect(requestShareMessages).not.toHaveBeenCalled();
+    expect(
+      (screen.getByLabelText(/Describe it and let Tala write it/) as HTMLTextAreaElement).value,
+    ).toBe("Warm but short, and call them by their nickname");
+  });
+
+  it("sends on Enter and breaks the line on Shift+Enter", async () => {
+    vi.mocked(requestShareMessages).mockResolvedValue({
+      general: null,
+      personal,
+      questions: [],
+      status: "written",
+    });
+
+    renderEditor();
+
+    const box = screen.getByLabelText(/Describe it and let Tala write it/);
+    fireEvent.change(box, { target: { value: "warm but short" } });
+
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    expect(requestShareMessages).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(requestShareMessages).toHaveBeenCalledTimes(1));
+  });
+
+  it("says which message moved when only one of them did", async () => {
+    vi.mocked(requestShareMessages).mockResolvedValue({
+      general: null,
+      personal,
+      questions: [],
+      status: "written",
+    });
+
+    renderEditor({ stored: { generalShareMessage: general } });
+
+    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+      target: { value: "rewrite just the personal one" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+
+    await waitFor(() => expect(screen.getByText(/Your general message is unchanged/)).toBeTruthy());
   });
 
   it("offers no general wording on a Romance invitation, which has no field for it", async () => {
@@ -273,14 +330,89 @@ describe("writing an invitation message with Tala", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Writing…" })).toBeTruthy());
+    // The wait names the work rather than the control, so the dialog says what Tala is doing
+    // instead of only greying out.
+    await waitFor(() => expect(screen.getByText("Tala is writing your message")).toBeTruthy());
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
 
     settle({ general: null, personal, questions: [], status: "written" });
     await waitFor(() => expect(personalField().value).toBe(personal));
 
+    // There is wording on screen now, so Escape asks before throwing it away.
     fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("closing the invitation message editor with work in it", () => {
+  it("closes straight away when nothing has been touched", () => {
+    renderEditor();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("heading", { name: "Discard this message?" })).toBeNull();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before discarding wording the creator typed, and keeps it when they say so", () => {
+    renderEditor();
+
+    fireEvent.change(personalField(), { target: { value: personal } });
+    fireEvent.click(screen.getByRole("button", { name: "Close invitation message editor" }));
+
+    expect(screen.getByRole("heading", { name: "Discard this message?" })).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    expect(screen.queryByRole("heading", { name: "Discard this message?" })).toBeNull();
+    expect(personalField().value).toBe(personal);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("treats Escape inside the question as Keep editing, never as Discard", () => {
+    renderEditor();
+
+    fireEvent.change(personalField(), { target: { value: personal } });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("heading", { name: "Discard this message?" })).toBeTruthy();
+
+    // A creator who presses Escape twice by reflex must not find the second press threw
+    // their message away.
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("heading", { name: "Discard this message?" })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(personalField().value).toBe(personal);
+  });
+
+  it("does not ask when the fields still hold exactly what was saved", () => {
+    renderEditor({ stored: { generalShareMessage: general, personalShareMessage: personal } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks about a conversation with Tala even when no field changed", async () => {
+    vi.mocked(requestShareMessages).mockResolvedValue({
+      questions: ["How formal should it sound?"],
+      status: "questions",
+    });
+
+    renderEditor();
+
+    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+      target: { value: "write my message" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    await waitFor(() => expect(screen.getByText(/How formal should it sound\?/)).toBeTruthy());
+
+    // Nothing was written into a field, but a message was spent and questions are on screen.
+    expect(personalField().value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("heading", { name: "Discard this message?" })).toBeTruthy();
   });
 });

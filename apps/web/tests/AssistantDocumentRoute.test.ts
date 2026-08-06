@@ -8,7 +8,12 @@ import {
   consumeAssistantMessage,
   markAssistantMisconfigured,
 } from "../src/server/assistant/budget";
-import { createClaudeProvider } from "../src/server/assistant/claude";
+import {
+  ASSISTANT_DOCUMENT_MODEL,
+  ASSISTANT_SELECTION_MODEL,
+  createClaudeProvider,
+} from "../src/server/assistant/claude";
+import { proposableSections } from "../src/server/assistant/document-schema";
 import {
   type AssistantFailure,
   type AssistantGenerateRequest,
@@ -65,10 +70,24 @@ function signedIn() {
   } as never);
 }
 
-/** A provider that returns exactly what a test wants the model to have said. */
-function stubProvider(output: unknown) {
-  const generate = vi.fn(async (_request: AssistantGenerateRequest) => ({
-    output,
+/** True for the cheap first call, whose schema asks for section names and nothing else. */
+function isSelectionRequest(request: AssistantGenerateRequest) {
+  const properties = request.outputSchema.properties as Record<string, unknown> | undefined;
+  return properties !== undefined && "sections" in properties;
+}
+
+/**
+ * A provider that returns exactly what a test wants the model to have said.
+ *
+ * A document request is two calls now, so the stub answers both: section names first, then
+ * the proposal. Unless a test says otherwise the selection names every section this draft
+ * has, which keeps the narrowing out of the way of tests that are about something else.
+ */
+function stubProvider(output: unknown, sections?: string[]) {
+  const generate = vi.fn(async (request: AssistantGenerateRequest) => ({
+    output: isSelectionRequest(request)
+      ? { sections: sections ?? proposableSections(draftDocument, littleBlessings) }
+      : output,
     stopReason: "end_turn",
     usage,
   }));
@@ -80,6 +99,11 @@ function stubProvider(output: unknown) {
     },
   });
   return generate;
+}
+
+/** The logged line for one stage. Every document request now writes two. */
+function logLine(stage: string) {
+  return logs.find((entry) => entry.includes(`"stage":"${stage}"`)) ?? "";
 }
 
 /** A provider whose call fails the way a given vendor error would. */
@@ -232,7 +256,8 @@ describe("the creator document-proposing route", () => {
     expect(body.status).toBe("refused");
     expect(body.document).toBeUndefined();
 
-    const sent = generate.mock.calls[0]?.[0];
+    // The second call is the drafting one; the first only named sections.
+    const sent = generate.mock.calls[1]?.[0];
     // The creator's words stay in the conversation and never become part of the prompt that
     // sets the rules, so there is nothing for them to overwrite.
     expect(sent?.systemPrompt).not.toContain(injected);
@@ -254,8 +279,7 @@ describe("the creator document-proposing route", () => {
       }),
     );
 
-    const line = logs.find((entry) => entry.includes("assistant.request")) ?? "";
-    expect(line).toContain('"stage":"document"');
+    const line = logLine("document");
     expect(line).toContain('"outcome":"completed"');
     expect(line).toContain('"outputTokens":640');
     expect(line).not.toContain("Cebu");
@@ -277,7 +301,9 @@ describe("the creator document-proposing route", () => {
 
     await POST(request({ invitationId, messages: [{ content: "Draft it", role: "user" }] }));
 
-    const line = logs.find((entry) => entry.includes("assistant.request")) ?? "";
+    // The selection call is the one that reaches the provider first, so it is the one that
+    // reports the bad key.
+    const line = logLine("section-selection");
     expect(line).toContain('"outcome":"provider_error"');
     expect(line).toContain('"name":"AuthenticationError"');
     expect(line).toContain('"status":401');
@@ -319,6 +345,51 @@ describe("the creator document-proposing route", () => {
     expect(markAssistantMisconfigured).not.toHaveBeenCalled();
   });
 
+  it("narrows the drafting schema to the sections the request is about", async () => {
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const generate = stubProvider(validProposal(), ["hero", "message"]);
+
+    await POST(
+      request({ invitationId, messages: [{ content: "Warm up the wording", role: "user" }] }),
+    );
+
+    const drafting = generate.mock.calls[1]?.[0];
+    const offered = Object.keys(
+      (drafting?.outputSchema.properties ?? {}) as Record<string, unknown>,
+    );
+
+    // The whole point of the first call: a schema for every section of a wide template is
+    // rejected by the provider before any model reads it.
+    expect(offered.sort()).toEqual(["hero", "message"]);
+    expect(drafting?.systemPrompt).toContain("hero —");
+    expect(drafting?.systemPrompt).not.toContain("gallery —");
+    // Both calls are billed, so both are costed — on separate lines naming their own model,
+    // which is what stops the two being summed into a total no published rate can price.
+    // Asserted against the constants rather than literals: which model drafts is a config
+    // value that has already changed once on measured evidence.
+    expect(logLine("section-selection")).toContain(`"model":"${ASSISTANT_SELECTION_MODEL}"`);
+    expect(logLine("document")).toContain(`"model":"${ASSISTANT_DOCUMENT_MODEL}"`);
+    expect(logLine("section-selection")).not.toBe(logLine("document"));
+  });
+
+  it("refuses without the expensive call when the request names no section", async () => {
+    signedIn();
+    vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
+    const generate = stubProvider(validProposal(), []);
+
+    const response = await POST(
+      request({ invitationId, messages: [{ content: "thanks, that's all", role: "user" }] }),
+    );
+    const body = (await response.json()) as { document?: unknown; message: string; status: string };
+
+    expect(body.status).toBe("refused");
+    expect(body.document).toBeUndefined();
+    expect(body.message).toContain("which part of the invitation");
+    // One call, not two: a request that changes nothing costs the cheap model only.
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
   it("records a rejected draft as its own outcome rather than as a clean answer", async () => {
     signedIn();
     vi.mocked(consumeAssistantMessage).mockResolvedValue("allowed");
@@ -326,7 +397,7 @@ describe("the creator document-proposing route", () => {
 
     await POST(request({ invitationId, messages: [{ content: "Draft it", role: "user" }] }));
 
-    const line = logs.find((entry) => entry.includes("assistant.request")) ?? "";
+    const line = logLine("document");
     expect(line).toContain('"outcome":"rejected_proposal"');
     // The call was billed even though the answer was unusable, so its tokens are recorded.
     expect(line).toContain('"outputTokens":640');

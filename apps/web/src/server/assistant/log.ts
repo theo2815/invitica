@@ -37,11 +37,15 @@ export interface AssistantRequestLog {
   model: string;
   outcome: AssistantOutcome;
   /**
-   * Which workload this was. Recorded because the two cost very differently — a help reply
-   * is a few hundred tokens against a cached corpus, a document proposal is a whole
-   * invitation — and one daily allowance covers both.
+   * Which workload this was. Recorded because they cost very differently — a help reply is
+   * a few hundred tokens against a cached corpus, a document proposal is a whole invitation
+   * — and one daily allowance covers all of them.
+   *
+   * `section-selection` is the cheap first half of a document request. It gets its own line
+   * rather than being folded into the document one because it runs on a different model:
+   * summing the two would produce a token total that no published rate can price.
    */
-  stage: "document" | "help";
+  stage: "document" | "help" | "section-selection";
   usage?: AssistantUsage;
 }
 

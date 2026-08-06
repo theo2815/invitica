@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import { describeProposalChanges } from "../src/lib/invitations/proposal-diff";
 import { resolveDocumentProposal } from "../src/server/assistant/document-proposal";
-import { buildProposalSchema, proposableSections } from "../src/server/assistant/document-schema";
+import {
+  buildProposalSchema,
+  countSchemaParameters,
+  MAX_OPTIONAL_PARAMETERS,
+  MAX_UNION_PARAMETERS,
+  proposableSections,
+} from "../src/server/assistant/document-schema";
 
 const littleBlessings = resolveTemplateById("little-blessings");
 const document = parseInvitationDocument(structuredClone(littleBlessings.defaultDocument));
@@ -54,8 +60,46 @@ describe("the proposal schema offered to the model", () => {
     }
   });
 
-  it("keeps every section optional, so an untouched one is left alone", () => {
-    expect((schema as { required?: string[] }).required ?? []).toEqual([]);
+  it("lets a section be left alone by naming it null, and requires the model to say so", () => {
+    const top = schema as { properties: Record<string, unknown>; required: string[] };
+
+    // Required at the top level but nullable: the model has to make a decision about every
+    // section rather than fall silent about one, and `null` is how it says "leave this".
+    expect(top.required.sort()).toEqual([...proposableSections(document, littleBlessings)].sort());
+    for (const entry of Object.values(top.properties)) {
+      expect(entry).toHaveProperty("anyOf");
+      expect((entry as { anyOf: unknown[] }).anyOf).toContainEqual({ type: "null" });
+    }
+  });
+
+  it("stays under both of the provider's schema ceilings on every production template", () => {
+    // Neither ceiling is documented anywhere we can read; both were found by a 400 in a
+    // live run, and before they were, four of the five occasions could not be drafted at
+    // all. They also trade against each other — making a field nullable moves it from one
+    // budget to the other — so both are asserted together or neither means anything.
+    for (const id of [
+      "a-little-question",
+      "garden-promise",
+      "golden-hour",
+      "little-blessings",
+      "sunday-joy",
+    ]) {
+      const manifest = resolveTemplateById(id);
+      const draft = parseInvitationDocument(structuredClone(manifest.defaultDocument));
+      const counted = countSchemaParameters(buildProposalSchema(draft, manifest));
+      const spent = `${id} spends ${counted.optional} optional and ${counted.union} union parameters`;
+
+      expect(counted.optional, spent).toBeLessThanOrEqual(MAX_OPTIONAL_PARAMETERS);
+      expect(counted.union, spent).toBeLessThanOrEqual(MAX_UNION_PARAMETERS);
+    }
+  });
+
+  it("never asks the model for a colour, a map link, or an RSVP mode it did not choose", () => {
+    // Each of these is the creator's: two they picked in the editor, one they chose with
+    // the template. All three are carried from the draft instead of proposed.
+    expect(serialized).not.toContain("mapUrl");
+    expect(serialized).not.toContain("colors");
+    expect(serialized).not.toContain("responseMode");
   });
 });
 
@@ -101,6 +145,79 @@ describe("resolving what the model returned", () => {
     if (outcome.status !== "proposed") return;
     const proposed = outcome.document.sections.find((entry) => entry.type === "gallery");
     expect(proposed?.type === "gallery" && proposed.props.images).toEqual(gallery.props.images);
+  });
+
+  it("reads a null section as one the creator keeps", () => {
+    const hero = section("hero");
+    const outcome = propose({
+      gallery: null,
+      hero: { props: { ...hero.props, title: "Amihan Reyes" }, visible: true },
+      message: null,
+    });
+
+    expect(outcome.status).toBe("proposed");
+    if (outcome.status !== "proposed") return;
+    // Named as null and therefore untouched — not cleared, and not reported as a change.
+    expect(describeProposalChanges(document, outcome.document).map((entry) => entry.type)).toEqual([
+      "hero",
+    ]);
+  });
+
+  it("reads a null field as one the model had nothing to put in", () => {
+    const hero = section("hero");
+    if (hero.type !== "hero") throw new Error("unreachable");
+
+    const outcome = propose({
+      hero: { props: { ...hero.props, eyebrow: null, subtitle: null }, visible: true },
+    });
+
+    // `eyebrow: null` would fail the contract's `z.string().optional()`; an absent key
+    // satisfies it. This is the whole reason the nulls are stripped before validation.
+    expect(outcome.status).toBe("proposed");
+    if (outcome.status !== "proposed") return;
+    const proposed = outcome.document.sections.find((entry) => entry.type === "hero");
+    expect(proposed?.type === "hero" && "eyebrow" in proposed.props).toBe(false);
+  });
+
+  it("keeps the sections that are buildable and drops only the one that is not", () => {
+    const hero = section("hero");
+    const outcome = propose({
+      hero: { props: { ...hero.props, title: "Sofia Marquez" }, visible: true },
+      // What the drafting model actually produced on 2026-08-06 for a creator who had not
+      // settled a venue: told never to invent a fact, it wrote an empty string for a
+      // required address. The contract strips blanks, so the field goes missing and this
+      // section cannot be built.
+      "event-details": {
+        props: {
+          events: [
+            {
+              address: "",
+              dateLabel: "Saturday",
+              label: "Debut",
+              startAt: "2027-08-14T18:00:00+08:00",
+              venueName: "",
+            },
+          ],
+        },
+        visible: true,
+      },
+    });
+
+    expect(outcome.status).toBe("proposed");
+    if (outcome.status !== "proposed") return;
+
+    // The hero survives; the unbuildable section is simply absent from the diff rather than
+    // taking the whole draft down with it.
+    const changed = describeProposalChanges(document, outcome.document).map((entry) => entry.type);
+    expect(changed).toContain("hero");
+    expect(changed).not.toContain("event-details");
+  });
+
+  it("rejects when no section survives, rather than proposing an empty change", () => {
+    expect(propose({ hero: { props: { eyebrow: "With joy" }, visible: true } })).toEqual({
+      reason: "invalid_document",
+      status: "rejected",
+    });
   });
 
   it("rejects a section this draft does not contain", () => {

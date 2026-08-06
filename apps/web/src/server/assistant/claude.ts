@@ -67,6 +67,21 @@ export const ASSISTANT_DOCUMENT_MODEL = "claude-haiku-4-5";
  */
 export const ASSISTANT_SELECTION_MODEL = "claude-haiku-4-5";
 
+/**
+ * The model that turns a pasted guest list into party rows.
+ *
+ * Haiku for the same reason as the two above, and with one more behind it: this is the only
+ * workload whose input is other people's names, so the smallest capable model is also the
+ * one that sends those names to the least. Extraction against an explicit schema is the job
+ * Haiku is strongest at — there is no prose to write, no tone to hold, and no judgement to
+ * make beyond reading a number off a line.
+ *
+ * Unmeasured at the time of writing. The document model was set by a live comparison and
+ * this one was not; there is a harness to copy in `AssistantDocumentModelComparison` if a
+ * later task wants the same evidence here.
+ */
+export const ASSISTANT_GUESTS_MODEL = "claude-haiku-4-5";
+
 /** Well under the SDK's HTTP timeout, and long enough for a slow Philippine connection. */
 const REQUEST_TIMEOUT_MS = 30_000;
 

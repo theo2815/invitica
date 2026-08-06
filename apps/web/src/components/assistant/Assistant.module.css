@@ -158,9 +158,11 @@
 
 /* A segmented control, not tabs: the thread below is one conversation, and this changes
    what the next message does rather than switching between two views of it. */
+/* Three equal columns rather than two since guest-list organizing joined the modes. The
+   minmax(0, …) is what lets a label wrap inside its own column instead of widening it. */
 .modeSwitch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.25rem;
   margin: 0;
   padding: 0.5rem 1rem 0;
@@ -169,13 +171,16 @@
 
 .modeSwitch button {
   min-height: 2.75rem;
-  padding: 0 0.5rem;
+  padding: 0.35rem 0.4rem;
   border: 1px solid var(--border, #d5cbbd);
   border-radius: 0.35rem;
   background: none;
   color: var(--muted, #6d655e);
   font: inherit;
   font-size: 0.78rem;
+  /* After `font: inherit`, which is a shorthand and would otherwise reset it. Three labels
+     wrap where two did not, and this keeps a wrapped one inside the row. */
+  line-height: 1.25;
   cursor: pointer;
 }
 
@@ -295,6 +300,77 @@
   color: var(--text, #29231f);
   font-size: 0.83rem;
   line-height: 1.5;
+}
+
+/* A parsed guest list, summarised. It is deliberately not an editable table: the Add guests
+   composer already is one, and it is the only surface that can create these rows. */
+.guestList {
+  margin: 0.9rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.4rem;
+  background: var(--surface-muted, #eee7da);
+}
+
+.guestListHeading {
+  margin: 0 0 0.5rem;
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+
+.guestRows {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+}
+
+.guestRows li {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.guestRows span:last-child {
+  flex: none;
+  color: var(--muted, #6d655e);
+  font-size: 0.76rem;
+}
+
+.guestListActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.guestListActions button {
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.guestListActions .review {
+  flex: 1;
+  border-color: var(--accent, #7d2b3f);
+  background: var(--accent, #7d2b3f);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.guestListActions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .composer {

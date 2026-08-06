@@ -44,8 +44,12 @@ export interface AssistantRequestLog {
    * `section-selection` is the cheap first half of a document request. It gets its own line
    * rather than being folded into the document one because it runs on a different model:
    * summing the two would produce a token total that no published rate can price.
+   *
+   * `guests` is the only stage whose input is other people's names, which is precisely why
+   * it records the same five machine-readable facts as every other stage and not one more.
+   * There is no field a name could be written to.
    */
-  stage: "document" | "help" | "section-selection";
+  stage: "document" | "guests" | "help" | "section-selection";
   usage?: AssistantUsage;
 }
 

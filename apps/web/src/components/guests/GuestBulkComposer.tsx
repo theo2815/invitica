@@ -2,15 +2,25 @@
 
 import { type ClipboardEvent, type FormEvent, useEffect, useRef, useState } from "react";
 
+import {
+  MAX_MESSAGE_CHARACTERS,
+  MAX_PARSED_GUEST_PARTIES,
+  type ParsedGuestParty,
+} from "../../contracts/assistant-api";
 import { createGuestPartiesAction } from "../../server/guests/actions";
 import type { GuestInvitationSummary } from "../../server/guests/guests";
+import { requestGuestParties } from "../assistant/guest-parsing";
 import { Close, Plus, Trash } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
 interface GuestBulkComposerProps {
+  /** Rows Tala parsed elsewhere, handed over for review. Nothing is created from them here. */
+  initialParties?: readonly ParsedGuestParty[];
   invitation: GuestInvitationSummary;
   onClose: () => void;
   onCreated: (count: number) => void;
+  /** False when `ASSISTANT_ENABLED` is off or no key is configured. Hides the Tala path only. */
+  organizingAvailable?: boolean;
   returnFocusRef: React.RefObject<HTMLButtonElement | null>;
 }
 
@@ -24,6 +34,23 @@ interface DraftRow {
 
 function emptyRow(id: number): DraftRow {
   return { capacity: "1", guestNames: "", id, internalLabel: "", recipientName: "" };
+}
+
+/**
+ * A parsed party as an editable row.
+ *
+ * The greeting is left blank when it would merely repeat the name, because that is already
+ * what the field's own placeholder and the submit fallback mean. Filling it in with a copy of
+ * the name would look like a decision Tala made rather than the default it is.
+ */
+function rowFromParty(party: ParsedGuestParty, id: number): DraftRow {
+  return {
+    capacity: String(party.capacity),
+    guestNames: party.guestNames.join(", "),
+    id,
+    internalLabel: party.internalLabel,
+    recipientName: party.recipientName === party.internalLabel ? "" : party.recipientName,
+  };
 }
 
 function splitGuestNames(value: string): string[] {
@@ -53,26 +80,41 @@ function pastedRows(value: string, startId: number, singleRecipient: boolean): D
 }
 
 export function GuestBulkComposer({
+  initialParties,
   invitation,
   onClose,
   onCreated,
+  organizingAvailable = false,
   returnFocusRef,
 }: GuestBulkComposerProps) {
   const singleRecipient = invitation.occasion === "Romance";
-  const nextIdRef = useRef(2);
+  const staged = initialParties ?? [];
+  const nextIdRef = useRef(staged.length + 2);
   const dialogRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const rowFieldRefs = useRef(new Map<number, HTMLInputElement>());
-  const [rows, setRows] = useState<DraftRow[]>([emptyRow(1)]);
+  const [rows, setRows] = useState<DraftRow[]>(() =>
+    staged.length > 0
+      ? staged.map((party, index) => rowFromParty(party, index + 1))
+      : [emptyRow(1)],
+  );
   const [isPending, setIsPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(
+    staged.length > 0
+      ? `${staged.length} ${staged.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`
+      : null,
+  );
   const [invalidRows, setInvalidRows] = useState<Set<number>>(new Set());
+  const [pastedList, setPastedList] = useState("");
+  const [isOrganizing, setIsOrganizing] = useState(false);
   const mutationIdRef = useRef(crypto.randomUUID());
 
   useEffect(() => {
     firstFieldRef.current?.focus();
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPending) {
+      // Closing mid-parse would discard an answer that has already been billed, so the
+      // dialog holds until it lands — the same rule the submit already follows.
+      if (event.key === "Escape" && !isPending && !isOrganizing) {
         event.preventDefault();
         onClose();
         returnFocusRef.current?.focus();
@@ -97,7 +139,7 @@ export function GuestBulkComposer({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, onClose, returnFocusRef]);
+  }, [isOrganizing, isPending, onClose, returnFocusRef]);
 
   function updateRow(id: number, updates: Partial<DraftRow>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...updates } : row)));
@@ -149,6 +191,58 @@ export function GuestBulkComposer({
       return [...current.slice(0, index), ...available, ...current.slice(index + 1)].slice(0, 50);
     });
     setMessage(`${available.length} rows prepared from your pasted list.`);
+  }
+
+  /**
+   * Sends the pasted list to Tala and appends whatever comes back as ordinary rows.
+   *
+   * Appended rather than substituted, and blank rows dropped first, so a creator who has
+   * already typed three parties by hand keeps them — and so a list too long for one paste can
+   * be done in two. Every row lands in the same fields as a typed one and is corrected the
+   * same way, which is why this screen needs no second review table.
+   *
+   * One turn spends one message from the daily allowance, the same as a question. That is why
+   * the plain tab-separated paste below stays: a creator with a tidy spreadsheet should not
+   * pay a model to read it.
+   */
+  async function organize() {
+    const text = pastedList.trim();
+    if (!text || isOrganizing || isPending) return;
+
+    setIsOrganizing(true);
+    setMessage(null);
+
+    const result = await requestGuestParties(invitation.invitationId, [
+      { content: text, role: "user" },
+    ]);
+
+    if (result.status === "refused") {
+      setMessage(result.message);
+      setIsOrganizing(false);
+      return;
+    }
+
+    let added = 0;
+    setRows((current) => {
+      const kept = current.filter((row) => row.internalLabel.trim().length > 0);
+      const room = MAX_PARSED_GUEST_PARTIES - kept.length;
+      const additions = result.parties.slice(0, Math.max(room, 0)).map((party) => {
+        const row = rowFromParty(party, nextIdRef.current);
+        nextIdRef.current += 1;
+        return row;
+      });
+      added = additions.length;
+      const next = [...kept, ...additions];
+      return next.length > 0 ? next : [emptyRow(nextIdRef.current++)];
+    });
+
+    setPastedList("");
+    setMessage(
+      added < result.parties.length
+        ? `${added} of ${result.parties.length} rows were added. This screen holds ${MAX_PARSED_GUEST_PARTIES}, so create these first and then paste the rest.`
+        : `${added} ${added === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
+    );
+    setIsOrganizing(false);
   }
 
   function continueFromName(event: React.KeyboardEvent<HTMLInputElement>, rowId: number) {
@@ -252,7 +346,7 @@ export function GuestBulkComposer({
             <button
               aria-label={singleRecipient ? "Close add recipients" : "Close add guests"}
               className={styles.modalClose}
-              disabled={isPending}
+              disabled={isPending || isOrganizing}
               onClick={onClose}
               type="button"
             >
@@ -261,13 +355,50 @@ export function GuestBulkComposer({
           </div>
         </header>
 
-        <form aria-busy={isPending || undefined} onSubmit={(event) => void submit(event)}>
+        <form
+          aria-busy={isPending || isOrganizing || undefined}
+          onSubmit={(event) => void submit(event)}
+        >
+          {organizingAvailable ? (
+            <section className={styles.organizer}>
+              <label htmlFor="guest-list-paste">
+                <span>Paste a messy list and let Tala sort it</span>
+                <small>
+                  Names, nicknames, and counts like &ldquo;+2&rdquo; in whatever order they are
+                  already in. Their names are sent to Invitica&rsquo;s AI provider to be read, and
+                  you check every row below before anything is created.
+                </small>
+              </label>
+              <textarea
+                disabled={isPending || isOrganizing}
+                id="guest-list-paste"
+                maxLength={MAX_MESSAGE_CHARACTERS}
+                onChange={(event) => setPastedList(event.target.value)}
+                placeholder={
+                  singleRecipient
+                    ? "Mia Santos, Ana Cruz, Tita Baby"
+                    : "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5)"
+                }
+                rows={3}
+                value={pastedList}
+              />
+              <button
+                className={styles.organizeAction}
+                disabled={isPending || isOrganizing || pastedList.trim().length === 0}
+                onClick={() => void organize()}
+                type="button"
+              >
+                {isOrganizing ? "Organizing…" : "Organize with Tala"}
+              </button>
+            </section>
+          ) : null}
+
           <div className={styles.bulkRows}>
             {rows.map((row, index) => (
               <fieldset
                 className={styles.bulkRow}
                 data-invalid={invalidRows.has(row.id)}
-                disabled={isPending}
+                disabled={isPending || isOrganizing}
                 key={row.id}
               >
                 <legend>
@@ -343,14 +474,14 @@ export function GuestBulkComposer({
 
           <div className={styles.bulkTools}>
             <button
-              disabled={isPending || rows.length >= 50}
+              disabled={isPending || isOrganizing || rows.length >= 50}
               onClick={() => addRows(1)}
               type="button"
             >
               <Plus /> Add row
             </button>
             <button
-              disabled={isPending || rows.length >= 50}
+              disabled={isPending || isOrganizing || rows.length >= 50}
               onClick={() => addRows(5)}
               type="button"
             >
@@ -362,10 +493,10 @@ export function GuestBulkComposer({
             {message}
           </p>
           <div className={styles.dialogActions}>
-            <button disabled={isPending} onClick={onClose} type="button">
+            <button disabled={isPending || isOrganizing} onClick={onClose} type="button">
               Cancel
             </button>
-            <button disabled={isPending} type="submit">
+            <button disabled={isPending || isOrganizing} type="submit">
               {isPending
                 ? "Preparing invitations..."
                 : singleRecipient

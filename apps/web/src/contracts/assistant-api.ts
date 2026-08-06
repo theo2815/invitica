@@ -42,6 +42,45 @@ export const assistantDocumentRequestSchema = z.object({
   messages: conversationSchema,
 });
 
+/**
+ * A guest-list parse is asked for against one invitation, the same way a document proposal
+ * is. Guest parties belong to a published invitation, so the server resolves the invitation
+ * under the creator's own session and refuses one they do not own or have not published.
+ *
+ * It carries a conversation rather than a single paste, because correcting a parse is a
+ * sentence — "the Santos family is six, not five" — and re-pasting the whole list to fix one
+ * row would be worse than typing it.
+ */
+export const assistantGuestsRequestSchema = z.object({
+  invitationId: z.string().uuid(),
+  messages: conversationSchema,
+});
+
+/**
+ * How many parties one request may produce.
+ *
+ * `createGuestPartiesAction` accepts at most 50 in a single transaction and the composer
+ * holds 50 rows, so a longer answer could not be created anyway. Truncating here gives a
+ * creator fifty rows they can act on instead of a refusal they cannot.
+ */
+export const MAX_PARSED_GUEST_PARTIES = 50;
+
+/**
+ * One parsed party, in the shape `createGuestPartiesAction` already accepts.
+ *
+ * Declared in the contract rather than beside the parser so the composer can hold these
+ * without importing server code. The server still validates every one of them against
+ * `guestPartyInputSchema` before it is sent — this type describes what survived, not what
+ * the model said.
+ */
+export interface ParsedGuestParty {
+  capacity: number;
+  guestNames: string[];
+  internalLabel: string;
+  recipientName: string;
+}
+
 export type AssistantApiMessage = z.infer<typeof assistantMessageSchema>;
 export type AssistantApiRequest = z.infer<typeof assistantRequestSchema>;
 export type AssistantDocumentApiRequest = z.infer<typeof assistantDocumentRequestSchema>;
+export type AssistantGuestsApiRequest = z.infer<typeof assistantGuestsRequestSchema>;

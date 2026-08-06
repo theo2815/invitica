@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { MAX_MESSAGE_CHARACTERS } from "../../contracts/assistant-api";
+import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
 import { useAssistant } from "./AssistantProvider";
 
@@ -24,12 +26,29 @@ const DOCUMENT_SUGGESTIONS = [
 ];
 
 /**
+ * Deliberately messy, and deliberately invented.
+ *
+ * They are examples of a list as it actually exists in a group chat — inconsistent counts,
+ * terms of address, a family with a number after it — because a tidy example would teach a
+ * creator to tidy their list first, which is the work this removes. No name here belongs to
+ * anyone: fixtures never carry real guest data.
+ */
+const GUEST_SUGGESTIONS = [
+  "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5), Ninong Ramon",
+  "The Reyes family is 6, not 4",
+];
+
+/**
  * The thread and its composer. One component, rendered by both the floating widget and
  * `/dashboard/assistant`, so the two cannot drift into two different chat surfaces.
  */
 export function AssistantConversation({ autoFocus = false }: { autoFocus?: boolean }) {
-  const { clear, invitationId, messages, mode, notice, send, setMode, status } = useAssistant();
+  const { clear, close, guestList, invitationId, messages, mode, notice, send, setMode, status } =
+    useAssistant();
+  const router = useRouter();
+  const flushDraft = useDraftFlush();
   const [draft, setDraft] = useState("");
+  const [leaving, setLeaving] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
   const isAnswering = status === "answering";
@@ -63,13 +82,40 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
     }
   }
 
+  /**
+   * Hands the parsed rows to the Guest Desk, which is the only place they can be created.
+   *
+   * The rows live in the creator shell, which outlives this route, so nothing about them is
+   * serialized through the URL or storage to survive the trip — the composer reads the same
+   * object on the other side. The flush is the same one **Open full view** performs, and for
+   * the same reason: a draft mid-save elsewhere settles before the navigation rather than
+   * being abandoned by it.
+   */
+  async function reviewInGuestDesk() {
+    if (leaving) return;
+    setLeaving(true);
+    try {
+      await flushDraft();
+      close();
+      router.push("/dashboard/guests");
+    } finally {
+      setLeaving(false);
+    }
+  }
+
   const remaining = MAX_MESSAGE_CHARACTERS - draft.length;
   const drafting = mode === "document";
-  // Drafting needs an invitation to draft into. Off an editor, and before a creator has
-  // picked one, there is nothing to offer — so the choice is not shown rather than shown
-  // and refused.
+  const organizing = mode === "guests";
+  // Both drafting and organizing need an invitation to work against. Off an editor, and
+  // before a creator has picked one, there is nothing to offer — so the choice is not shown
+  // rather than shown and refused.
   const canDraft = invitationId !== null;
-  const suggestions = drafting ? DOCUMENT_SUGGESTIONS : HELP_SUGGESTIONS;
+  const suggestions = organizing
+    ? GUEST_SUGGESTIONS
+    : drafting
+      ? DOCUMENT_SUGGESTIONS
+      : HELP_SUGGESTIONS;
+  const parsedParties = guestList?.invitationId === invitationId ? guestList.parties : null;
 
   return (
     <div className={styles.conversation}>
@@ -92,6 +138,14 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           >
             Draft my invitation
           </button>
+          <button
+            aria-pressed={organizing}
+            disabled={isAnswering}
+            onClick={() => setMode("guests")}
+            type="button"
+          >
+            Organize my guest list
+          </button>
         </fieldset>
       ) : null}
 
@@ -99,9 +153,11 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
         {messages.length === 0 && !notice ? (
           <div className={styles.empty}>
             <p className={styles.emptyLead}>
-              {drafting
-                ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
-                : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
+              {organizing
+                ? "Paste your guest list however it already exists and Tala sorts it into invitations. You check every row in the Guest Desk first — nothing is created until you do. Their names are sent to Invitica's AI provider to be read."
+                : drafting
+                  ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
+                  : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
             </p>
             <ul className={styles.suggestions}>
               {suggestions.map((suggestion) => (
@@ -143,14 +199,50 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           </p>
         ) : null}
 
+        {organizing && parsedParties ? (
+          <section aria-labelledby="assistant-guest-list" className={styles.guestList}>
+            <h3 className={styles.guestListHeading} id="assistant-guest-list">
+              {parsedParties.length === 1
+                ? "1 invitation, not created yet"
+                : `${parsedParties.length} invitations, not created yet`}
+            </h3>
+            <ul className={styles.guestRows}>
+              {parsedParties.map((party, index) => (
+                // Two rows may legitimately carry the same name — a creator with two guests
+                // called Tita Baby is not an error — so the position is the only stable
+                // identity here. The list is replaced whole and never reordered.
+                <li key={index}>
+                  <span>{party.internalLabel}</span>
+                  <span>
+                    {party.capacity === 1 ? "1 seat" : `${party.capacity} seats`}
+                    {party.guestNames.length > 0 ? ` · ${party.guestNames.join(", ")}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className={styles.guestListActions}>
+              <button
+                className={styles.review}
+                disabled={leaving}
+                onClick={() => void reviewInGuestDesk()}
+                type="button"
+              >
+                {leaving ? "Opening…" : "Review in Guest Desk"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         {/* The answer itself is not announced token by token — that would read every
             fragment aloud. One polite status per turn is the useful amount. A draft has no
             streamed text at all, so this status is the only signal that it is working. */}
         <p aria-live="polite" className={styles.visuallyHidden}>
           {isAnswering
-            ? drafting
-              ? "Tala is drafting your invitation."
-              : "Tala is answering."
+            ? organizing
+              ? "Tala is organizing your guest list."
+              : drafting
+                ? "Tala is drafting your invitation."
+                : "Tala is answering."
             : ""}
         </p>
 
@@ -159,7 +251,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
 
       <form className={styles.composer} onSubmit={submit}>
         <label className={styles.visuallyHidden} htmlFor="assistant-composer">
-          {drafting ? "Describe your event" : "Ask Tala"}
+          {organizing ? "Paste your guest list" : drafting ? "Describe your event" : "Ask Tala"}
         </label>
         <textarea
           className={styles.input}
@@ -168,9 +260,17 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
           maxLength={MAX_MESSAGE_CHARACTERS}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onComposerKeyDown}
-          placeholder={drafting ? "Describe your event…" : "Ask how something works…"}
+          placeholder={
+            organizing
+              ? "Paste your guest list…"
+              : drafting
+                ? "Describe your event…"
+                : "Ask how something works…"
+          }
           ref={composerRef}
-          rows={2}
+          // A pasted list is many lines where a question is one or two, so it gets room to
+          // be read back before it is sent.
+          rows={organizing ? 4 : 2}
           value={draft}
         />
         <div className={styles.composerActions}>
@@ -195,7 +295,17 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
             disabled={isAnswering || draft.trim().length === 0}
             type="submit"
           >
-            {isAnswering ? (drafting ? "Drafting…" : "Answering…") : drafting ? "Draft" : "Ask"}
+            {isAnswering
+              ? organizing
+                ? "Organizing…"
+                : drafting
+                  ? "Drafting…"
+                  : "Answering…"
+              : organizing
+                ? "Organize"
+                : drafting
+                  ? "Draft"
+                  : "Ask"}
           </button>
         </div>
       </form>

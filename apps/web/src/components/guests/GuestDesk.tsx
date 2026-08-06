@@ -19,6 +19,7 @@ import type {
 } from "../../server/guests/guests";
 import type { InvitationResultSummary } from "../../server/guests/results";
 import { buildGeneralInvitationMessage } from "../../server/guests/sharing";
+import { useOptionalAssistant } from "../assistant/AssistantProvider";
 import { Select } from "../forms/Select";
 import { Check, MoreHorizontal, Plus, Users } from "../Icons";
 import { GuestBulkComposer } from "./GuestBulkComposer";
@@ -32,6 +33,8 @@ import {
 } from "./guest-desk-api";
 
 interface GuestDeskProps {
+  /** Whether Tala is switched on for this deployment. Resolved on the server. */
+  assistantAvailable?: boolean;
   hasMoreParties: boolean;
   invitations: readonly GuestInvitationSummary[];
   nextPartyOffset: number;
@@ -136,6 +139,7 @@ function confirmationPendingLabel(confirmation: Exclude<Confirmation, null>): st
 }
 
 export function GuestDesk({
+  assistantAvailable = false,
   hasMoreParties,
   invitations,
   nextPartyOffset,
@@ -145,6 +149,9 @@ export function GuestDesk({
   trashedParties,
 }: GuestDeskProps) {
   const router = useRouter();
+  // Optional for the same reason the editor's is: the desk is the product and Tala is an
+  // addition to it, so a desk that refused to render without one would invert that.
+  const assistant = useOptionalAssistant();
   const romanceInvitation = selectedInvitation?.occasion === "Romance";
   // The invitation switcher changes a search parameter on a segment that is already
   // mounted, which does not re-trigger `loading.tsx`. Without this transition the click
@@ -187,6 +194,37 @@ export function GuestDesk({
   const previousInvitationIdRef = useRef(selectedInvitation?.invitationId ?? null);
   const skippedInitialCriteriaRequestRef = useRef(false);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  const setAssistantInvitationId = assistant?.setInvitationId;
+  const selectedInvitationId = selectedInvitation?.invitationId ?? null;
+
+  /**
+   * Puts the open invitation in Tala's context, and releases it on the way out.
+   *
+   * Without this the panel's guest-list mode would have nothing to organize against, since
+   * guest parties belong to one invitation. Releasing it matters as much as setting it: an id
+   * left behind would offer to draft into this invitation from every other route.
+   */
+  useEffect(() => {
+    if (!setAssistantInvitationId) return;
+    setAssistantInvitationId(selectedInvitationId);
+    return () => setAssistantInvitationId(null);
+  }, [selectedInvitationId, setAssistantInvitationId]);
+
+  /**
+   * Rows parsed in the panel, for the invitation that is open here.
+   *
+   * They arrive as a proposal and stay one: the composer opens holding them, and the
+   * creator's own Create button is still the only thing that writes.
+   */
+  const stagedParties =
+    assistant?.guestList && assistant.guestList.invitationId === selectedInvitationId
+      ? assistant.guestList.parties
+      : null;
+
+  useEffect(() => {
+    if (stagedParties) setCreateOpen(true);
+  }, [stagedParties]);
 
   const requestGuestPage = useCallback(
     async (offset: number, append: boolean) => {
@@ -1393,12 +1431,21 @@ export function GuestDesk({
 
       {createOpen && selectedInvitation ? (
         <GuestBulkComposer
+          // A handoff from the panel mounts a fresh composer, so its rows are seeded even
+          // when one was already open. Without the key React would keep the old instance and
+          // silently discard the parse.
+          key={stagedParties ? "organized" : "manual"}
+          // Omitted rather than passed as undefined: `exactOptionalPropertyTypes` rejects
+          // the latter, and an absent prop reads as "no handoff" rather than as an empty one.
+          {...(stagedParties ? { initialParties: stagedParties } : {})}
           invitation={selectedInvitation}
           onClose={() => {
+            assistant?.clearGuestList();
             setCreateOpen(false);
             createButtonRef.current?.focus();
           }}
           onCreated={(count) => {
+            assistant?.clearGuestList();
             setCreateOpen(false);
             setActionMessage(
               romanceInvitation
@@ -1408,6 +1455,7 @@ export function GuestDesk({
             refreshDesk();
             window.requestAnimationFrame(() => createButtonRef.current?.focus());
           }}
+          organizingAvailable={assistantAvailable}
           returnFocusRef={createButtonRef}
         />
       ) : null}

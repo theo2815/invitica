@@ -1606,6 +1606,74 @@
   color: var(--danger);
 }
 
+/* The fast path into the rows below, not a separate screen. It sits above them because it
+   is what most creators reach for first; the manual rows remain the whole feature without
+   it, and it is not rendered at all when the assistant is switched off. */
+.organizer {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface-muted, #eee7da);
+}
+
+.organizer label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.organizer label span {
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.organizer label small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.organizer textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.organizeAction {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding-inline: 0.9rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.organizeAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 700px) {
+  .organizeAction {
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
 .bulkRows {
   display: grid;
   gap: 0.55rem;

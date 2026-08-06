@@ -11,20 +11,21 @@ import {
   useState,
 } from "react";
 
-import type { AssistantApiMessage } from "../../contracts/assistant-api";
+import type { AssistantApiMessage, ParsedGuestParty } from "../../contracts/assistant-api";
 import type { SectionDocumentDetails } from "../../lib/invitations/little-blessings-details";
+import { requestGuestParties } from "./guest-parsing";
 
 export type AssistantStatus = "answering" | "idle";
 
 /**
  * What the assistant does with the next thing the creator types.
  *
- * Explicit rather than inferred. "How do I publish?" and "make it a garden wedding" are
- * different requests to different endpoints at different costs, and the only way to tell
- * them apart automatically would be to ask a model first — a second billed call to decide
- * where to send the first.
+ * Explicit rather than inferred. "How do I publish?", "make it a garden wedding", and a
+ * pasted guest list are three requests to three endpoints at three costs, and the only way
+ * to tell them apart automatically would be to ask a model first — a billed call to decide
+ * where to send the next one.
  */
-export type AssistantMode = "document" | "help";
+export type AssistantMode = "document" | "guests" | "help";
 
 /**
  * A drafted invitation waiting for the creator to accept it.
@@ -44,10 +45,28 @@ export interface AssistantProposal {
   revision: number;
 }
 
+/**
+ * Guest rows waiting for the creator to review them in the Guest Desk.
+ *
+ * Held here for the same reason a document proposal is: the panel floats over every route
+ * and the composer that creates these rows lives on one of them, so the parse has to survive
+ * the navigation between them. Nothing is serialized through the URL or storage — these are
+ * guests' names, and a URL is the one place in this product they must never appear.
+ *
+ * Every row has already passed `guestPartyInputSchema` on the server, so the client stores
+ * them as-is and never re-derives them.
+ */
+export interface AssistantGuestList {
+  invitationId: string;
+  parties: ParsedGuestParty[];
+}
+
 interface AssistantContextValue {
   clear: () => void;
+  clearGuestList: () => void;
   clearProposal: () => void;
   close: () => void;
+  guestList: AssistantGuestList | null;
   /** The invitation the creator is currently working on, or null off an editor. */
   invitationId: null | string;
   isOpen: boolean;
@@ -99,6 +118,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<AssistantMode>("help");
   const [invitationId, setInvitationId] = useState<null | string>(null);
   const [proposal, setProposal] = useState<AssistantProposal | null>(null);
+  const [guestList, setGuestList] = useState<AssistantGuestList | null>(null);
   // One answer at a time. Without this a second Enter while the first answer is still
   // streaming would spend a second message from the daily allowance and interleave the two.
   const inFlight = useRef(false);
@@ -109,10 +129,44 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       if (!question || inFlight.current) return;
 
       const drafting = mode === "document" && invitationId !== null;
+      const organizing = mode === "guests" && invitationId !== null;
 
       inFlight.current = true;
       setNotice(null);
       setStatus("answering");
+
+      if (organizing) {
+        const history: AssistantApiMessage[] = [
+          ...messages.filter((message) => message.content.trim().length > 0),
+          { content: question, role: "user" },
+        ];
+        setMessages(history);
+
+        const result = await requestGuestParties(invitationId, history);
+
+        if (result.status === "refused") {
+          setNotice(result.message);
+        } else {
+          setGuestList({ invitationId, parties: result.parties });
+          // Invitica's own sentence, not the model's. The rows themselves are the answer and
+          // they are listed underneath where a creator can count them; restating them as
+          // prose would be a second, less reliable copy of other people's names.
+          setMessages([
+            ...history,
+            {
+              content:
+                result.parties.length === 1
+                  ? "I found 1 invitation in that list. Open the Guest Desk to check it before anything is created."
+                  : `I found ${result.parties.length} invitations in that list. Open the Guest Desk to check them before anything is created.`,
+              role: "assistant",
+            },
+          ]);
+        }
+
+        inFlight.current = false;
+        setStatus("idle");
+        return;
+      }
 
       if (drafting) {
         const history: AssistantApiMessage[] = [
@@ -229,15 +283,27 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   // with it every field handler in the editor, on each token.
   const clearProposal = useCallback(() => setProposal(null), []);
 
+  /**
+   * Called once the Guest Desk has taken the rows, and by Start over.
+   *
+   * Worth being deliberate about: these are guests' names sitting in browser memory, so they
+   * are dropped as soon as the surface that needs them has them rather than being left in
+   * the shell for the rest of the session.
+   */
+  const clearGuestList = useCallback(() => setGuestList(null), []);
+
   const value = useMemo<AssistantContextValue>(
     () => ({
       clear: () => {
         setMessages([]);
         setNotice(null);
         setProposal(null);
+        setGuestList(null);
       },
+      clearGuestList,
       clearProposal,
       close: () => setIsOpen(false),
+      guestList,
       invitationId,
       isOpen,
       messages,
@@ -250,7 +316,19 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setMode,
       status,
     }),
-    [clearProposal, invitationId, isOpen, messages, mode, notice, proposal, send, status],
+    [
+      clearGuestList,
+      clearProposal,
+      guestList,
+      invitationId,
+      isOpen,
+      messages,
+      mode,
+      notice,
+      proposal,
+      send,
+      status,
+    ],
   );
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;

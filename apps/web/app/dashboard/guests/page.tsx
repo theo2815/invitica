@@ -1,4 +1,5 @@
 import { GuestDesk } from "../../../src/components/guests/GuestDesk";
+import { assistantEnabled } from "../../../src/server/assistant/budget";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import {
   listDeliveredGuestInvitations,
@@ -70,6 +71,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
       ) : (
         <>
           <GuestDesk
+            assistantAvailable={assistantEnabled()}
             invitations={invitations}
             hasMoreParties={partyPage.hasMore}
             nextPartyOffset={partyPage.nextOffset}

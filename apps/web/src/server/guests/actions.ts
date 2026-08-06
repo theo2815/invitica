@@ -23,6 +23,7 @@ import {
   updateGuestParty,
   updateInvitationShareMessages,
 } from "./guests";
+import { guestNamesSchema, guestPartyInputSchema } from "./party-input";
 import {
   buildPersonalInvitationMessage,
   GENERAL_MESSAGE_TOKENS,
@@ -36,23 +37,6 @@ import {
 } from "./tokens";
 
 const uuidSchema = z.string().uuid();
-const guestNamesSchema = z.array(z.string().trim().min(1).max(120)).max(50);
-const guestPartyInputSchema = z
-  .strictObject({
-    capacity: z.number().int().min(1).max(50),
-    guestNames: guestNamesSchema,
-    internalLabel: z.string().trim().min(1).max(120),
-    recipientName: z.string().trim().min(1).max(120),
-  })
-  .superRefine((value, context) => {
-    if (value.guestNames.length > value.capacity) {
-      context.addIssue({
-        code: "custom",
-        message: "Named guests cannot exceed the party capacity.",
-        path: ["guestNames"],
-      });
-    }
-  });
 const createGuestPartiesSchema = z.strictObject({
   invitationId: uuidSchema,
   mutationId: uuidSchema,

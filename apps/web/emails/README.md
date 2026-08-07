@@ -46,6 +46,12 @@ The other two deliberately use `{{ .ConfirmationURL }}` rather than a hand-built
 URL, because Supabase folds the app's `emailRedirectTo` into it. Rebuilding the URL by hand would
 drop the `next` path and land a confirmed creator on the public landing page.
 
+**And the code must be six digits.** `{{ .Token }}` renders whatever length
+**Authentication → Emails → Email OTP Length** is set to, which Supabase allows to be 6 through 10.
+The app enforces six in six separate places and cannot read that setting. It was found set to 8 on
+2026-08-07 and password recovery did not work at all until it was put back —
+`Operations/Known Environment Issues.md` in the vault has the detail.
+
 ## Previewing
 
 ```bash

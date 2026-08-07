@@ -131,6 +131,18 @@ export function validateRecoveryEmail(formData: FormData): ValidationResult<Reco
   return { data: { email }, ok: true };
 }
 
+/**
+ * **Coupled to a Supabase setting this code cannot read.**
+ *
+ * The length below must equal **Authentication → Emails → Email OTP Length** in the Supabase
+ * Dashboard. That value is configurable from 6 to 10, and on 2026-08-07 it was found set to **8**,
+ * which broke password recovery outright: an eight-digit code failed this regex, and
+ * `PasswordRecoveryPage`'s `maxLength={6}` meant it could not even be typed in full.
+ *
+ * Six is the intended length and the setting is correct as of 2026-08-07. Six places encode it —
+ * this regex, its error string, and the recovery page's `maxLength`, `slice(0, 6)`, `pattern`, and
+ * "six-digit" description — so the fix for a mismatch is the Dashboard setting, not these.
+ */
 export function validateRecoveryCode(formData: FormData): ValidationResult<RecoveryCode> {
   const otp = readString(formData, "otp").replace(/\s/g, "");
 

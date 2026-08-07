@@ -60,7 +60,7 @@
   height: 1.35rem;
 }
 
-.bubbleGlyph > svg[data-invi-state] {
+.bubbleGlyph > [data-invi-state] {
   width: 2.65rem;
   height: 2.65rem;
 }

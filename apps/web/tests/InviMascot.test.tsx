@@ -1,3 +1,6 @@
+import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -29,21 +32,27 @@ describe("Invi", () => {
     );
   });
 
-  it("keeps the character decorative while exposing its visual state for styling", () => {
-    const { container } = render(<InviMascot state="success" />);
-    const mascot = container.querySelector("svg");
+  it.each([
+    ["attention", "alert"],
+    ["attentive", "neutral"],
+    ["idle", "resting"],
+    ["responding", "neutral"],
+    ["success", "success"],
+    ["thinking", "thinking"],
+  ] as const)("maps the %s state to the authored %s frame", (state, frame) => {
+    const { container } = render(<InviMascot state={state} />);
+    const mascot = container.querySelector("[data-invi-state]");
 
     expect(mascot?.getAttribute("aria-hidden")).toBe("true");
-    expect(mascot?.getAttribute("data-invi-state")).toBe("success");
+    expect(mascot?.getAttribute("data-invi-frame")).toBe(frame);
+    expect(container.querySelector('[data-invi-sprite="concept-e"]')).not.toBeNull();
+    expect(container.querySelector("svg")).toBeNull();
   });
 
-  it("draws the sealed letter rather than a face on its own", () => {
-    const { container } = render(<InviMascot state="attentive" />);
+  it("ships the optimized Concept E atlas with the web app", () => {
+    const assetPath = resolve(process.cwd(), "public/brand/invi-character-sprites.webp");
 
-    // The three pieces the identity is: the note, the pocket it sits in, and the wax seal. A
-    // face floating without them would be a different character wearing the same name.
-    expect(container.querySelector("[class*='paper']")).not.toBeNull();
-    expect(container.querySelector("[class*='pocket']")).not.toBeNull();
-    expect(container.querySelector("[class*='seal']")).not.toBeNull();
+    expect(existsSync(assetPath)).toBe(true);
+    expect(statSync(assetPath).size).toBeLessThan(400_000);
   });
 });

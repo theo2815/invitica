@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
+import { Trash } from "../Icons";
 import styles from "./Assistant.module.css";
 import { useAssistant } from "./AssistantProvider";
 
@@ -38,6 +39,7 @@ export function AssistantHistory({ onOpened }: { onOpened: () => void }) {
   // rather than a dialog: a creator tidying a list should not have the panel taken over
   // between one row and the next.
   const [confirming, setConfirming] = useState<null | string>(null);
+  const headingId = useId();
 
   if (conversations.length === 0) {
     return (
@@ -52,7 +54,18 @@ export function AssistantHistory({ onOpened }: { onOpened: () => void }) {
   }
 
   return (
-    <>
+    <section aria-labelledby={headingId}>
+      {/*
+        The list replaces the thread rather than floating over it, so without a heading a
+        creator who pressed History arrived at their own sentences with nothing naming
+        what they were looking at. The line under it answers the two questions the list
+        raises — who else reads this, and does deleting come back.
+      */}
+      <h2 className={styles.historyHeading} id={headingId}>
+        Saved conversations
+      </h2>
+      <p className={styles.historyNote}>Only you can read these. Deleting one cannot be undone.</p>
+
       {/*
         Opening a saved thread used to say nothing at all. The rows went disabled and the
         panel sat there until the messages arrived — on a slow connection, which is the
@@ -107,15 +120,16 @@ export function AssistantHistory({ onOpened }: { onOpened: () => void }) {
               <button
                 className={styles.historyDelete}
                 onClick={() => setConfirming(conversation.id)}
+                title="Delete this conversation"
                 type="button"
               >
                 <span className={styles.visuallyHidden}>Delete “{conversation.title}”</span>
-                <span aria-hidden="true">×</span>
+                <Trash />
               </button>
             )}
           </li>
         ))}
       </ul>
-    </>
+    </section>
   );
 }

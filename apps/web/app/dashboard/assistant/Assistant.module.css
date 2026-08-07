@@ -31,7 +31,7 @@
 }
 
 .pageDescription {
-  max-width: 46ch;
+  max-width: 48ch;
   margin: 0.5rem 0 0;
   color: var(--muted, #6d655e);
   line-height: 1.6;
@@ -42,17 +42,36 @@
   to the bottom of an ever-longer thread, which is the whole reason the full view exists.
   `dvh` so the mobile browser's collapsing address bar does not push the composer off screen.
 
+  The reserve was 16 rem, which is what made this page's conversation the shortest surface
+  Invi has. Measured at 390 x 667 against the real CSS: a 411 px card, of which the thread
+  bar, the mode switch, and the composer take 261 px, leaving **148 px** of log against a
+  353 px empty state — the creator saw half of one suggestion and no conversation at all.
+  Height above the fold was never what the reserve protected: the page scrolls, and the card
+  scrolls inside itself.
+
   The grid placement lives in `AssistantWorkspace.module.css`, which owns the three regions.
 */
 .surface {
   display: flex;
-  height: min(38rem, calc(100dvh - 16rem));
+  height: min(38rem, calc(100dvh - 9rem));
   min-height: 22rem;
   overflow: hidden;
   border: 1px solid var(--border, #d5cbbd);
   border-radius: 0.5rem;
   background: var(--surface, #fffdf8);
   box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 7%);
+}
+
+/*
+  Below 900 px the creator navigation is a fixed 4 rem tab bar plus the device's own inset,
+  and it is the only thing under this card. Reserving that and a little air gives the phone
+  the tallest conversation of any breakpoint, which is where it had the shortest: 571 px at
+  390 x 667 against 411 px, and 308 px of log against 148.
+*/
+@media (max-width: 900px) {
+  .surface {
+    height: min(42rem, calc(100dvh - 6rem - env(safe-area-inset-bottom)));
+  }
 }
 
 @media (min-width: 1180px) {
@@ -67,10 +86,18 @@
   .pageHeader {
     align-items: start;
     gap: 0.75rem;
+    margin-bottom: 1rem;
   }
 
   .pageMascot {
     width: 3.5rem;
     height: 3.5rem;
+  }
+
+  /* The same step the dashboard's own page description takes at 680 px. Body size here put
+     a 58-character sentence on three lines above a card that was already too short. */
+  .pageDescription {
+    font-size: 0.85rem;
+    line-height: 1.5;
   }
 }

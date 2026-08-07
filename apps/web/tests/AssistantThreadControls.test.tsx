@@ -215,6 +215,26 @@ describe("the history list", () => {
     expect(screen.getByRole("button", { name: "History (1)" })).toBeTruthy();
   });
 
+  it("names the list and says deletion is permanent, once there is a list to name", async () => {
+    listConversations.mockResolvedValue([
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        title: "How do I send personalized links?",
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderThread();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+
+    // The list replaces the thread rather than floating over it, so a creator who pressed
+    // History arrived at their own sentences with nothing naming what they were looking at.
+    expect(await screen.findByRole("heading", { name: "Saved conversations" })).toBeTruthy();
+    // The privacy and permanence line used to appear only in the empty state, which is the
+    // one list where neither question has come up yet.
+    expect(screen.getByText(/Deleting one cannot be undone/)).toBeTruthy();
+  });
+
   it("asks once before deleting, because a deleted thread does not come back", async () => {
     listConversations.mockResolvedValue([
       {

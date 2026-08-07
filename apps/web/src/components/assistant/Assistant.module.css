@@ -228,10 +228,22 @@
   color: var(--text, #29231f);
 }
 
+/*
+  `min-width: 0` is load-bearing, not tidiness.
+
+  On `/dashboard/assistant` this is a flex item of a row container that clips what it cannot
+  fit, so its automatic minimum width was its min-content width — and one saved conversation
+  whose title did not wrap set that to 667 px at every viewport. Measured against the real
+  CSS: at 1440 the card was 508 px and this column 667, putting the delete button at
+  x 720-764 and **Back to chat** at 680-764, both past a clipped edge; at 390 they were
+  260 px outside it. That is why the history list could not be closed or deleted from.
+  Removing `white-space: nowrap` from the title below is the other half of the same fix.
+*/
 .conversation {
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -779,6 +791,23 @@
 }
 
 /* Saved threads, newest first. */
+
+/* Names the list a creator has just replaced their conversation with, and says the two
+   things they ask about it. Inside the scrolling log, so it costs the thread no height. */
+.historyHeading {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.historyNote {
+  margin: 0.2rem 0 0.7rem;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .historyLoading {
   margin: 0 0 0.5rem;
   color: var(--muted, #6d655e);
@@ -797,27 +826,32 @@
 
 .historyList {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.3rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+  A grid rather than a flex row, so the title column is `minmax(0, 1fr)` and can genuinely
+  be narrower than its own text. The delete control keeps its intrinsic width beside it
+  instead of being pushed out of the panel by a long first message.
+*/
 .historyItem {
-  display: flex;
-  gap: 0.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem;
   align-items: center;
 }
 
 .historyOpen {
-  display: flex;
-  flex: 1;
+  display: grid;
   min-width: 0;
-  gap: 0.5rem;
-  align-items: baseline;
-  justify-content: space-between;
+  gap: 0.1rem;
+  justify-items: start;
   min-height: 2.75rem;
-  padding: 0.4rem 0.6rem;
+  align-content: center;
+  padding: 0.45rem 0.6rem;
   border: 1px solid transparent;
   border-radius: 0.35rem;
   background: none;
@@ -839,27 +873,40 @@
   font-weight: 700;
 }
 
+/*
+  Two lines, wrapped, rather than one line ellipsised at whatever the row had left.
+
+  Titles are the creator's own first message, and one line of a run-on question is often
+  identical to the next one's — the reported list held two rows both reading "can you help
+  me create a invitation?" with nothing to tell them apart. Two lines plus the time below
+  separates them. The clamp is what stops a 200-character title from owning the list.
+*/
 .historyTitle {
+  display: -webkit-box;
+  max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
+/* Under the title now, not beside it. On its own line it stops competing for the width the
+   title needs, and it is the only thing distinguishing two threads that start the same. */
 .historyWhen {
-  flex: none;
   color: var(--muted, #6d655e);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 400;
 }
 
 .historyDelete,
 .historyDeleteConfirm,
 .historyDeleteCancel {
-  flex: none;
+  display: grid;
+  place-items: center;
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0 0.5rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--border, #d5cbbd);
   border-radius: 0.35rem;
   background: none;
   color: var(--muted, #6d655e);
@@ -868,22 +915,37 @@
   cursor: pointer;
 }
 
+/*
+  A bordered button carrying the shared Trash mark, where it used to be a bare `×` in muted
+  ink on the paper. It was a 44 px target the whole time; nothing said so, and the founder
+  reported not finding a way to delete at all. Sized through the descendant selector the
+  panel's own icon buttons use, so the icon takes no prop.
+*/
+.historyDelete svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .historyDelete:hover,
 .historyDeleteCancel:hover {
-  border-color: var(--border, #d5cbbd);
+  border-color: var(--text, #29231f);
   color: var(--text, #29231f);
 }
 
 .historyConfirm {
   display: flex;
-  flex: none;
-  gap: 0.15rem;
+  gap: 0.25rem;
 }
 
 .historyDeleteConfirm {
   border-color: var(--accent, #7d2b3f);
   color: var(--accent, #7d2b3f);
   font-weight: 700;
+}
+
+.historyDeleteConfirm:hover {
+  background: var(--accent, #7d2b3f);
+  color: #ffffff;
 }
 
 .sendAction {

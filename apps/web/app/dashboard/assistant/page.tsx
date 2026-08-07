@@ -43,12 +43,12 @@ export default async function AssistantPage() {
           <p className={styles.eyebrow}>Invi · Invitica AI</p>
           <h1>Ask Invi, or draft an invitation</h1>
           {/* The three jobs are listed in full beside the picker, where a creator is
-              already deciding what to do. This says the one thing that governs all of
-              them: Invi proposes, and nothing it produces is saved without a click. */}
+              already deciding what to do, and again on the mode switch. Naming them a
+              third time cost three lines at 390 px and pushed the conversation down the
+              page. What is left is the one thing that governs all three: Invi proposes,
+              and nothing it produces reaches an invitation without a click. */}
           <p className={styles.pageDescription}>
-            Invi answers from Invitica&apos;s own help material, drafts into an invitation you
-            choose, and sorts a pasted guest list. It never saves anything — you read what it
-            produces and apply it yourself.
+            Nothing Invi produces is saved until you apply it yourself.
           </p>
         </div>
       </header>

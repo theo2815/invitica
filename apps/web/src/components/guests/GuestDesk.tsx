@@ -33,7 +33,7 @@ import {
 } from "./guest-desk-api";
 
 interface GuestDeskProps {
-  /** Whether Tala is switched on for this deployment. Resolved on the server. */
+  /** Whether Invi is switched on for this deployment. Resolved on the server. */
   assistantAvailable?: boolean;
   hasMoreParties: boolean;
   invitations: readonly GuestInvitationSummary[];
@@ -149,7 +149,7 @@ export function GuestDesk({
   trashedParties,
 }: GuestDeskProps) {
   const router = useRouter();
-  // Optional for the same reason the editor's is: the desk is the product and Tala is an
+  // Optional for the same reason the editor's is: the desk is the product and Invi is an
   // addition to it, so a desk that refused to render without one would invert that.
   const assistant = useOptionalAssistant();
   const romanceInvitation = selectedInvitation?.occasion === "Romance";
@@ -199,7 +199,7 @@ export function GuestDesk({
   const selectedInvitationId = selectedInvitation?.invitationId ?? null;
 
   /**
-   * Puts the open invitation in Tala's context, and releases it on the way out.
+   * Puts the open invitation in Invi's context, and releases it on the way out.
    *
    * Without this the panel's guest-list mode would have nothing to organize against, since
    * guest parties belong to one invitation. Releasing it matters as much as setting it: an id

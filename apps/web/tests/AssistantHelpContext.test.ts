@@ -91,7 +91,7 @@ describe("the help system prompt", () => {
     expect(HELP_SYSTEM_PROMPT).not.toContain("Invitica's own record of where I am");
   });
 
-  it("tells Tala to guide rather than refuse a request to do something", () => {
+  it("tells Invi to guide rather than refuse a request to do something", () => {
     expect(HELP_SYSTEM_PROMPT).toContain("Guide; do not refuse");
   });
 
@@ -99,7 +99,7 @@ describe("the help system prompt", () => {
     expect(HELP_SYSTEM_PROMPT).toContain("do not soften");
   });
 
-  it("describes Tala's own three tabs, so it can send a creator to the right one", () => {
+  it("describes Invi's own three tabs, so it can send a creator to the right one", () => {
     expect(HELP_SYSTEM_PROMPT).toContain("Draft my invitation");
     expect(HELP_SYSTEM_PROMPT).toContain("Organize my guest list");
     expect(HELP_SYSTEM_PROMPT).toContain("Answer a question");

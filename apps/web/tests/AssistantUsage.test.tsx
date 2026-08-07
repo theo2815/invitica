@@ -74,7 +74,7 @@ describe("the daily message allowance", () => {
     readUsage.mockResolvedValue(usage(6));
     renderMeter();
 
-    const meter = await screen.findByRole("region", { name: "Today's messages with Tala" });
+    const meter = await screen.findByRole("region", { name: "Today's messages with Invi" });
     expect(meter.textContent).toContain("14");
     expect(meter.textContent).toContain("of 20 left");
     expect(meter.textContent).toContain("6 used so far");
@@ -85,7 +85,7 @@ describe("the daily message allowance", () => {
     readUsage.mockResolvedValue(usage(2));
     renderMeter();
 
-    const meter = await screen.findByRole("region", { name: "Today's messages with Tala" });
+    const meter = await screen.findByRole("region", { name: "Today's messages with Invi" });
     expect(meter.textContent).toContain("Questions, drafts, and guest lists");
   });
 
@@ -93,7 +93,7 @@ describe("the daily message allowance", () => {
     readUsage.mockResolvedValue(usage(17));
     const view = renderMeter();
 
-    const meter = await screen.findByRole("region", { name: "Today's messages with Tala" });
+    const meter = await screen.findByRole("region", { name: "Today's messages with Invi" });
     expect(meter.getAttribute("data-level")).toBe("low");
     // The words carry it: three left, and the cost of a draft is named while there is still
     // time to spend the rest differently.
@@ -106,7 +106,7 @@ describe("the daily message allowance", () => {
     readUsage.mockResolvedValue(usage(20));
     const view = renderMeter();
 
-    const meter = await screen.findByRole("region", { name: "Today's messages with Tala" });
+    const meter = await screen.findByRole("region", { name: "Today's messages with Invi" });
     expect(meter.getAttribute("data-level")).toBe("spent");
     expect(meter.textContent).toContain("You have used all 20 of today's messages");
     expect(meter.textContent).toContain("cannot answer, draft, or read a guest list");
@@ -120,10 +120,10 @@ describe("the daily message allowance", () => {
     readUsage.mockResolvedValue(null);
     const view = renderMeter();
 
-    const meter = await screen.findByRole("region", { name: "Today's messages with Tala" });
+    const meter = await screen.findByRole("region", { name: "Today's messages with Invi" });
     expect(meter.getAttribute("data-level")).toBe("unknown");
     expect(meter.textContent).toContain("could not be loaded");
-    expect(meter.textContent).toContain("Tala still works");
+    expect(meter.textContent).toContain("Invi still works");
     expect(meter.textContent).not.toContain("0 of 20");
     // The composer line stays silent rather than apologising in a panel with no room for it.
     expect(view.container.textContent).not.toContain("left today");
@@ -137,7 +137,7 @@ describe("the daily message allowance", () => {
     readUsage.mockResolvedValue(usage(4));
     fireEvent.click(retry);
 
-    const meter = await screen.findByRole("region", { name: "Today's messages with Tala" });
+    const meter = await screen.findByRole("region", { name: "Today's messages with Invi" });
     expect(meter.textContent).toContain("16");
     expect(meter.textContent).toContain("of 20 left");
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
@@ -149,12 +149,12 @@ describe("the daily message allowance", () => {
     await screen.findByText(/of 20 left$/);
 
     readUsage.mockResolvedValue(null);
-    fireEvent.click(screen.getByRole("region", { name: "Today's messages with Tala" }));
+    fireEvent.click(screen.getByRole("region", { name: "Today's messages with Invi" }));
 
     // A dropped request is not evidence that the allowance changed, so a slightly stale
     // number beats blanking a meter the creator was reading.
     expect(
-      screen.getByRole("region", { name: "Today's messages with Tala" }).textContent,
+      screen.getByRole("region", { name: "Today's messages with Invi" }).textContent,
     ).toContain("of 20 left");
   });
 

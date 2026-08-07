@@ -10,7 +10,7 @@ import type { createClient } from "../../lib/supabase/server";
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
- * The saved side of the Tala thread, added by migration `0033`.
+ * The saved side of the Invi thread, added by migration `0033`.
  *
  * Every function here runs under the creator's own session client, so row-level security
  * is the boundary. The explicit `creator_id` filter beside it is deliberate duplication:

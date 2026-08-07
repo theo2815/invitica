@@ -1,23 +1,23 @@
 "use client";
 
 import { useAssistant } from "./AssistantProvider";
-import { resolveTalaState, TalaMascot } from "./TalaMascot";
+import { InviMascot, resolveInviState } from "./InviMascot";
 
-interface TalaPresenceProps {
+interface InviPresenceProps {
   active?: boolean;
   className?: string | undefined;
   size?: "compact" | "standard" | undefined;
 }
 
-/** Connects Tala's expression to the shared assistant thread without inventing another store. */
-export function TalaPresence({ active = true, className, size }: TalaPresenceProps) {
+/** Connects Invi's expression to the shared assistant thread without inventing another store. */
+export function InviPresence({ active = true, className, size }: InviPresenceProps) {
   const { messages, notice, proposal, status } = useAssistant();
 
   return (
-    <TalaMascot
+    <InviMascot
       className={className}
       size={size}
-      state={resolveTalaState({
+      state={resolveInviState({
         active,
         hasNotice: notice !== null,
         hasProposal: proposal !== null,

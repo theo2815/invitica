@@ -60,7 +60,7 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 | `0030_romance_invitation.sql` | Romance occasion policy, A Little Question v1, one-recipient personal invitations, and required declined-response messages |
 | `0031_delete_invitation.sql` | Owner deletion of any invitation, published or not |
 | `0032_assistant_message_budget.sql` | Server-enforced per-creator daily and global monthly AI assistant message ceilings |
-| `0033_assistant_conversations.sql` | Creator-owned saved Tala conversations, readable and deletable only by their author |
+| `0033_assistant_conversations.sql` | Creator-owned saved assistant conversations, readable and deletable only by their author |
 
 Migrations are additive and sequential. Do not selectively install a later migration because its
 function body appears to create successfully: PostgreSQL may defer relation resolution until the

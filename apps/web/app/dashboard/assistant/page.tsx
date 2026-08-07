@@ -5,7 +5,7 @@ import {
   AssistantWorkspace,
   type AssistantWorkspaceInvitation,
 } from "../../../src/components/assistant/AssistantWorkspace";
-import { TalaPresence } from "../../../src/components/assistant/TalaPresence";
+import { InviPresence } from "../../../src/components/assistant/InviPresence";
 import { assistantEnabled } from "../../../src/server/assistant/budget";
 import { ensurePersonalWorkspace } from "../../../src/server/auth/session";
 import { listInvitationDrafts } from "../../../src/server/invitations/drafts";
@@ -38,15 +38,15 @@ export default async function AssistantPage() {
   return (
     <>
       <header className={styles.pageHeader}>
-        <TalaPresence className={styles.pageMascot} />
+        <InviPresence className={styles.pageMascot} />
         <div className={styles.pageHeading}>
-          <p className={styles.eyebrow}>Tala · Invitica AI</p>
-          <h1>Ask Tala, or draft an invitation</h1>
+          <p className={styles.eyebrow}>Invi · Invitica AI</p>
+          <h1>Ask Invi, or draft an invitation</h1>
           {/* The three jobs are listed in full beside the picker, where a creator is
               already deciding what to do. This says the one thing that governs all of
-              them: Tala proposes, and nothing it produces is saved without a click. */}
+              them: Invi proposes, and nothing it produces is saved without a click. */}
           <p className={styles.pageDescription}>
-            Tala answers from Invitica&apos;s own help material, drafts into an invitation you
+            Invi answers from Invitica&apos;s own help material, drafts into an invitation you
             choose, and sorts a pasted guest list. It never saves anything — you read what it
             produces and apply it yourself.
           </p>
@@ -56,7 +56,7 @@ export default async function AssistantPage() {
       {/* The workspace owns the layout, so the invitation picker can sit above the
           conversation on a phone and beside it on a wide screen. */}
       <AssistantWorkspace invitations={invitations}>
-        <section aria-label="Conversation with Tala" className={styles.surface}>
+        <section aria-label="Conversation with Invi" className={styles.surface}>
           <AssistantConversation />
         </section>
       </AssistantWorkspace>

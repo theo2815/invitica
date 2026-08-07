@@ -6,8 +6,8 @@ import { type AssistantApiMessage, MAX_MESSAGE_CHARACTERS } from "../../contract
 import { AssistantAnswer } from "./AssistantAnswer";
 import { useOptionalAssistant } from "./AssistantProvider";
 import { AssistantUsageLine } from "./AssistantUsage";
-import { TalaMascot, type TalaState } from "./TalaMascot";
-import styles from "./TalaTaskPanel.module.css";
+import { InviMascot, type InviState } from "./InviMascot";
+import styles from "./InviTaskPanel.module.css";
 
 /**
  * What the surrounding task wants said, and what to do about it.
@@ -16,19 +16,19 @@ import styles from "./TalaTaskPanel.module.css";
  * `.dialogStatus`, which is unconditionally `--danger` — so "12 rows are ready to check" and
  * a clarifying question both arrived in error red. A question is not a failure.
  */
-export interface TalaPanelStatus {
+export interface InviPanelStatus {
   /** Offered after a refusal: puts the message that failed back in the box. */
   retry?: (() => void) | undefined;
   text: string;
   tone: "danger" | "info";
 }
 
-interface TalaTaskPanelProps {
+interface InviTaskPanelProps {
   busy: boolean;
-  /** Names the work rather than the wait — "Tala is reading your list". */
+  /** Names the work rather than the wait — "Invi is reading your list". */
   busyLabel: string;
   className?: string | undefined;
-  /** True while the surrounding form is saving. Tala is unavailable then, but not working. */
+  /** True while the surrounding form is saving. Invi is unavailable then, but not working. */
   disabled?: boolean | undefined;
   hint: string;
   inputId: string;
@@ -37,7 +37,7 @@ interface TalaTaskPanelProps {
   onSend: () => void;
   placeholder: string;
   sendLabel: string;
-  status?: TalaPanelStatus | null | undefined;
+  status?: InviPanelStatus | null | undefined;
   /** Offered only while the exchange is empty, and they fill the box rather than sending. */
   suggestions?: readonly string[] | undefined;
   thread: readonly AssistantApiMessage[];
@@ -45,7 +45,7 @@ interface TalaTaskPanelProps {
 }
 
 /**
- * Tala inside a task dialog: the exchange, the box, and one action.
+ * Invi inside a task dialog: the exchange, the box, and one action.
  *
  * One component for both the Add guests composer and the invitation-message editor. They had
  * grown near-identical copies of this markup that were already drifting apart in their button
@@ -55,12 +55,12 @@ interface TalaTaskPanelProps {
  * answers, and carries three modes; this one belongs to the dialog it is inside, ends with it,
  * and does exactly one job. What it does borrow is the panel's vocabulary — the mascot and its
  * expressions, the thinking row, Enter to send, the day's allowance — so a creator who has met
- * Tala once recognizes it here.
+ * Invi once recognizes it here.
  *
  * The parent owns the text. Refilling the box after a refusal is then an ordinary state
  * update rather than an instruction passed down into a child that owns it.
  */
-export function TalaTaskPanel({
+export function InviTaskPanel({
   busy,
   busyLabel,
   className,
@@ -76,8 +76,8 @@ export function TalaTaskPanel({
   suggestions,
   thread,
   value,
-}: TalaTaskPanelProps) {
-  // Optional for the reason the Guest Desk's own is: these dialogs are the product and Tala is
+}: InviTaskPanelProps) {
+  // Optional for the reason the Guest Desk's own is: these dialogs are the product and Invi is
   // an addition to them. Absent, the allowance line is simply not rendered.
   const assistant = useOptionalAssistant();
   const refreshUsage = assistant?.refreshUsage;
@@ -94,7 +94,7 @@ export function TalaTaskPanel({
   }, [refreshUsage]);
 
   const latest = thread.at(-1);
-  const mascotState: TalaState = busy
+  const mascotState: InviState = busy
     ? "thinking"
     : status?.tone === "danger"
       ? "attention"
@@ -115,7 +115,7 @@ export function TalaTaskPanel({
   return (
     <section className={className ? `${styles.panel} ${className}` : styles.panel}>
       <div className={styles.head}>
-        <TalaMascot className={styles.mascot} size="compact" state={mascotState} />
+        <InviMascot className={styles.mascot} size="compact" state={mascotState} />
         <label htmlFor={inputId}>
           <span>{label}</span>
           <small>{hint}</small>
@@ -125,7 +125,7 @@ export function TalaTaskPanel({
       {/*
         The exchange, not a transcript of the work.
 
-        Tala's replies here are a sentence and any questions under it. The rows and the wording
+        Invi's replies here are a sentence and any questions under it. The rows and the wording
         themselves belong to the fields below, so other people's names appear once on this
         screen rather than twice.
       */}
@@ -135,7 +135,7 @@ export function TalaTaskPanel({
             // Append-only within this dialog and never reordered, so the position is a stable
             // identity where the text is not.
             <li data-role={entry.role} key={index}>
-              <span className={styles.role}>{entry.role === "user" ? "You" : "Tala"}</span>
+              <span className={styles.role}>{entry.role === "user" ? "You" : "Invi"}</span>
               {entry.role === "assistant" ? (
                 <AssistantAnswer text={entry.content} />
               ) : (
@@ -192,7 +192,7 @@ export function TalaTaskPanel({
 
       <div className={styles.actions}>
         {assistant ? <AssistantUsageLine /> : <span />}
-        {/* Short while it works: the row above already names what Tala is doing, and a
+        {/* Short while it works: the row above already names what Invi is doing, and a
             sentence on a button wraps it to three lines on a phone. */}
         <button
           className={styles.send}

@@ -147,7 +147,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
       target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Invi" }));
 
     await waitFor(() => expect(partyNameFields()).toEqual(["Tita Baby", "Kuya Jun & Ate Mae"]));
 
@@ -177,7 +177,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
       target: { value: "Tita Baby +2" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Invi" }));
     await waitFor(() => expect(partyNameFields()).toHaveLength(2));
 
     fireEvent.click(screen.getByRole("button", { name: "Create 2 parties" }));
@@ -191,8 +191,8 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     expect(sent.parties[1]?.guestNames).toEqual(["Kuya Jun", "Ate Mae"]);
   });
 
-  it("sends rows already typed to Tala and lays out the whole list it answers with", async () => {
-    // Changed 2026-08-07. This used to append, because Tala could not see the screen and its
+  it("sends rows already typed to Invi and lays out the whole list it answers with", async () => {
+    // Changed 2026-08-07. This used to append, because Invi could not see the screen and its
     // answer only ever described the newest paste. It now receives the current rows and
     // answers with the whole list, so appending would double every row it was given.
     vi.mocked(requestGuestParties).mockResolvedValue({
@@ -211,10 +211,10 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
         target: { value: "Lola Remedios" },
       },
     );
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     await waitFor(() => expect(requestGuestParties).toHaveBeenCalledTimes(1));
 
@@ -246,7 +246,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
       target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Invi" }));
     await waitFor(() => expect(partyNameFields()).toHaveLength(2));
 
     // A second turn that comes back one row short. Nothing has been created, and the count is
@@ -258,10 +258,10 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
       status: "parsed",
     });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "Take Kuya Jun and Ate Mae off the list" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     // Beside the box it was typed into. The dialog's other status region belongs to the form
     // and its Create button, which is a screen away on a phone.
@@ -284,7 +284,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
       target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Invi" }));
     await waitFor(() => expect(partyNameFields()).toHaveLength(2));
 
     vi.mocked(requestGuestParties).mockResolvedValue({
@@ -292,10 +292,10 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
       status: "questions",
     });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "Add my ninongs" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     await waitFor(() => expect(screen.getByText(/Who are your ninongs, by name\?/)).toBeTruthy());
     // A question is not a reason to take away work already done.
@@ -305,7 +305,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
 
   it("reports a refusal and leaves the rows alone", async () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
-      message: "You have used all of today's messages with Tala. They refresh tomorrow.",
+      message: "You have used all of today's messages with Invi. They refresh tomorrow.",
       status: "refused",
     });
 
@@ -315,7 +315,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
       target: { value: "Tita Baby +2" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Invi" }));
 
     await waitFor(() => expect(screen.getByText(/today's messages/)).toBeTruthy());
     expect(partyNameFields()).toEqual([""]);
@@ -349,7 +349,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     );
 
     expect(focusable).toContain(screen.getByLabelText(/Paste a messy list/));
-    expect(focusable).toContain(screen.getByRole("button", { name: "Organize with Tala" }));
+    expect(focusable).toContain(screen.getByRole("button", { name: "Organize with Invi" }));
   });
 
   it("is not offered at all when the assistant is switched off", () => {
@@ -357,7 +357,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     openComposer();
 
     expect(screen.queryByLabelText(/Paste a messy list/)).toBeNull();
-    expect(screen.queryByRole("button", { name: "Organize with Tala" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Organize with Invi" })).toBeNull();
     // The manual and spreadsheet-paste paths are untouched by the flag.
     expect(screen.getAllByRole("textbox", { name: "Guest or party name" })).toHaveLength(1);
   });
@@ -376,7 +376,7 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
     fireEvent.change(screen.getByLabelText(/Paste a messy list/), {
       target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Organize with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Organize with Invi" }));
     await waitFor(() => expect(partyNameFields()).toHaveLength(2));
 
     // One seat count moves. The other row comes back exactly as it went.
@@ -390,10 +390,10 @@ describe("organizing a pasted guest list in the Add guests composer", () => {
       status: "parsed",
     });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "Tita Baby is 4, not 3" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     await waitFor(() => {
       const marked = screen
@@ -516,7 +516,7 @@ describe("closing the Add guests composer with work in it", () => {
     expect(screen.getByRole("button", { name: "Close add guests" })).toBeTruthy();
   });
 
-  it("asks about rows Tala handed over, which were never typed at all", async () => {
+  it("asks about rows Invi handed over, which were never typed at all", async () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
       parties: parsed,
@@ -526,7 +526,7 @@ describe("closing the Add guests composer with work in it", () => {
 
     renderDesk({ withWidget: true });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Invi, Invitica's AI assistant" }));
     fireEvent.click(screen.getByRole("button", { name: "Organize my guest list" }));
     fireEvent.change(screen.getByLabelText("Paste your guest list"), {
       target: { value: "Tita Baby +2, Kuya Jun & Ate Mae" },
@@ -577,7 +577,7 @@ describe("closing the Add guests composer with work in it", () => {
   });
 });
 
-describe("organizing a guest list from the Tala panel", () => {
+describe("organizing a guest list from the Invi panel", () => {
   it("hands the parsed rows to the composer, where the creator confirms them", async () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
@@ -588,7 +588,7 @@ describe("organizing a guest list from the Tala panel", () => {
 
     renderDesk({ withWidget: true });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Invi, Invitica's AI assistant" }));
     fireEvent.click(screen.getByRole("button", { name: "Organize my guest list" }));
 
     fireEvent.change(screen.getByLabelText("Paste your guest list"), {
@@ -620,7 +620,7 @@ describe("organizing a guest list from the Tala panel", () => {
 
     renderDesk({ withWidget: true });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Invi, Invitica's AI assistant" }));
     fireEvent.click(screen.getByRole("button", { name: "Organize my guest list" }));
 
     const composer = screen.getByLabelText("Paste your guest list");
@@ -652,7 +652,7 @@ describe("organizing a guest list from the Tala panel", () => {
     expect(thread.at(-1)?.content).toBe("Tita Baby is 4, not 3");
   });
 
-  it("keeps the rows on screen when Tala asks a question instead", async () => {
+  it("keeps the rows on screen when Invi asks a question instead", async () => {
     vi.mocked(requestGuestParties).mockResolvedValue({
       invitationId: invitation.invitationId,
       parties: parsed,
@@ -662,7 +662,7 @@ describe("organizing a guest list from the Tala panel", () => {
 
     renderDesk({ withWidget: true });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask Tala, Invitica's AI assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Invi, Invitica's AI assistant" }));
     fireEvent.click(screen.getByRole("button", { name: "Organize my guest list" }));
 
     fireEvent.change(screen.getByLabelText("Paste your guest list"), {

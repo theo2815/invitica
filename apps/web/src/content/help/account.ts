@@ -44,11 +44,11 @@ Pull down on a page to refresh it.
 
 ## Getting help
 
-Tala answers questions about how Invitica works, from this help material, and can also draft
-an invitation you have selected or sort a guest list you paste. See *Tala, and the three
+Invi answers questions about how Invitica works, from this help material, and can also draft
+an invitation you have selected or sort a guest list you paste. See *Invi, and the three
 things it does*.
 
-Tala proposes and you decide. It does not edit, publish, delete, or send anything on your
+Invi proposes and you decide. It does not edit, publish, delete, or send anything on your
 behalf, and in the **Answer a question** tab it cannot read what is inside your invitations,
 guest list, or replies. If you ask for something outside what Invitica does, it will say so
 rather than invent an answer.

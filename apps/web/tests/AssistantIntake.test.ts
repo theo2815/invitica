@@ -153,7 +153,7 @@ describe("resolving what intake answered", () => {
   });
 });
 
-describe("what Tala says about a batch of questions", () => {
+describe("what Invi says about a batch of questions", () => {
   it("numbers the questions so a creator can answer two of them", () => {
     const message = intakeQuestionsMessage(["Whose wedding?", "What date?", "Where?"]);
 

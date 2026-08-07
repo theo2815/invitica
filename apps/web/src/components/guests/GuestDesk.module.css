@@ -854,7 +854,7 @@
  * A dialog with a sticky header hands that header its top padding.
  *
  * A sticky header cannot cover a band it does not own. `top: 0` pins it to the top of the
- * scrollport, which sits above the dialog's own padding, so the Tala panel scrolled visibly
+ * scrollport, which sits above the dialog's own padding, so the Invi panel scrolled visibly
  * through the strip between the two and then vanished under the header — the same defect
  * read as a gap in one dialog and as clipping in the other. Paying the padding inside the
  * header closes the strip: its background now starts at the first scrolled pixel.
@@ -1528,7 +1528,7 @@
  *
  * The header pays the dialog's top padding rather than sitting below it, so its background
  * reaches the top of the scrollport. The rule underneath is what tells a creator that the
- * Tala panel slid under a header rather than being cut off.
+ * Invi panel slid under a header rather than being cut off.
  */
 .bulkHeader,
 .dialogHeader {
@@ -1689,11 +1689,11 @@
 }
 
 /*
- * `TalaTaskPanel`'s placement inside these two dialogs. Everything the panel looks like lives
+ * `InviTaskPanel`'s placement inside these two dialogs. Everything the panel looks like lives
  * in its own module; this is only how wide it is and where it sits.
  *
  * Both halves of that mattered. In the message editor the panel inherited `.editPartyForm`'s
- * two-column grid without spanning it, so Tala rendered at half the dialog while every field
+ * two-column grid without spanning it, so Invi rendered at half the dialog while every field
  * beneath it ran the full width. In the 74 rem Add guests dialog the opposite: a box for one
  * sentence stretched to 1184 px, with its action stranded at the far bottom-left.
  */
@@ -1711,7 +1711,7 @@
 /*
  * These are the rows the answer in flight is about to replace, so they are the one part of the
  * dialog whose state is genuinely uncertain while a turn runs. Nothing here depends on seeing
- * it: the fields are already disabled and the panel above says what Tala is doing.
+ * it: the fields are already disabled and the panel above says what Invi is doing.
  */
 .bulkRows[data-waiting="true"] {
   opacity: 0.5;
@@ -1733,7 +1733,7 @@
 }
 
 /*
- * A row Tala just added or changed, marked for a couple of seconds.
+ * A row Invi just added or changed, marked for a couple of seconds.
  *
  * Only the rows that actually moved: a follow-up correcting one seat count marks one row, so
  * the edit is findable in a list of forty instead of the creator re-reading all of it. The

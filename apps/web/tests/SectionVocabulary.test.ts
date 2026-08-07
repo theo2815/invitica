@@ -10,12 +10,12 @@ import {
 } from "../src/lib/invitations/section-vocabulary";
 
 /**
- * The numbers and names Tala uses have to be the ones on the creator's own section cards.
+ * The numbers and names Invi uses have to be the ones on the creator's own section cards.
  *
  * The editor derives both the same way this module does, from the document's section order and
  * the template's profile. Nothing enforces that they stay in step except this file: the two
  * were one object until 2026-08-06, and splitting them is what created the room to drift. A
- * failure here means Tala would answer confidently about a different section than the creator
+ * failure here means Invi would answer confidently about a different section than the creator
  * is looking at, which is worse than not knowing the numbering at all.
  */
 

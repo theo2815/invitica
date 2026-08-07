@@ -1,5 +1,5 @@
 /*
- * Tala inside a task dialog.
+ * Invi inside a task dialog.
  *
  * A paper-beige inset on the dialog's warm white, so it reads as an offer within the task
  * rather than as a second screen. The rows or fields below it remain the whole feature: this
@@ -133,7 +133,7 @@
   height: 0.25rem;
   border-radius: 50%;
   background: currentcolor;
-  animation: tala-task-typing 1.2s ease-in-out infinite;
+  animation: invi-task-typing 1.2s ease-in-out infinite;
 }
 
 .dots i:nth-child(2) {
@@ -144,7 +144,7 @@
   animation-delay: 0.3s;
 }
 
-@keyframes tala-task-typing {
+@keyframes invi-task-typing {
   0%,
   60%,
   100% {

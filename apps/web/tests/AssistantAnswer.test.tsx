@@ -5,7 +5,7 @@ import { AssistantAnswer, parseAnswerBlocks } from "../src/components/assistant/
 
 afterEach(cleanup);
 
-describe("reading a Tala answer", () => {
+describe("reading a Invi answer", () => {
   it("renders bold emphasis instead of the asterisks around it", () => {
     // The complaint this exists for: the help corpus is Markdown, the model mirrors it,
     // and the thread used to print the marks as literal characters.

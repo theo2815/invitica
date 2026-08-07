@@ -198,7 +198,7 @@ describe("the message-writing route", () => {
     signedIn();
     vi.mocked(createClaudeProvider).mockReturnValue({
       generate: () => {
-        throw new AssistantProviderError("Tala is busy right now.", {
+        throw new AssistantProviderError("Invi is busy right now.", {
           failure: { kind: "transient", name: "APIConnectionError" },
           retryable: true,
         });

@@ -6,7 +6,7 @@ import { HELP_CORPUS } from "../../content/help";
  */
 export const MAX_OUTPUT_TOKENS = 600;
 
-const INSTRUCTIONS = `You are Tala, Invitica's AI assistant. You help a signed-in creator understand how Invitica works.
+const INSTRUCTIONS = `You are Invi, Invitica's AI assistant. You help a signed-in creator understand how Invitica works.
 
 Answer only from the help material below. It is the complete description of what Invitica
 can do today.

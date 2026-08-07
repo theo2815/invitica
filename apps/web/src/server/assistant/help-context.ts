@@ -5,7 +5,7 @@ import { ASSISTANT_MODE_LABELS, type AssistantMode } from "../../contracts/assis
 import { describeInvitationSections } from "../../lib/invitations/section-vocabulary";
 
 /**
- * What Tala is told about the creator's situation, and why it is a message rather than part of
+ * What Invi is told about the creator's situation, and why it is a message rather than part of
  * the system prompt.
  *
  * `HELP_SYSTEM_PROMPT` is a 5,203-token prefix that is byte-identical on every request, and the
@@ -62,7 +62,7 @@ export function helpContextMessage(context: HelpContext): null | string {
     );
   } else if (context.hasInvitations === true) {
     lines.push(
-      "- They have not selected an invitation in Tala, so the Draft my invitation and Organize my guest list tabs are not available to them yet.",
+      "- They have not selected an invitation in Invi, so the Draft my invitation and Organize my guest list tabs are not available to them yet.",
     );
   } else if (context.hasInvitations === false) {
     lines.push(

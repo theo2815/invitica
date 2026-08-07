@@ -94,7 +94,7 @@ describe("routing a message to the tab it belongs in", () => {
 });
 
 describe("what a suggestion is never allowed to do", () => {
-  it("never offers drafting when Tala cannot draft into this invitation", () => {
+  it("never offers drafting when Invi cannot draft into this invitation", () => {
     // Legacy Garden Promise v1 and the Guest Desk both land here. Offering the tab would send
     // a creator to one that cannot apply anything they get back.
     expect(

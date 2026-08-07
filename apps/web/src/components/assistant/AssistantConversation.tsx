@@ -15,7 +15,7 @@ import { AssistantAnswer } from "./AssistantAnswer";
 import { AssistantHistory } from "./AssistantHistory";
 import { useAssistant } from "./AssistantProvider";
 import { AssistantUsageLine } from "./AssistantUsage";
-import { TalaMascot } from "./TalaMascot";
+import { InviMascot } from "./InviMascot";
 
 const HELP_SUGGESTIONS = [
   "How do I send personalized links?",
@@ -297,10 +297,10 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
   // bubble with a border rendered as a bare horizontal line.
   const isThinking = isAnswering && messages.at(-1)?.role !== "assistant";
   const workingLabel = organizing
-    ? "Tala is reading your list"
+    ? "Invi is reading your list"
     : drafting
-      ? "Tala is drafting your invitation"
-      : "Tala is thinking";
+      ? "Invi is drafting your invitation"
+      : "Invi is thinking";
 
   return (
     <div className={styles.conversation}>
@@ -335,7 +335,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
         Shown on every surface, not only where all three work.
 
         Hiding the switch until an invitation was in context meant a creator on Overview,
-        Templates, or Invitations saw no evidence Tala did anything but answer questions —
+        Templates, or Invitations saw no evidence Invi did anything but answer questions —
         two of its three jobs were invisible on the routes a new creator spends their first
         session in. Unavailable tabs are disabled and the line underneath says what unlocks
         them, which is the honest version of the same information: the capability exists,
@@ -344,7 +344,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
       {showHistory ? null : (
         <div className={styles.modeGroup}>
           <fieldset className={styles.modeSwitch}>
-            <legend className={styles.visuallyHidden}>What Tala should do</legend>
+            <legend className={styles.visuallyHidden}>What Invi should do</legend>
             <button
               aria-pressed={!drafting && !organizing}
               disabled={isAnswering}
@@ -385,10 +385,10 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
             <div className={styles.empty}>
               <p className={styles.emptyLead}>
                 {organizing
-                  ? "Paste your guest list however it already exists and Tala sorts it into invitations. You check every row in the Guest Desk first — nothing is created until you do. Their names are sent to Invitica's AI provider to be read, and this conversation is saved to your history until you delete it."
+                  ? "Paste your guest list however it already exists and Invi sorts it into invitations. You check every row in the Guest Desk first — nothing is created until you do. Their names are sent to Invitica's AI provider to be read, and this conversation is saved to your history until you delete it."
                   : drafting
-                    ? "Describe your event and Tala drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
-                    : "Ask Tala how anything in Invitica works. Answers come from Invitica's own help material, and Tala never changes your invitations."}
+                    ? "Describe your event and Invi drafts it into your invitation. You see the draft first and decide whether to keep it — nothing is saved until you do."
+                    : "Ask Invi how anything in Invitica works. Answers come from Invitica's own help material, and Invi never changes your invitations."}
               </p>
               {/*
                 These fill the composer; they no longer send.
@@ -435,7 +435,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
                 key={index}
               >
                 <span className={styles.messageRole}>
-                  {message.role === "user" ? "You" : "Tala"}
+                  {message.role === "user" ? "You" : "Invi"}
                 </span>
 
                 {message.role === "assistant" ? (
@@ -467,7 +467,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
 
           {isThinking ? (
             <div className={styles.thinking}>
-              <TalaMascot className={styles.thinkingMascot} size="compact" state="thinking" />
+              <InviMascot className={styles.thinkingMascot} size="compact" state="thinking" />
               <span className={styles.thinkingLabel}>
                 {workingLabel}
                 <span aria-hidden="true" className={styles.thinkingDots}>
@@ -560,7 +560,7 @@ export function AssistantConversation({ autoFocus = false }: { autoFocus?: boole
 
       <form className={styles.composer} onSubmit={submit}>
         <label className={styles.visuallyHidden} htmlFor="assistant-composer">
-          {organizing ? "Paste your guest list" : drafting ? "Describe your event" : "Ask Tala"}
+          {organizing ? "Paste your guest list" : drafting ? "Describe your event" : "Ask Invi"}
         </label>
         <textarea
           className={styles.input}

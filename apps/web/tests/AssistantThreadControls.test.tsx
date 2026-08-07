@@ -83,7 +83,7 @@ function renderThread() {
  * press cannot spend one of twenty daily messages. Sending is typing and pressing the button.
  */
 function ask(question: string) {
-  fireEvent.change(screen.getByRole("textbox", { name: "Ask Tala" }), {
+  fireEvent.change(screen.getByRole("textbox", { name: "Ask Invi" }), {
     target: { value: question },
   });
   fireEvent.click(screen.getByRole("button", { name: "Ask" }));
@@ -148,7 +148,7 @@ describe("stopping and editing a message", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
 
-    const composer = screen.getByLabelText("Ask Tala") as HTMLTextAreaElement;
+    const composer = screen.getByLabelText("Ask Invi") as HTMLTextAreaElement;
     expect(composer.value).toBe("How do I send personalized links?");
     // Rewound, not appended to: resending continues this conversation rather than
     // stacking a second copy of the question under the first.
@@ -186,7 +186,7 @@ describe("the history list", () => {
     renderThread();
     fireEvent.click(screen.getByRole("button", { name: "History" }));
 
-    expect(await screen.findByText(/Your conversations with Tala are saved here/)).toBeTruthy();
+    expect(await screen.findByText(/Your conversations with Invi are saved here/)).toBeTruthy();
   });
 
   it("opens a saved conversation into the thread", async () => {

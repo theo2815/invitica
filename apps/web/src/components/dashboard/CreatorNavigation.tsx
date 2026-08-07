@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
-import { TalaMark } from "../assistant/TalaMascot";
+import { InviMark } from "../assistant/InviMascot";
 import { Envelope, Grid, Home, Users } from "../Icons";
 import styles from "./CreatorShell.module.css";
 
@@ -105,8 +105,8 @@ export function CreatorNavigation({ showAssistant = false, variant }: CreatorNav
         <WorkspaceLink
           active={activePage === "assistant"}
           href="/dashboard/assistant"
-          icon={<TalaMark />}
-          label="Tala"
+          icon={<InviMark />}
+          label="Invi"
           variant={variant}
         />
       ) : null}
@@ -160,7 +160,7 @@ export function CreatorRouteFocus() {
       page === "guests"
         ? "Guests and RSVPs"
         : page === "assistant"
-          ? "Tala"
+          ? "Invi"
           : `${page[0]?.toUpperCase()}${page.slice(1)}`;
     setAnnouncement(`${label} loaded.`);
     const frame = window.requestAnimationFrame(() =>

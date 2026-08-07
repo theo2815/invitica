@@ -57,10 +57,10 @@ afterEach(() => {
 });
 
 /**
- * Which of Tala's three jobs a surface can actually do, and how it says so.
+ * Which of Invi's three jobs a surface can actually do, and how it says so.
  *
  * The switch used to be hidden entirely until an invitation was in context, which meant a
- * creator on Overview, Templates, or Invitations saw no evidence that Tala did anything but
+ * creator on Overview, Templates, or Invitations saw no evidence that Invi did anything but
  * answer questions. It is now always on screen with the unavailable tabs disabled and a line
  * saying what unlocks them.
  *
@@ -118,7 +118,7 @@ describe("a mode whose invitation goes away", () => {
     // What leaving the Guest Desk does. The invitation is released; the mode used to stay.
     fireEvent.click(screen.getByRole("button", { name: "leave invitation" }));
 
-    expect(screen.getByRole("textbox", { name: "Ask Tala" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Ask Invi" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ask" })).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Paste your guest list" })).toBeNull();
   });
@@ -139,6 +139,6 @@ describe("a mode whose invitation goes away", () => {
     fireEvent.click(screen.getByRole("button", { name: "open invitation" }));
 
     expect(screen.queryByRole("textbox", { name: "Describe your event" })).toBeNull();
-    expect(screen.getByRole("textbox", { name: "Ask Tala" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Ask Invi" })).toBeTruthy();
   });
 });

@@ -20,11 +20,11 @@ import {
 } from "../src/server/assistant/section-selection";
 
 /**
- * The success criteria of [[TASK/2026-08-06 - Tala Guidance and Template Awareness]], run against
+ * The success criteria of [[TASK/2026-08-06 - Invi Guidance and Template Awareness]], run against
  * the real model.
  *
  * Every other test on this path stubs the provider, and **a stub cannot show the defect this task
- * exists to fix.** The founder reported Tala refusing "Can you help me create my first invitation?"
+ * exists to fix.** The founder reported Invi refusing "Can you help me create my first invitation?"
  * — a question the corpus answers — and no amount of stubbed coverage could reproduce that, because
  * the refusal was a decision the model made about a prompt. This file exercises the exact prompts,
  * context message, and schema the routes build, and asks the model what it does with them.
@@ -55,7 +55,7 @@ const gardenDocument = parseInvitationDocument(
   structuredClone(templateStarterDocument(gardenPromise)),
 );
 
-/** Words that only appear when Tala has taken the refusal branch. */
+/** Words that only appear when Invi has taken the refusal branch. */
 const REFUSALS = [
   "i cannot",
   "i can't",
@@ -103,7 +103,7 @@ async function askIntake(message: string) {
   return resolveIntake(generation.output, gardenDocument, gardenPromise);
 }
 
-describe.runIf(enabled)("Tala against the real model", () => {
+describe.runIf(enabled)("Invi against the real model", () => {
   it("guides a creator with no invitations instead of refusing the reported question", {
     timeout: 120_000,
   }, async () => {
@@ -131,11 +131,11 @@ describe.runIf(enabled)("Tala against the real model", () => {
   });
 
   it("names the creator's own tabs when asked what it can do", { timeout: 120_000 }, async () => {
-    // Before `content/help/assistant.ts` the corpus described Tala only in terms of what it could
+    // Before `content/help/assistant.ts` the corpus described Invi only in terms of what it could
     // not do, so this answer was not sayable at all.
     const answer = await askHelp(
       "What can you help me with?",
-      helpContextMessage({ hasInvitations: true, mode: "help", surface: "the full Tala page" }),
+      helpContextMessage({ hasInvitations: true, mode: "help", surface: "the full Invi page" }),
     );
 
     console.info(`\n=== "What can you help me with?" ===\n${answer}\n`);

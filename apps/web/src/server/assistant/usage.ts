@@ -27,7 +27,7 @@ interface UsageRow {
  * Returns null rather than throwing on any failure. The meter is information about a
  * limit, not the limit itself — enforcement lives in `consume_assistant_message` and is
  * unaffected by whether this succeeds. A creator whose count will not load should see
- * "usage unavailable" beside a working composer, never an error in place of Tala.
+ * "usage unavailable" beside a working composer, never an error in place of Invi.
  */
 export async function readAssistantUsage(supabase: SupabaseClient): Promise<AssistantUsage | null> {
   try {

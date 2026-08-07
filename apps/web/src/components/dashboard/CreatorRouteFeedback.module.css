@@ -83,7 +83,7 @@
   min-height: 16rem;
 }
 
-/* Tala's page is a tall conversation with a picker and a section list beside it, not a row
+/* Invi's page is a tall conversation with a picker and a section list beside it, not a row
    of three cards. The placeholder says so rather than promising a shape that never
    arrives. */
 .skeleton[data-variant="assistant"] .skeletonPanel {

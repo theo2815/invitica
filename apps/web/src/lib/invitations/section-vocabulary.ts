@@ -5,7 +5,7 @@ import type { TemplateRendererKey } from "@invitica/template-kit";
  * The words and numbers a creator reads on their own section cards.
  *
  * This lived inside `LittleBlessingsDraftEditor.tsx` until 2026-08-06, which is a `"use client"`
- * file — so the server could not see any of it, and Tala could not answer "help me improve
+ * file — so the server could not see any of it, and Invi could not answer "help me improve
  * Section 5" because the vocabulary the creator was using did not exist on its side of the
  * boundary. Moved here for the same reason `guestPartyInputSchema` left `actions.ts`: two surfaces
  * need one object, and the file it was in could not export it.

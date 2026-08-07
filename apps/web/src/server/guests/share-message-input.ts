@@ -7,7 +7,7 @@ import { GENERAL_MESSAGE_TOKENS, PERSONAL_MESSAGE_TOKENS } from "./sharing";
  *
  * It lives here rather than in `actions.ts` for the reason `party-input.ts` does: that file
  * is `"use server"`, where every export must be an async function, so a schema cannot leave
- * it at all. Moving it out is what lets Tala's message writer validate what the model
+ * it at all. Moving it out is what lets Invi's message writer validate what the model
  * produced against the *same* object `saveInvitationShareMessagesAction` validates the save
  * against, rather than a second copy that drifts the first time a rule changes.
  *

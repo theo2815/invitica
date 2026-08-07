@@ -79,7 +79,7 @@ export function AssistantUsageMeter() {
   const { refreshUsage, usage, usageStatus } = useAssistant();
   const described = describeUsage(usage, usageStatus);
 
-  // The page is a creator arriving for Tala specifically, so the allowance is worth reading
+  // The page is a creator arriving for Invi specifically, so the allowance is worth reading
   // on mount. Elsewhere the read waits until the panel is opened.
   useEffect(() => {
     void refreshUsage();
@@ -87,7 +87,7 @@ export function AssistantUsageMeter() {
 
   if (usageStatus === "idle" || usageStatus === "loading") {
     return (
-      <section aria-label="Today's messages with Tala" className={styles.meter}>
+      <section aria-label="Today's messages with Invi" className={styles.meter}>
         <p className={styles.meterStatus}>Checking today&apos;s messages…</p>
       </section>
     );
@@ -96,12 +96,12 @@ export function AssistantUsageMeter() {
   if (described.level === "unknown") {
     return (
       <section
-        aria-label="Today's messages with Tala"
+        aria-label="Today's messages with Invi"
         className={styles.meter}
         data-level="unknown"
       >
         <p className={styles.meterStatus}>
-          Today&apos;s message count could not be loaded. Tala still works — you just will not see
+          Today&apos;s message count could not be loaded. Invi still works — you just will not see
           how many are left until this loads again.
         </p>
         <button className={styles.retry} onClick={() => void refreshUsage()} type="button">
@@ -114,7 +114,7 @@ export function AssistantUsageMeter() {
   const { dailyLimit, level, remaining, resetsAtLabel, used } = described;
 
   return (
-    <section aria-label="Today's messages with Tala" className={styles.meter} data-level={level}>
+    <section aria-label="Today's messages with Invi" className={styles.meter} data-level={level}>
       <div className={styles.meterHeading}>
         <p className={styles.meterLabel}>Today&apos;s messages</p>
         <p className={styles.meterCount}>
@@ -129,7 +129,7 @@ export function AssistantUsageMeter() {
 
       <p className={styles.meterDetail}>
         {level === "spent"
-          ? `You have used all ${dailyLimit} of today's messages. Tala cannot answer, draft, or read a guest list again until they reset${resetsAtLabel ? ` at ${resetsAtLabel}` : ""}. Nothing you have already saved is affected.`
+          ? `You have used all ${dailyLimit} of today's messages. Invi cannot answer, draft, or read a guest list again until they reset${resetsAtLabel ? ` at ${resetsAtLabel}` : ""}. Nothing you have already saved is affected.`
           : level === "low"
             ? `${used} used so far${resetsAtLabel ? `. They reset at ${resetsAtLabel}` : ""}. Drafting an invitation costs the same one message as a question.`
             : `${used} used so far${resetsAtLabel ? `, and they reset at ${resetsAtLabel}` : ""}. Questions, drafts, and guest lists all come out of this one allowance.`}

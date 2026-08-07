@@ -48,8 +48,8 @@ export type AssistantMode = z.infer<typeof assistantModeSchema>;
  * The name of each mode's tab, exactly as it reads on the button.
  *
  * One owner, because these strings appear in three places that must agree: the tab itself, the
- * suggestion offering to switch to it, and the sentence telling Tala which tab the creator is
- * typing into. Tala naming a tab the creator cannot find is worse than saying nothing.
+ * suggestion offering to switch to it, and the sentence telling Invi which tab the creator is
+ * typing into. Invi naming a tab the creator cannot find is worse than saying nothing.
  */
 export const ASSISTANT_MODE_LABELS: Record<AssistantMode, string> = {
   document: "Draft my invitation",
@@ -67,7 +67,7 @@ export const ASSISTANT_MODE_LABELS: Record<AssistantMode, string> = {
  *
  * None of it is trusted for anything that matters. `invitationId` is re-resolved server-side
  * under the creator's own session, so the client cannot describe someone else's invitation as
- * its own; `surface` and `mode` only shape wording, and the worst a wrong one produces is Tala
+ * its own; `surface` and `mode` only shape wording, and the worst a wrong one produces is Invi
  * naming the wrong page.
  */
 export const assistantContextSchema = z.object({
@@ -150,7 +150,7 @@ export interface ParsedGuestParty {
  * How a saved thread appears in the history list.
  *
  * Deliberately not the messages. Opening the list must not pull every word a creator has
- * ever written to Tala into the browser; the thread itself is loaded when one is chosen.
+ * ever written to Invi into the browser; the thread itself is loaded when one is chosen.
  */
 export interface AssistantConversationSummary {
   id: string;
@@ -200,7 +200,7 @@ function questionCount(questions: readonly string[]): string {
   return questions.length === 1 ? "one thing" : `${questions.length} things`;
 }
 
-/** What Tala says when a draft arrives, with or without anything still missing from it. */
+/** What Invi says when a draft arrives, with or without anything still missing from it. */
 export function draftedMessage(questions: readonly string[] = []): string {
   const drafted =
     "I have drafted this into your invitation. Look it over in the preview, then keep it or discard it.";
@@ -211,7 +211,7 @@ export function draftedMessage(questions: readonly string[] = []): string {
 }
 
 /**
- * What Tala says when there was nothing to draft yet.
+ * What Invi says when there was nothing to draft yet.
  *
  * No proposal is staged and no expensive call was made. A creator who wrote "help me with my
  * wedding invitation" gets the questions that turn it into something draftable, rather than an
@@ -222,7 +222,7 @@ export function intakeQuestionsMessage(questions: readonly string[]): string {
 }
 
 /**
- * What Tala says when rows come back, with anything still unclear underneath them.
+ * What Invi says when rows come back, with anything still unclear underneath them.
  *
  * The count is Invitica's, for the reason the guest branch has always held it: the rows are
  * listed below where a creator can read them, and restating other people's names as prose
@@ -241,7 +241,7 @@ export function guestListMessage(count: number, questions: readonly string[] = [
 }
 
 /**
- * What Tala says when a list is too unclear to sort yet.
+ * What Invi says when a list is too unclear to sort yet.
  *
  * The guest-list twin of `intakeQuestionsMessage`, and it exists for the same reason. A
  * request naming no one — "add my ninongs", "the usual family" — used to end at
@@ -260,7 +260,7 @@ export function guestQuestionsMessage(questions: readonly string[]): string {
  * creator had made in the composer was silently discarded.
  *
  * Invitica writes it, not the model, and it is data rather than prose. The alternative was
- * letting Tala narrate the rows back into the thread, which would put a second and less
+ * letting Invi narrate the rows back into the thread, which would put a second and less
  * reliable copy of other people's names in the conversation — and in history, since threads
  * are saved. This never enters the thread at all: it is built at send time from the rows
  * that exist right now, so it cannot drift from what is on screen and cannot be stored.
@@ -320,7 +320,7 @@ export function guestConversationPayload(
 }
 
 /**
- * What Tala says when wording arrives, with anything still unclear underneath it.
+ * What Invi says when wording arrives, with anything still unclear underneath it.
  *
  * The sentence is Invitica's; the wording itself is in the fields and its preview, where a
  * creator can read it against real invitation data rather than as a quotation in a chat.
@@ -334,7 +334,7 @@ export function shareMessageWrittenMessage(questions: readonly string[] = []): s
   return `${written}\n\nTo get it closer, ${questionCount(questions)}:\n\n${questionList(questions)}`;
 }
 
-/** What Tala says when there was nothing to write from yet. */
+/** What Invi says when there was nothing to write from yet. */
 export function shareMessageQuestionsMessage(questions: readonly string[]): string {
   return `Before I write anything, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will write it from that.`;
 }
@@ -343,7 +343,7 @@ export function shareMessageQuestionsMessage(questions: readonly string[]): stri
  * The wording currently in the creator's fields, as a message the model reads back.
  *
  * The share-message twin of `currentGuestRowsMessage`, and it exists for the same reason:
- * "make it shorter" is about what is on screen, which may be what Tala last wrote, what the
+ * "make it shorter" is about what is on screen, which may be what Invi last wrote, what the
  * creator has since typed over it, or wording they saved weeks ago. Without this the model
  * would be shortening its own last answer and quietly discarding their edits.
  *

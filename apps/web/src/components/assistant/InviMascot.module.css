@@ -1,0 +1,365 @@
+.mascot {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+  color: var(--accent, #7a3442);
+}
+
+.mascot[data-size="compact"] {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.mascot[data-size="standard"] {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.glow {
+  fill: color-mix(in srgb, var(--accent, #7a3442) 14%, transparent);
+  transform-origin: center;
+}
+
+.figure {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/*
+ * The note carries the face, so this one transform settles the whole expression into the pocket.
+ * Everything below the pocket's top edge is hidden by the pocket itself rather than by a clip
+ * path, which is why the paper is drawn 5 units taller than it ever shows.
+ */
+.letter {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.paper {
+  fill: var(--surface, #fffdf8);
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+/* One crease is enough to say paper. It sits below the mouth, so a tucked-in note hides it. */
+.letterFold {
+  stroke: color-mix(in srgb, var(--accent, #7a3442) 42%, transparent);
+  stroke-linecap: round;
+  stroke-width: 1.2;
+}
+
+.leftFold,
+.rightFold,
+.pocket {
+  fill: color-mix(in srgb, var(--accent, #7a3442) 18%, var(--surface, #fffdf8));
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.leftFold,
+.rightFold {
+  stroke-width: 1.4;
+  transform-box: fill-box;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Each fold pivots on the edge it is attached to, not on its own middle. */
+.leftFold {
+  transform-origin: right center;
+}
+
+.rightFold {
+  transform-origin: left center;
+}
+
+.pocketFolds {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+  opacity: 0.72;
+}
+
+.seal {
+  fill: var(--accent, #7a3442);
+}
+
+.sealMark {
+  stroke: color-mix(in srgb, var(--surface, #fffdf8) 62%, transparent);
+  stroke-linecap: round;
+  stroke-width: 1.2;
+}
+
+.eye {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 1.1;
+}
+
+.eyes {
+  transition: opacity 160ms ease;
+}
+
+.leftPupil,
+.rightPupil {
+  fill: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.restEyes,
+.happyEyes,
+.leftBrow,
+.rightBrow,
+.mouth,
+.smile,
+.concern {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease;
+}
+
+.restEyes,
+.happyEyes,
+.leftBrow,
+.rightBrow,
+.smile,
+.concern {
+  opacity: 0;
+}
+
+.marks {
+  opacity: 0;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/*
+ * Idle: tucked in and asleep, and completely still. This is the state the bubble holds on every
+ * dashboard route, so it gets no loop at all — the lift on open is what makes it feel alive.
+ */
+.mascot[data-invi-state="idle"] .letter {
+  transform: translateY(4px);
+}
+
+.mascot[data-invi-state="idle"] .eyes {
+  opacity: 0;
+}
+
+.mascot[data-invi-state="idle"] .restEyes {
+  opacity: 1;
+}
+
+.mascot[data-invi-state="idle"] .leftFold {
+  transform: rotate(16deg) scaleX(0.66);
+}
+
+.mascot[data-invi-state="idle"] .rightFold {
+  transform: rotate(-16deg) scaleX(0.66);
+}
+
+/* Attentive: the note rises, the eyes open, the folds come out. */
+.mascot[data-invi-state="attentive"] .leftFold {
+  transform: rotate(-7deg);
+}
+
+.mascot[data-invi-state="attentive"] .rightFold {
+  transform: rotate(7deg);
+}
+
+/* Thinking: looking up and away, one fold drawn in. The panel's own dots carry the wait. */
+.mascot[data-invi-state="thinking"] .leftPupil,
+.mascot[data-invi-state="thinking"] .rightPupil {
+  transform: translate(1px, -1.4px);
+}
+
+.mascot[data-invi-state="thinking"] .leftFold {
+  transform: rotate(22deg) scaleX(0.7);
+}
+
+.mascot[data-invi-state="thinking"] .rightFold {
+  transform: rotate(6deg);
+}
+
+/* Responding: the only continuous motion in the set, and it means an answer is arriving. The
+   static angles beneath the animation are what reduced motion falls back to. */
+.mascot[data-invi-state="responding"] .glow {
+  animation: invi-glow 1.3s ease-in-out infinite;
+}
+
+.mascot[data-invi-state="responding"] .leftFold {
+  transform: rotate(-11deg);
+  animation: invi-left-fold 1.1s ease-in-out infinite alternate;
+}
+
+.mascot[data-invi-state="responding"] .rightFold {
+  transform: rotate(11deg);
+  animation: invi-right-fold 1.1s ease-in-out infinite alternate;
+}
+
+/* Success: the signature moment. One fold-and-lift when a proposal has survived validation. */
+.mascot[data-invi-state="success"] .figure {
+  animation: invi-lift 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.mascot[data-invi-state="success"] .letter {
+  transform: translateY(-1.5px);
+}
+
+.mascot[data-invi-state="success"] .eyes {
+  opacity: 0;
+}
+
+.mascot[data-invi-state="success"] .happyEyes {
+  opacity: 1;
+}
+
+.mascot[data-invi-state="success"] .mouth {
+  opacity: 0;
+}
+
+.mascot[data-invi-state="success"] .smile {
+  opacity: 1;
+}
+
+.mascot[data-invi-state="success"] .leftFold {
+  transform: rotate(-18deg);
+}
+
+.mascot[data-invi-state="success"] .rightFold {
+  transform: rotate(18deg);
+}
+
+.mascot[data-invi-state="success"] .marks {
+  opacity: 1;
+  animation: invi-marks 620ms ease-out both;
+}
+
+/* Attention: the note settles, the brows arrive, the folds drop. Static — a notice is already
+   loud enough as text. */
+.mascot[data-invi-state="attention"] .letter {
+  transform: translateY(2px);
+}
+
+.mascot[data-invi-state="attention"] .leftBrow {
+  opacity: 1;
+  transform: rotate(11deg) translateY(1px);
+}
+
+.mascot[data-invi-state="attention"] .rightBrow {
+  opacity: 1;
+  transform: rotate(-11deg) translateY(1px);
+}
+
+.mascot[data-invi-state="attention"] .mouth {
+  opacity: 0;
+}
+
+.mascot[data-invi-state="attention"] .concern {
+  opacity: 1;
+}
+
+.mascot[data-invi-state="attention"] .leftFold {
+  transform: rotate(24deg);
+}
+
+.mascot[data-invi-state="attention"] .rightFold {
+  transform: rotate(-24deg);
+}
+
+@keyframes invi-glow {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes invi-left-fold {
+  to {
+    transform: rotate(-16deg);
+  }
+}
+
+@keyframes invi-right-fold {
+  to {
+    transform: rotate(16deg);
+  }
+}
+
+@keyframes invi-lift {
+  0% {
+    transform: translateY(1.5px) scale(0.97);
+  }
+
+  55% {
+    transform: translateY(-3px) scale(1.04);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes invi-marks {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.7);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/*
+ * Reduced motion removes the animation and the transitions, never the expression. Every state
+ * still resolves to its own arrangement of note, eyes, mouth, and folds, and every one of them
+ * has adjacent text saying the same thing.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .mascot[data-invi-state] .figure,
+  .mascot[data-invi-state] .glow,
+  .mascot[data-invi-state] .leftFold,
+  .mascot[data-invi-state] .rightFold,
+  .mascot[data-invi-state] .marks {
+    animation: none;
+  }
+
+  .mascot[data-invi-state] .concern,
+  .mascot[data-invi-state] .eyes,
+  .mascot[data-invi-state] .happyEyes,
+  .mascot[data-invi-state] .leftBrow,
+  .mascot[data-invi-state] .leftFold,
+  .mascot[data-invi-state] .leftPupil,
+  .mascot[data-invi-state] .letter,
+  .mascot[data-invi-state] .mouth,
+  .mascot[data-invi-state] .restEyes,
+  .mascot[data-invi-state] .rightBrow,
+  .mascot[data-invi-state] .rightFold,
+  .mascot[data-invi-state] .rightPupil,
+  .mascot[data-invi-state] .smile {
+    transition: none;
+  }
+
+  .mascot[data-invi-state="success"] .marks {
+    opacity: 1;
+  }
+}

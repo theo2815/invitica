@@ -41,7 +41,7 @@ export type AssistantStatus = "answering" | "idle";
 /**
  * How much is known about today's allowance.
  *
- * `idle` is not `unavailable`. Before a creator opens Tala nothing has been asked, and a
+ * `idle` is not `unavailable`. Before a creator opens Invi nothing has been asked, and a
  * meter that reported "unavailable" for a question nobody put would be a false alarm on
  * every dashboard page. The read happens when the assistant is first opened, so a creator
  * who never uses it never pays for the round trip — which matters on the connections this
@@ -65,7 +65,7 @@ function describeSurface(pathname: null | string): string | undefined {
   if (pathname === "/dashboard/templates") return "the Templates catalog";
   if (pathname === "/dashboard/invitations") return "their Invitations library";
   if (pathname === "/dashboard/guests") return "Guests & RSVPs, the Guest Desk";
-  if (pathname === "/dashboard/assistant") return "the full Tala page";
+  if (pathname === "/dashboard/assistant") return "the full Invi page";
   if (pathname.startsWith("/dashboard/invitations/")) return "the invitation editor";
 
   return undefined;
@@ -74,7 +74,7 @@ function describeSurface(pathname: null | string): string | undefined {
 export type { AssistantMode };
 
 /**
- * What Tala can actually do with the invitation currently in context.
+ * What Invi can actually do with the invitation currently in context.
  *
  * Neither of these is knowable from the id alone, and both decide whether a tab leads
  * somewhere: drafting needs the shared section-document editor, because the legacy Garden
@@ -154,7 +154,7 @@ interface AssistantContextValue {
   refreshConversations: () => Promise<void>;
   send: (text: string) => Promise<void>;
   /**
-   * Names the invitation Tala is working against, and what may be done with it.
+   * Names the invitation Invi is working against, and what may be done with it.
    *
    * The abilities travel with the id rather than in a setter of their own, so there is no
    * moment where the two disagree — an invitation swapped without them would otherwise keep
@@ -320,7 +320,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setConversations(await listAssistantConversationsAction());
     } catch {
       // History is a convenience over a conversation that already works without it. A list
-      // that will not load leaves the creator talking to Tala, not looking at an error.
+      // that will not load leaves the creator talking to Invi, not looking at an error.
     }
   }, []);
 
@@ -417,7 +417,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Nothing could be sorted, and Tala said what it needs. The rows already on screen
+        // Nothing could be sorted, and Invi said what it needs. The rows already on screen
         // stay exactly as they are — a question is not a reason to take them away.
         if (result.status === "questions") {
           const asked: AssistantApiMessage[] = [
@@ -484,7 +484,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           }
 
           if (body.status !== "proposed" || !body.document || !body.details) {
-            setNotice(body.message ?? "Tala is unavailable right now.");
+            setNotice(body.message ?? "Invi is unavailable right now.");
             return;
           }
 
@@ -502,7 +502,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           setMessages(settled);
         } catch {
           if (controller.signal.aborted) setStopped(true);
-          else setNotice("Invitica could not reach Tala. Check your connection and try again.");
+          else setNotice("Invitica could not reach Invi. Check your connection and try again.");
         } finally {
           settle();
           void persist(settled);
@@ -539,12 +539,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         // A refusal and an error both come back as JSON; only a real answer streams as text.
         if (response.headers.get("content-type")?.includes("application/json")) {
           const body = (await response.json()) as { message?: string };
-          setNotice(body.message ?? "Tala is unavailable right now.");
+          setNotice(body.message ?? "Invi is unavailable right now.");
           return;
         }
 
         if (!response.ok || !response.body) {
-          setNotice("Tala is unavailable right now. Try again in a moment.");
+          setNotice("Invi is unavailable right now. Try again in a moment.");
           return;
         }
 
@@ -565,11 +565,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         if (!answer.trim() && !controller.signal.aborted) {
           settled = history;
           setMessages(history);
-          setNotice("Tala did not manage an answer. Try asking again.");
+          setNotice("Invi did not manage an answer. Try asking again.");
         }
       } catch {
         if (controller.signal.aborted) setStopped(true);
-        else setNotice("Invitica could not reach Tala. Check your connection and try again.");
+        else setNotice("Invitica could not reach Invi. Check your connection and try again.");
       } finally {
         if (controller.signal.aborted) setStopped(true);
         settle();
@@ -580,7 +580,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Opening is the first moment a creator has asked anything about Tala, so it is the
+   * Opening is the first moment a creator has asked anything about Invi, so it is the
    * first moment worth reading their allowance. Every later read is a refresh.
    */
   const open = useCallback(() => {
@@ -596,7 +596,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
    * The way out of a question sent by accident.
    *
    * Enter sends, which is what makes the composer quick and also what makes a half-typed
-   * question reach Tala. This takes that message back off the thread and returns its text,
+   * question reach Invi. This takes that message back off the thread and returns its text,
    * so the creator finishes writing it and sends it again into the same conversation
    * rather than starting another one beside it.
    *

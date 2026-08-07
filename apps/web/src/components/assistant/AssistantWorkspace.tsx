@@ -176,7 +176,7 @@ export function AssistantWorkspace({
     The page's whole layout, with the conversation passed in as a child.
 
     It owns all three regions because the order they belong in changes with the width. On a
-    phone the picker has to come before the conversation — it is what unlocks two of Tala's
+    phone the picker has to come before the conversation — it is what unlocks two of Invi's
     three tabs, and burying it under a 22 rem chat meant scrolling past the tool to find the
     thing that switches the tool on. On a wide screen the conversation takes its own column
     and everything else stacks beside it. One grid can say both; two sibling elements in a
@@ -200,8 +200,8 @@ export function AssistantWorkspace({
           />
           <p>
             {hasInvitations
-              ? "Choosing one lets Tala draft into it and read a guest list for it. Nothing is saved from this page — you apply a draft in the editor."
-              : "Tala drafts into an invitation you have already started. Create one from a template first, then come back and describe your event."}
+              ? "Choosing one lets Invi draft into it and read a guest list for it. Nothing is saved from this page — you apply a draft in the editor."
+              : "Invi drafts into an invitation you have already started. Create one from a template first, then come back and describe your event."}
           </p>
         </div>
 
@@ -224,7 +224,7 @@ export function AssistantWorkspace({
         ) : null}
 
         {/*
-          What Tala can do, and what each one needs, before a creator has chosen anything.
+          What Invi can do, and what each one needs, before a creator has chosen anything.
 
           It mirrors the three tabs in the conversation exactly, in the same words, because
           a creator opening this page for the first time otherwise sees a chat box and a
@@ -234,12 +234,12 @@ export function AssistantWorkspace({
         {!loaded && loadState === "idle" ? (
           <section aria-labelledby={introId} className={styles.intro}>
             <p className={styles.eyebrow}>Getting started</p>
-            <h2 id={introId}>Three things Tala can do</h2>
+            <h2 id={introId}>Three things Invi can do</h2>
             <ul className={styles.introList}>
               <li>
                 <strong>Answer a question</strong>
                 <span>
-                  Ready now. Ask how publishing, personalized links, or replies work and Tala
+                  Ready now. Ask how publishing, personalized links, or replies work and Invi
                   answers from Invitica&apos;s own help material.
                 </span>
               </li>
@@ -254,7 +254,7 @@ export function AssistantWorkspace({
               <li>
                 <strong>Organize my guest list</strong>
                 <span>
-                  Paste a list the way it already exists and Tala sorts it into invitations. Needs
+                  Paste a list the way it already exists and Invi sorts it into invitations. Needs
                   an invitation you have published, and you create the rows yourself in the Guest
                   Desk.
                 </span>
@@ -301,7 +301,7 @@ export function AssistantWorkspace({
         {staged ? (
           <section aria-labelledby="assistant-page-proposal" className={styles.proposal}>
             <div>
-              <p className={styles.eyebrow}>Tala&apos;s draft</p>
+              <p className={styles.eyebrow}>Invi&apos;s draft</p>
               <h2 id="assistant-page-proposal">This is a draft. Nothing has been saved.</h2>
               <p className={styles.proposalNote}>
                 Apply it to open your invitation with this draft ready, then keep it there to save.

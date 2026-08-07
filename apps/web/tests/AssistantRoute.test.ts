@@ -113,7 +113,7 @@ describe("the creator assistant route", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      message: "You have used all of today's messages with Tala. They refresh tomorrow.",
+      message: "You have used all of today's messages with Invi. They refresh tomorrow.",
       status: "refused",
     });
     expect(stream).not.toHaveBeenCalled();

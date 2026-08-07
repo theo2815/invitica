@@ -68,8 +68,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("writing an invitation message with Tala", () => {
-  it("puts what Tala wrote into the fields without saving anything", async () => {
+describe("writing an invitation message with Invi", () => {
+  it("puts what Invi wrote into the fields without saving anything", async () => {
     vi.mocked(requestShareMessages).mockResolvedValue({
       general,
       personal,
@@ -79,10 +79,10 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "warm but short, mention it is a garden ceremony" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
 
     await waitFor(() => expect(personalField().value).toBe(personal));
     expect(generalField().value).toBe(general);
@@ -101,10 +101,10 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "warm but short" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
 
     // The placeholders are filled in for the preview, which is where a creator judges it —
     // rather than being quoted back as a template inside the conversation.
@@ -124,20 +124,20 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "warm but short" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
     await waitFor(() => expect(personalField().value).toBe(personal));
 
     // The creator edits it themselves before asking for a change. Without the record below,
-    // Tala would be shortening its own last answer and this edit would be lost.
+    // Invi would be shortening its own last answer and this edit would be lost.
     fireEvent.change(personalField(), { target: { value: `${personal} See you there!` } });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "shorter" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     await waitFor(() => expect(requestShareMessages).toHaveBeenCalledTimes(2));
     const sent = vi.mocked(requestShareMessages).mock.calls[1]?.[1] ?? [];
@@ -154,10 +154,10 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "write my message" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
 
     await waitFor(() => expect(screen.getByText(/How formal should it sound\?/)).toBeTruthy());
     // Nothing was written, so nothing in the fields changed.
@@ -165,7 +165,7 @@ describe("writing an invitation message with Tala", () => {
     expect(generalField().value).toBe("");
   });
 
-  it("leaves a message Tala did not touch alone", async () => {
+  it("leaves a message Invi did not touch alone", async () => {
     vi.mocked(requestShareMessages).mockResolvedValue({
       general: null,
       personal,
@@ -175,10 +175,10 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor({ stored: { generalShareMessage: general } });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "rewrite just the personal one" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     await waitFor(() => expect(personalField().value).toBe(personal));
     expect(generalField().value).toBe(general);
@@ -186,16 +186,16 @@ describe("writing an invitation message with Tala", () => {
 
   it("reports a refusal and keeps every field as it was", async () => {
     vi.mocked(requestShareMessages).mockResolvedValue({
-      message: "You have used all of today's messages with Tala. They refresh tomorrow.",
+      message: "You have used all of today's messages with Invi. They refresh tomorrow.",
       status: "refused",
     });
 
     renderEditor({ stored: { personalShareMessage: personal } });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "shorter" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     // Beside the box it was typed into rather than at the foot of the dialog, and Try again
     // hands the creator back the words that failed instead of leaving them nowhere.
@@ -203,7 +203,7 @@ describe("writing an invitation message with Tala", () => {
     expect(personalField().value).toBe(personal);
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect((screen.getByLabelText(/Tell Tala what to change/) as HTMLTextAreaElement).value).toBe(
+    expect((screen.getByLabelText(/Tell Invi what to change/) as HTMLTextAreaElement).value).toBe(
       "shorter",
     );
   });
@@ -220,7 +220,7 @@ describe("writing an invitation message with Tala", () => {
     // request the creator had not finished reading.
     expect(requestShareMessages).not.toHaveBeenCalled();
     expect(
-      (screen.getByLabelText(/Describe it and let Tala write it/) as HTMLTextAreaElement).value,
+      (screen.getByLabelText(/Describe it and let Invi write it/) as HTMLTextAreaElement).value,
     ).toBe("Warm but short, and call them by their nickname");
   });
 
@@ -234,7 +234,7 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor();
 
-    const box = screen.getByLabelText(/Describe it and let Tala write it/);
+    const box = screen.getByLabelText(/Describe it and let Invi write it/);
     fireEvent.change(box, { target: { value: "warm but short" } });
 
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
@@ -254,10 +254,10 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor({ stored: { generalShareMessage: general } });
 
-    fireEvent.change(screen.getByLabelText(/Tell Tala what to change/), {
+    fireEvent.change(screen.getByLabelText(/Tell Invi what to change/), {
       target: { value: "rewrite just the personal one" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send to Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to Invi" }));
 
     await waitFor(() => expect(screen.getByText(/Your general message is unchanged/)).toBeTruthy());
   });
@@ -272,10 +272,10 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor({ personalOnly: true });
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "warm and private" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
 
     await waitFor(() => expect(personalField().value).toBe(personal));
     expect(screen.queryByLabelText("General message, for sharing with everyone")).toBeNull();
@@ -284,7 +284,7 @@ describe("writing an invitation message with Tala", () => {
   it("is not offered at all when the assistant is switched off", () => {
     renderEditor({ assistantAvailable: false });
 
-    expect(screen.queryByRole("button", { name: "Write with Tala" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Write with Invi" })).toBeNull();
     // Every other part of the editor is unchanged by that flag.
     expect(personalField()).toBeTruthy();
     expect(generalField()).toBeTruthy();
@@ -294,7 +294,7 @@ describe("writing an invitation message with Tala", () => {
   it("keeps its controls inside the dialog's own focus trap", () => {
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "warm but short" },
     });
 
@@ -306,8 +306,8 @@ describe("writing an invitation message with Tala", () => {
         .querySelectorAll<HTMLElement>("button:not([disabled]), textarea:not([disabled])"),
     );
 
-    expect(focusable).toContain(screen.getByLabelText(/Describe it and let Tala write it/));
-    expect(focusable).toContain(screen.getByRole("button", { name: "Write with Tala" }));
+    expect(focusable).toContain(screen.getByLabelText(/Describe it and let Invi write it/));
+    expect(focusable).toContain(screen.getByRole("button", { name: "Write with Invi" }));
   });
 
   it("holds the dialog shut while an answer that has already been billed is in flight", async () => {
@@ -325,14 +325,14 @@ describe("writing an invitation message with Tala", () => {
 
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "warm but short" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
 
-    // The wait names the work rather than the control, so the dialog says what Tala is doing
+    // The wait names the work rather than the control, so the dialog says what Invi is doing
     // instead of only greying out.
-    await waitFor(() => expect(screen.getByText("Tala is writing your message")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Invi is writing your message")).toBeTruthy());
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
 
@@ -396,7 +396,7 @@ describe("closing the invitation message editor with work in it", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("asks about a conversation with Tala even when no field changed", async () => {
+  it("asks about a conversation with Invi even when no field changed", async () => {
     vi.mocked(requestShareMessages).mockResolvedValue({
       questions: ["How formal should it sound?"],
       status: "questions",
@@ -404,10 +404,10 @@ describe("closing the invitation message editor with work in it", () => {
 
     renderEditor();
 
-    fireEvent.change(screen.getByLabelText(/Describe it and let Tala write it/), {
+    fireEvent.change(screen.getByLabelText(/Describe it and let Invi write it/), {
       target: { value: "write my message" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Write with Tala" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with Invi" }));
     await waitFor(() => expect(screen.getByText(/How formal should it sound\?/)).toBeTruthy());
 
     // Nothing was written into a field, but a message was spent and questions are on screen.

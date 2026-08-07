@@ -60,7 +60,7 @@ function sameValue(left: unknown, right: unknown): boolean {
  * The creator's section list, numbered by their own editor, each one marked written or not.
  *
  * Numbering comes from `describeInvitationSections` rather than being recomputed here, so the
- * checklist cannot drift from the number printed on the section card or from the number Tala
+ * checklist cannot drift from the number printed on the section card or from the number Invi
  * uses when it names a section.
  *
  * `starterDocument` is optional on a manifest, and `defaultDocument` is what a draft is built

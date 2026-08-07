@@ -20,18 +20,18 @@ import {
 import { createGuestPartiesAction } from "../../server/guests/actions";
 import type { GuestInvitationSummary } from "../../server/guests/guests";
 import { requestGuestParties } from "../assistant/guest-parsing";
-import { type TalaPanelStatus, TalaTaskPanel } from "../assistant/TalaTaskPanel";
+import { type InviPanelStatus, InviTaskPanel } from "../assistant/InviTaskPanel";
 import { DiscardChangesDialog } from "../feedback/DiscardChangesDialog";
 import { Close, Plus, Trash } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
 interface GuestBulkComposerProps {
-  /** Rows Tala parsed elsewhere, handed over for review. Nothing is created from them here. */
+  /** Rows Invi parsed elsewhere, handed over for review. Nothing is created from them here. */
   initialParties?: readonly ParsedGuestParty[];
   invitation: GuestInvitationSummary;
   onClose: () => void;
   onCreated: (count: number) => void;
-  /** False when `ASSISTANT_ENABLED` is off or no key is configured. Hides the Tala path only. */
+  /** False when `ASSISTANT_ENABLED` is off or no key is configured. Hides the Invi path only. */
   organizingAvailable?: boolean;
   returnFocusRef: React.RefObject<HTMLButtonElement | null>;
 }
@@ -61,7 +61,7 @@ const RECIPIENT_SUGGESTIONS = [
   "Everyone from the Cruz side: Ate Bea, Kuya Nico, Lola Remedios",
 ];
 
-/** How long a row that Tala just changed stays marked. Long enough to find, short enough to go. */
+/** How long a row that Invi just changed stays marked. Long enough to find, short enough to go. */
 const ARRIVED_MARK_MS = 2600;
 
 function emptyRow(id: number): DraftRow {
@@ -73,7 +73,7 @@ function emptyRow(id: number): DraftRow {
  *
  * The greeting is left blank when it would merely repeat the name, because that is already
  * what the field's own placeholder and the submit fallback mean. Filling it in with a copy of
- * the name would look like a decision Tala made rather than the default it is.
+ * the name would look like a decision Invi made rather than the default it is.
  */
 function rowFromParty(party: ParsedGuestParty, id: number): DraftRow {
   return {
@@ -113,7 +113,7 @@ function isBlankRow(row: DraftRow): boolean {
  * The rows as they stand right now, in the shape the conversation carries them.
  *
  * This is what makes a follow-up here better than one in the floating panel: the panel can
- * only send back what Tala last produced, while this sends what the creator is actually
+ * only send back what Invi last produced, while this sends what the creator is actually
  * looking at — including every seat they corrected and every greeting they retyped. A
  * request to change the third row therefore reaches the third row on screen.
  *
@@ -199,14 +199,14 @@ export function GuestBulkComposer({
   /** Rows an answer added or altered, marked briefly so the change is findable. */
   const [arrivedRows, setArrivedRows] = useState<Set<number>>(new Set());
   /**
-   * What Tala has to say about the last turn, beside the box it was typed into.
+   * What Invi has to say about the last turn, beside the box it was typed into.
    *
    * Separate from `message`, which belongs to the form and its Create button. They used to
    * share one line at the foot of the dialog — below a fifty-row list on a phone — and that
    * line is styled `--danger`, so a successful count and a clarifying question both arrived
    * looking like errors.
    */
-  const [talaStatus, setTalaStatus] = useState<TalaPanelStatus | null>(
+  const [inviStatus, setInviStatus] = useState<InviPanelStatus | null>(
     staged.length > 0
       ? {
           text: `${staged.length} ${staged.length === 1 ? "row is" : "rows are"} ready to check. Nothing is created until you choose to.`,
@@ -215,7 +215,7 @@ export function GuestBulkComposer({
       : null,
   );
   /**
-   * The exchange with Tala inside this dialog.
+   * The exchange with Invi inside this dialog.
    *
    * It used to be one message with no memory: every press of Organize sent a single paste and
    * nothing else, so "the Santos family is six" was read as a brand new list containing one
@@ -345,15 +345,15 @@ export function GuestBulkComposer({
   }
 
   /**
-   * Sends a turn to Tala, carrying the rows currently on screen, and lays the answer back out.
+   * Sends a turn to Invi, carrying the rows currently on screen, and lays the answer back out.
    *
    * The rows go with it because that is what makes this a conversation rather than a sequence
-   * of unrelated pastes. Tala answers with the whole list as it should now stand — the rows
+   * of unrelated pastes. Invi answers with the whole list as it should now stand — the rows
    * that did not change exactly as they read, plus the change asked for — so the answer
    * replaces what is here instead of being appended to it. Appending a corrected list to the
    * list it corrects would double every row.
    *
-   * A creator who asks something Tala cannot sort safely gets questions back and keeps every
+   * A creator who asks something Invi cannot sort safely gets questions back and keeps every
    * row they already had. Nothing here creates anything: the rows land in the same fields a
    * typed one lands in, and the existing Create button is still the only thing that acts.
    *
@@ -371,7 +371,7 @@ export function GuestBulkComposer({
     setThread(turn);
     setPastedList("");
     setIsOrganizing(true);
-    setTalaStatus(null);
+    setInviStatus(null);
     setMessage(null);
 
     const result = await requestGuestParties(
@@ -382,7 +382,7 @@ export function GuestBulkComposer({
     if (result.status === "refused") {
       // The question stays in the thread so it can be read, and Try again puts it back in the
       // box — a refusal used to leave the creator's own words nowhere they could reach them.
-      setTalaStatus({
+      setInviStatus({
         retry: () => setPastedList(text),
         text: result.message,
         tone: "danger",
@@ -393,8 +393,8 @@ export function GuestBulkComposer({
 
     if (result.status === "questions") {
       setThread([...turn, { content: guestQuestionsMessage(result.questions), role: "assistant" }]);
-      setTalaStatus({
-        text: "Answer what you can and Tala will sort the list from it. Your rows are unchanged.",
+      setInviStatus({
+        text: "Answer what you can and Invi will sort the list from it. Your rows are unchanged.",
         tone: "info",
       });
       setIsOrganizing(false);
@@ -426,7 +426,7 @@ export function GuestBulkComposer({
     // The count is stated both ways when it moved. A creator who asked to change one row and
     // sees "12 rows, was 40" has been told immediately that the answer was wrong, while
     // nothing has been created and the list is still in front of them to fix.
-    setTalaStatus({
+    setInviStatus({
       text:
         carried.length > 0 && kept.length !== carried.length
           ? `Your list is now ${kept.length} ${kept.length === 1 ? "row" : "rows"}, from ${carried.length}. Check it before you create anything.`
@@ -571,25 +571,25 @@ export function GuestBulkComposer({
           onSubmit={(event) => void submit(event)}
         >
           {organizingAvailable ? (
-            <TalaTaskPanel
+            <InviTaskPanel
               busy={isOrganizing}
-              busyLabel={hasRows ? "Tala is updating your list" : "Tala is reading your list"}
+              busyLabel={hasRows ? "Invi is updating your list" : "Invi is reading your list"}
               className={styles.taskPanel}
               disabled={isPending}
               hint={
                 hasRows
-                  ? "Tala can see the rows below, so say what to change in a sentence — a seat count, a greeting, a name, or someone to add."
+                  ? "Invi can see the rows below, so say what to change in a sentence — a seat count, a greeting, a name, or someone to add."
                   : answeringQuestions
-                    ? "Answer what you can in one message. Tala sorts the list from it."
+                    ? "Answer what you can in one message. Invi sorts the list from it."
                     : "Names, nicknames, and counts like “+2” in whatever order they are already in. Their names are sent to Invitica’s AI provider to be read, and you check every row below before anything is created."
               }
               inputId="guest-list-paste"
               label={
                 hasRows
-                  ? "Tell Tala what to change"
+                  ? "Tell Invi what to change"
                   : answeringQuestions
-                    ? "Answer Tala's questions"
-                    : "Paste a messy list and let Tala sort it"
+                    ? "Answer Invi's questions"
+                    : "Paste a messy list and let Invi sort it"
               }
               onChange={setPastedList}
               onSend={() => void organize()}
@@ -600,8 +600,8 @@ export function GuestBulkComposer({
                     ? "Mia Santos, Ana Cruz, Tita Baby"
                     : "Tita Baby +2, Kuya Jun & Ate Mae, Santos family (5)"
               }
-              sendLabel={hasRows || answeringQuestions ? "Send to Tala" : "Organize with Tala"}
-              status={talaStatus}
+              sendLabel={hasRows || answeringQuestions ? "Send to Invi" : "Organize with Invi"}
+              status={inviStatus}
               suggestions={
                 hasRows || answeringQuestions
                   ? undefined
@@ -745,8 +745,8 @@ export function GuestBulkComposer({
           confirmLabel="Discard"
           description={
             singleRecipient
-              ? "Nothing has been created yet. These recipients and your conversation with Tala will be gone."
-              : "Nothing has been created yet. These rows and your conversation with Tala will be gone."
+              ? "Nothing has been created yet. These recipients and your conversation with Invi will be gone."
+              : "Nothing has been created yet. These rows and your conversation with Invi will be gone."
           }
           eyebrow={singleRecipient ? "Add recipients" : "Add guests"}
           onDiscard={() => {

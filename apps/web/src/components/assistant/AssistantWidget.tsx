@@ -7,8 +7,8 @@ import { useDraftFlush } from "../invitations/DraftFlushProvider";
 import styles from "./Assistant.module.css";
 import { AssistantConversation } from "./AssistantConversation";
 import { useAssistant } from "./AssistantProvider";
-import { TalaMascot } from "./TalaMascot";
-import { TalaPresence } from "./TalaPresence";
+import { InviMascot } from "./InviMascot";
+import { InviPresence } from "./InviPresence";
 
 const COMPACT_QUERY = "(max-width: 900px)";
 const ASSISTANT_PAGE = "/dashboard/assistant";
@@ -124,7 +124,7 @@ export function AssistantWidget() {
     <div className={styles.widget} data-open={isOpen}>
       {isOpen ? (
         <div
-          aria-label="Tala, Invitica's AI assistant"
+          aria-label="Invi, Invitica's AI assistant"
           aria-modal={isCompact ? true : undefined}
           className={styles.panel}
           data-expanded={expanded}
@@ -140,10 +140,10 @@ export function AssistantWidget() {
         >
           <header className={styles.panelHeader}>
             <div className={styles.panelIdentity}>
-              <TalaPresence className={styles.panelMascot} size="compact" />
+              <InviPresence className={styles.panelMascot} size="compact" />
               <div className={styles.panelHeading}>
                 <p className={styles.panelEyebrow}>Invitica AI</p>
-                <h2 className={styles.panelTitle}>Tala</h2>
+                <h2 className={styles.panelTitle}>Invi</h2>
               </div>
             </div>
             <div className={styles.panelActions}>
@@ -180,11 +180,11 @@ export function AssistantWidget() {
                   close();
                   bubbleRef.current?.focus();
                 }}
-                title="Close Tala"
+                title="Close Invi"
                 type="button"
               >
                 <Close />
-                <span className={styles.visuallyHidden}>Close Tala</span>
+                <span className={styles.visuallyHidden}>Close Invi</span>
               </button>
             </div>
           </header>
@@ -202,10 +202,10 @@ export function AssistantWidget() {
         type="button"
       >
         <span aria-hidden="true" className={styles.bubbleGlyph}>
-          {isOpen ? <Close /> : <TalaMascot size="compact" state="idle" />}
+          {isOpen ? <Close /> : <InviMascot size="compact" state="idle" />}
         </span>
         <span className={styles.visuallyHidden}>
-          {isOpen ? "Close Tala" : "Ask Tala, Invitica's AI assistant"}
+          {isOpen ? "Close Invi" : "Ask Invi, Invitica's AI assistant"}
         </span>
       </button>
     </div>

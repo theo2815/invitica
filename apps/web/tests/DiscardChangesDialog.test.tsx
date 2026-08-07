@@ -9,7 +9,7 @@ const onKeepEditing = vi.fn();
 function renderDialog() {
   return render(
     <DiscardChangesDialog
-      description="Nothing has been created yet. These rows and your conversation with Tala will be gone."
+      description="Nothing has been created yet. These rows and your conversation with Invi will be gone."
       eyebrow="Add guests"
       onDiscard={onDiscard}
       onKeepEditing={onKeepEditing}

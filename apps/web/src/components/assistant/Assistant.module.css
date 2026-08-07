@@ -55,12 +55,12 @@
   place-items: center;
 }
 
-.bubbleGlyph > svg:not([data-tala-state]) {
+.bubbleGlyph > svg:not([data-invi-state]) {
   width: 1.35rem;
   height: 1.35rem;
 }
 
-.bubbleGlyph > svg[data-tala-state] {
+.bubbleGlyph > svg[data-invi-state] {
   width: 2.65rem;
   height: 2.65rem;
 }
@@ -506,10 +506,10 @@
 }
 
 /*
-  Tala, in the thread, while the answer is still coming.
+  Invi, in the thread, while the answer is still coming.
 
   Before this the thread pushed an empty message and the bordered bubble rendered as a
-  bare horizontal line — a loading state that looked like a rule. Tala standing in the
+  bare horizontal line — a loading state that looked like a rule. Invi standing in the
   conversation says the same thing and says who is saying it.
 */
 .thinking {

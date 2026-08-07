@@ -29,7 +29,7 @@ const { AssistantProvider, useAssistant } = await import(
 const invitationId = "a1000000-0000-4000-8000-000000000001";
 
 /**
- * Stands in for whichever surface put an invitation in Tala's context.
+ * Stands in for whichever surface put an invitation in Invi's context.
  *
  * The abilities are the point: the editor, the Guest Desk, and the assistant page each state a
  * different pair, and what the composer may offer follows from them.
@@ -55,7 +55,7 @@ function renderComposer(abilities: { canDraft: boolean; canOrganize: boolean }) 
 
 function type(text: string) {
   fireEvent.change(
-    screen.getByLabelText(/^(Ask Tala|Describe your event|Paste your guest list)$/),
+    screen.getByLabelText(/^(Ask Invi|Describe your event|Paste your guest list)$/),
     {
       target: { value: text },
     },

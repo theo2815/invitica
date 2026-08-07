@@ -3,7 +3,7 @@ import type { AssistantMode } from "../../contracts/assistant-api";
 /**
  * Which tab the thing a creator is typing actually belongs in.
  *
- * Tala's three tabs are three endpoints at three costs, and the mode stays explicit for the
+ * Invi's three tabs are three endpoints at three costs, and the mode stays explicit for the
  * reason recorded on `assistantModeSchema`: inferring it would mean a billed call to decide
  * where to send the next one. **Recommending is not inferring.** This runs on composer text
  * before anything is sent, costs nothing, and produces a suggestion the creator accepts or
@@ -96,7 +96,7 @@ const MIN_TEXT_LENGTH = 8;
 const MODES: readonly AssistantMode[] = ["document", "guests", "help"];
 
 export interface ModeSuggestion {
-  /** Why Tala is offering it, in the creator's words. Shown beside the switch. */
+  /** Why Invi is offering it, in the creator's words. Shown beside the switch. */
   reason: string;
   to: AssistantMode;
 }
@@ -118,7 +118,7 @@ function looksLikeDocument(text: string): boolean {
 
 export interface ModeRoutingInput {
   /**
-   * Whether Tala can draft into the invitation in context. False with none selected, and
+   * Whether Invi can draft into the invitation in context. False with none selected, and
    * false for legacy Garden Promise v1, whose editor cannot stage a proposal.
    */
   canDraft: boolean;

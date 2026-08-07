@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   //
   // The whole block is best-effort. Context makes an answer better; it is never the reason a
   // creator does not get one, so a database that will not answer here leaves them talking to
-  // Tala rather than looking at an error.
+  // Invi rather than looking at an error.
   let contextMessage: null | string = null;
   try {
     const [draft, invitationCount] = await Promise.all([
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         const message =
           error instanceof AssistantProviderError
             ? error.message
-            : "Tala could not finish that answer.";
+            : "Invi could not finish that answer.";
         controller.enqueue(encoder.encode(`\n\n${message}`));
 
         const failure = error instanceof AssistantProviderError ? error.failure : undefined;

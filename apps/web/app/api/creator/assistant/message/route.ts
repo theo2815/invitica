@@ -147,7 +147,7 @@ export async function POST(request: Request) {
         message:
           error instanceof AssistantProviderError
             ? error.message
-            : "Tala could not write that message. Try again in a moment.",
+            : "Invi could not write that message. Try again in a moment.",
         status: "refused",
       },
       { headers: assistantResponseHeaders, status: 200 },
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       {
         message:
           proposal.reason === "no_messages"
-            ? "Tala could not write a usable message from that. Say what you want it to sound like, or what it should mention."
+            ? "Invi could not write a usable message from that. Say what you want it to sound like, or what it should mention."
             : "That message came back unreadable, so nothing was changed. Try asking again.",
         status: "refused",
       },

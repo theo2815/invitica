@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import styles from "./Assistant.module.css";
 
 /**
- * Renders Tala's answer.
+ * Renders Invi's answer.
  *
  * The help corpus is written in Markdown, so the model mirrors it and answers arrive with
  * `**bold**`, `-` bullets, and numbered steps in them. Until now the thread rendered that

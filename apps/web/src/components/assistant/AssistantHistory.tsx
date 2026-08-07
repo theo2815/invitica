@@ -45,7 +45,7 @@ export function AssistantHistory({ onOpened }: { onOpened: () => void }) {
         <p>
           {historyStatus === "loading"
             ? "Opening your conversations…"
-            : "Your conversations with Tala are saved here once you have sent a message. Only you can read them, and you can delete any of them."}
+            : "Your conversations with Invi are saved here once you have sent a message. Only you can read them, and you can delete any of them."}
         </p>
       </div>
     );

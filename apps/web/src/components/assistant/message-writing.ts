@@ -9,14 +9,14 @@ import type { AssistantApiMessage } from "../../contracts/assistant-api";
  */
 
 export type ShareMessageWritingResult =
-  /** Wording for the fields. Either message may be null when Tala left it alone. */
+  /** Wording for the fields. Either message may be null when Invi left it alone. */
   | {
       general: null | string;
       personal: null | string;
       questions: string[];
       status: "written";
     }
-  /** Nothing could be written yet, and Tala knows what to ask to get there. */
+  /** Nothing could be written yet, and Invi knows what to ask to get there. */
   | { questions: string[]; status: "questions" }
   | { message: string; status: "refused" };
 
@@ -48,7 +48,7 @@ export async function requestShareMessages(
     // Includes an abandoned request. From here that and a dead connection are the same thing:
     // no answer arrived.
     return {
-      message: "Invitica could not reach Tala. Check your connection and try again.",
+      message: "Invitica could not reach Invi. Check your connection and try again.",
       status: "refused",
     };
   }
@@ -60,7 +60,7 @@ export async function requestShareMessages(
   }
 
   if (body.status !== "written") {
-    return { message: body.message ?? "Tala is unavailable right now.", status: "refused" };
+    return { message: body.message ?? "Invi is unavailable right now.", status: "refused" };
   }
 
   return {

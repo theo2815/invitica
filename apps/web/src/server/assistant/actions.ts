@@ -103,7 +103,7 @@ export async function loadAssistantInvitationAction(
  *
  * All four fail quietly rather than throwing. History is a convenience layered over a
  * conversation that already works without it: a creator whose list cannot load should see
- * an empty list and keep talking to Tala, not an error boundary over the panel they were
+ * an empty list and keep talking to Invi, not an error boundary over the panel they were
  * using.
  */
 export async function listAssistantConversationsAction(): Promise<AssistantConversationSummary[]> {

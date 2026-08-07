@@ -146,7 +146,7 @@ export async function POST(request: Request) {
         message:
           error instanceof AssistantProviderError
             ? error.message
-            : "Tala could not organize that list. Try again in a moment.",
+            : "Invi could not organize that list. Try again in a moment.",
         status: "refused",
       },
       { headers: assistantResponseHeaders, status: 200 },
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
       {
         message:
           proposal.reason === "no_parties"
-            ? "Tala could not find any guests in that. Paste the list itself — one guest or family per line."
+            ? "Invi could not find any guests in that. Paste the list itself — one guest or family per line."
             : "That list came back unreadable, so nothing was added. Try pasting it again.",
         status: "refused",
       },

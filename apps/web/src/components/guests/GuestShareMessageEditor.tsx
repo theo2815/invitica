@@ -14,14 +14,14 @@ import {
   buildGeneralInvitationMessage,
   buildPersonalInvitationMessage,
 } from "../../server/guests/sharing";
+import { type InviPanelStatus, InviTaskPanel } from "../assistant/InviTaskPanel";
 import { requestShareMessages } from "../assistant/message-writing";
-import { type TalaPanelStatus, TalaTaskPanel } from "../assistant/TalaTaskPanel";
 import { DiscardChangesDialog } from "../feedback/DiscardChangesDialog";
 import { Close } from "../Icons";
 import styles from "./GuestDesk.module.css";
 
 interface GuestShareMessageEditorProps {
-  /** False when `ASSISTANT_ENABLED` is off or no key is configured. Hides the Tala path only. */
+  /** False when `ASSISTANT_ENABLED` is off or no key is configured. Hides the Invi path only. */
   assistantAvailable?: boolean;
   invitation: GuestInvitationSummary;
   onClose: () => void;
@@ -79,15 +79,15 @@ export function GuestShareMessageEditor({
   const [isWriting, setIsWriting] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
   /**
-   * What Tala has to say about the last turn, beside the box it was typed into.
+   * What Invi has to say about the last turn, beside the box it was typed into.
    *
    * Separate from `message`, which is only ever a failed save. Sharing one line meant a
    * clarifying question rendered through `.dialogStatus` — unconditionally `--danger` — so
    * an ordinary question arrived looking like an error.
    */
-  const [talaStatus, setTalaStatus] = useState<TalaPanelStatus | null>(null);
+  const [inviStatus, setInviStatus] = useState<InviPanelStatus | null>(null);
   /**
-   * The exchange with Tala inside this dialog.
+   * The exchange with Invi inside this dialog.
    *
    * Local, and deliberately not the floating panel's thread: this conversation is about two
    * fields on this screen, it ends when the dialog closes, and it is not saved to history.
@@ -171,17 +171,17 @@ export function GuestShareMessageEditor({
   const generalPromisesReply = /\brsvp\b|\breply\b|\brespond\b/i.test(general);
 
   /**
-   * Asks Tala for wording and puts what comes back into the fields.
+   * Asks Invi for wording and puts what comes back into the fields.
    *
    * The fields as they stand go with the request, so "make it shorter" shortens what is on
-   * screen — which may be Tala's last answer, the creator's edit of it, or wording they saved
+   * screen — which may be Invi's last answer, the creator's edit of it, or wording they saved
    * weeks ago. Without that the model would only ever be revising its own previous reply.
    *
-   * A message Tala left alone is left alone here too, so asking about the personal wording
+   * A message Invi left alone is left alone here too, so asking about the personal wording
    * never quietly rewrites the general one. Nothing is saved: this fills the same fields the
    * creator types into, and their own Save is still the only thing that commits.
    *
-   * One turn spends one message from the daily Tala allowance, the same as a question.
+   * One turn spends one message from the daily Invi allowance, the same as a question.
    */
   async function write() {
     const text = request.trim();
@@ -193,7 +193,7 @@ export function GuestShareMessageEditor({
     setThread(turn);
     setRequest("");
     setIsWriting(true);
-    setTalaStatus(null);
+    setInviStatus(null);
     setMessage(null);
 
     const result = await requestShareMessages(
@@ -204,7 +204,7 @@ export function GuestShareMessageEditor({
     if (result.status === "refused") {
       // The request stays in the thread so it can be read, and Try again puts it back in the
       // box — a refusal used to leave the creator's own words nowhere they could reach them.
-      setTalaStatus({ retry: () => setRequest(text), text: result.message, tone: "danger" });
+      setInviStatus({ retry: () => setRequest(text), text: result.message, tone: "danger" });
       setIsWriting(false);
       return;
     }
@@ -214,8 +214,8 @@ export function GuestShareMessageEditor({
         ...turn,
         { content: shareMessageQuestionsMessage(result.questions), role: "assistant" },
       ]);
-      setTalaStatus({
-        text: "Answer what you can and Tala will write it from there. Your wording is unchanged.",
+      setInviStatus({
+        text: "Answer what you can and Invi will write it from there. Your wording is unchanged.",
         tone: "info",
       });
       setIsWriting(false);
@@ -231,9 +231,9 @@ export function GuestShareMessageEditor({
       ...turn,
       { content: shareMessageWrittenMessage(result.questions), role: "assistant" },
     ]);
-    // Names which field moved, because a message Tala was not asked about is left exactly as
+    // Names which field moved, because a message Invi was not asked about is left exactly as
     // it was — and two fields with one changed is not something a creator should have to spot.
-    setTalaStatus({
+    setInviStatus({
       text:
         wrotePersonal && wroteGeneral
           ? "Both messages are filled in below. Read them, then save when you are happy."
@@ -313,25 +313,25 @@ export function GuestShareMessageEditor({
           onSubmit={(event) => void submit(event)}
         >
           {assistantAvailable ? (
-            <TalaTaskPanel
+            <InviTaskPanel
               busy={isWriting}
-              busyLabel="Tala is writing your message"
+              busyLabel="Invi is writing your message"
               className={styles.taskPanel}
               disabled={isPending}
               hint={
                 written
-                  ? "Tala can see what is in the fields, so say what to change — shorter, warmer, mention something in particular."
+                  ? "Invi can see what is in the fields, so say what to change — shorter, warmer, mention something in particular."
                   : answeringQuestions
-                    ? "Answer what you can in one message. Tala writes it from there."
-                    : "Say how you want it to sound and what it should mention. Tala fills the fields below and you edit or save it yourself — nothing is sent to anyone."
+                    ? "Answer what you can in one message. Invi writes it from there."
+                    : "Say how you want it to sound and what it should mention. Invi fills the fields below and you edit or save it yourself — nothing is sent to anyone."
               }
               inputId="share-message-request"
               label={
                 written
-                  ? "Tell Tala what to change"
+                  ? "Tell Invi what to change"
                   : answeringQuestions
-                    ? "Answer Tala's questions"
-                    : "Describe it and let Tala write it"
+                    ? "Answer Invi's questions"
+                    : "Describe it and let Invi write it"
               }
               onChange={setRequest}
               onSend={() => void write()}
@@ -340,8 +340,8 @@ export function GuestShareMessageEditor({
                   ? "Shorter, and mention that it is a garden ceremony"
                   : "Warm but short, and call them by their nickname"
               }
-              sendLabel={written || answeringQuestions ? "Send to Tala" : "Write with Tala"}
-              status={talaStatus}
+              sendLabel={written || answeringQuestions ? "Send to Invi" : "Write with Invi"}
+              status={inviStatus}
               suggestions={written || answeringQuestions ? undefined : MESSAGE_SUGGESTIONS}
               thread={thread}
               value={request}
@@ -415,7 +415,7 @@ export function GuestShareMessageEditor({
               onClick={() => {
                 setPersonal("");
                 if (!personalOnly) setGeneral("");
-                setTalaStatus(null);
+                setInviStatus(null);
                 setMessage(null);
               }}
               type="button"
@@ -456,7 +456,7 @@ export function GuestShareMessageEditor({
       {confirmingClose ? (
         <DiscardChangesDialog
           confirmLabel="Discard"
-          description="Your wording and your conversation with Tala will be gone. The message guests get now stays as it is."
+          description="Your wording and your conversation with Invi will be gone. The message guests get now stays as it is."
           eyebrow="Invitation message"
           onDiscard={() => {
             setConfirmingClose(false);

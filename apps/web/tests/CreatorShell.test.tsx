@@ -71,7 +71,7 @@ describe("creator workspace shell", () => {
     expect(fireEvent.click(otherPage)).toBe(true);
   });
 
-  it("gives Tala a desktop destination without adding a mobile destination", () => {
+  it("gives Invi a desktop destination without adding a mobile destination", () => {
     pathname = "/dashboard/assistant";
     render(
       <>
@@ -86,14 +86,14 @@ describe("creator workspace shell", () => {
     });
 
     expect(
-      within(desktopNavigation).getByRole("link", { name: "Tala" }).getAttribute("aria-current"),
+      within(desktopNavigation).getByRole("link", { name: "Invi" }).getAttribute("aria-current"),
     ).toBe("page");
     expect(
       within(desktopNavigation)
         .getByRole("link", { name: "Overview" })
         .getAttribute("aria-current"),
     ).toBeNull();
-    expect(within(mobileNavigation).queryByRole("link", { name: "Tala" })).toBeNull();
+    expect(within(mobileNavigation).queryByRole("link", { name: "Invi" })).toBeNull();
     expect(within(mobileNavigation).getAllByRole("link")).toHaveLength(4);
     expect(
       within(mobileNavigation).getByRole("link", { name: "Home" }).getAttribute("aria-current"),

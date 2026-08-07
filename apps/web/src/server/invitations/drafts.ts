@@ -233,7 +233,7 @@ export async function loadInvitationDraft(supabase: SupabaseServerClient, invita
  *
  * Returns `null` when it could not be counted, which is deliberately not `0`. The caller uses
  * this to decide whether to tell the assistant that a creator has no invitations yet, and a
- * failed query reported as zero would have Tala confidently send someone with nine invitations
+ * failed query reported as zero would have Invi confidently send someone with nine invitations
  * off to the Templates page. Unknown has to stay distinguishable from none.
  */
 export async function countInvitationDrafts(

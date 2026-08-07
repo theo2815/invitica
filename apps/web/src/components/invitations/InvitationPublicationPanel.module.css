@@ -163,15 +163,9 @@
   color: var(--muted);
   cursor: wait;
 }
+/* Portalled out of `.page`, which is why the palette used to be repeated here. It comes from
+   `globals.css :root` now, so it follows the theme. */
 .dialogBackdrop {
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --focus: #2457c5;
-  --display-font: "Fraunces Variable", Georgia, serif;
   position: fixed;
   z-index: 50;
   inset: 0;

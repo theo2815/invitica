@@ -334,7 +334,7 @@
 .modeSwitch button[aria-pressed="true"] {
   border-color: var(--accent, #7d2b3f);
   background: var(--accent, #7d2b3f);
-  color: #ffffff;
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -668,7 +668,7 @@
   flex: 1;
   border-color: var(--accent, #7d2b3f);
   background: var(--accent, #7d2b3f);
-  color: #ffffff;
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -945,7 +945,7 @@
 
 .historyDeleteConfirm:hover {
   background: var(--accent, #7d2b3f);
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 .sendAction {

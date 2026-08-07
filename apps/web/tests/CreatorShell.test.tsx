@@ -100,7 +100,7 @@ describe("creator workspace shell", () => {
     ).toBeNull();
   });
 
-  it("restores focus after the profile menu closes", () => {
+  it("restores focus after the profile menu closes", async () => {
     render(
       <CreatorShell email="maria@example.com" metadata={{ full_name: "Maria Santos" }}>
         <h1>Invitation editor</h1>
@@ -112,10 +112,13 @@ describe("creator workspace shell", () => {
     if (!profileTrigger) throw new Error("Expected the desktop profile trigger.");
 
     fireEvent.click(profileTrigger);
-    expect(screen.getByRole("button", { name: "Settings Coming soon" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    // Settings was a disabled "Coming soon" button until the destination existed. It is now a
+    // link, and it is the item that takes focus — opening this menu used to put the keyboard
+    // directly on Sign out.
+    const settings = screen.getByRole("link", { name: "Settings" });
+    expect(settings.getAttribute("href")).toBe("/dashboard/settings");
+    // Focus is taken in a `requestAnimationFrame`, which jsdom does not run synchronously.
+    await waitFor(() => expect(document.activeElement).toBe(settings));
     expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
     fireEvent.keyDown(document, { key: "Escape" });
 

@@ -298,7 +298,7 @@
 .proposalActions button:hover:not(:disabled),
 .proposalActions button:focus-visible {
   background: var(--accent, #7d2b3f);
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 .proposalActions button:focus-visible {
@@ -313,7 +313,7 @@
 
 .apply {
   background: var(--accent, #7d2b3f);
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 /* Preview ------------------------------------------------------------------- */

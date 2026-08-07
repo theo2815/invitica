@@ -283,7 +283,7 @@
 .cardPreviewLink {
   border-color: var(--accent);
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   cursor: pointer;
 }
 
@@ -329,7 +329,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.3rem;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.72rem;
   font-weight: 750;
   cursor: pointer;
@@ -458,7 +458,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.3rem;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.66rem;
   font-weight: 740;
   text-decoration: none;
@@ -627,7 +627,7 @@
     height: 1.1rem;
     border-radius: 50%;
     background: var(--accent);
-    color: #ffffff;
+    color: var(--accent-text);
     font-size: 0.55rem;
     place-items: center;
   }
@@ -896,7 +896,7 @@
   .filterSheet > footer button:last-child {
     border-color: var(--accent);
     background: var(--accent);
-    color: #ffffff;
+    color: var(--accent-text);
   }
 
   .dialogBackdrop {

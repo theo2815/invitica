@@ -94,7 +94,7 @@
 .reuseConfirmation button:first-child {
   border-color: var(--accent);
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 .reuseConfirmation button:last-child {
@@ -123,13 +123,13 @@
   min-height: 2.75rem;
   border-color: var(--accent);
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.7rem;
 }
 
 .creationForm[data-variant="preview"] .primaryButton:not(:disabled):hover {
   background: var(--accent-hover);
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 .creationForm[data-variant="preview"].creationFormExpanded > .primaryButton {

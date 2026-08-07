@@ -45,7 +45,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 760;
   text-decoration: none;
@@ -745,7 +745,7 @@
   .invitationActions a:last-child {
     border-color: var(--accent);
     background: var(--accent);
-    color: #ffffff;
+    color: var(--accent-text);
   }
 
   .invitationActions a:only-child {

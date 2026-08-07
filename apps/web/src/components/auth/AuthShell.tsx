@@ -26,7 +26,9 @@ export function AuthShell({
   story,
 }: AuthShellProps) {
   return (
-    <main className={styles.page}>
+    // `data-surface` lets `globals.css` carry this page's themed background out to the document,
+    // so the status-bar strip and the overscroll area match it rather than staying cream.
+    <main className={styles.page} data-surface="auth">
       <header className={styles.header}>
         <Link aria-label="Invitica home" className={styles.brand} href="/">
           <BrandMark />

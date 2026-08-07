@@ -220,7 +220,7 @@
   border: 1px solid var(--accent, #7a3442);
   border-radius: 0.35rem;
   background: var(--accent, #7a3442);
-  color: #ffffff;
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.68rem;
   font-weight: 760;

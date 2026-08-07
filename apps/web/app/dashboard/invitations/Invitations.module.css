@@ -255,7 +255,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.3rem;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.68rem;
   font-weight: 750;
   text-decoration: none;

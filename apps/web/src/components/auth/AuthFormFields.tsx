@@ -16,7 +16,10 @@ interface PasswordFieldProps {
   id: string;
   label: string;
   labelAction?: ReactNode | undefined;
-  name: "confirmPassword" | "password";
+  // `currentPassword` is the settings re-verification field. The control itself is unchanged:
+  // the show/hide toggle, the `aria-invalid`/`aria-describedby` wiring, and the 44 px target
+  // are the reason settings reuses this rather than writing a third password input.
+  name: "confirmPassword" | "currentPassword" | "password";
   onChange: (value: string) => void;
   value: string;
 }

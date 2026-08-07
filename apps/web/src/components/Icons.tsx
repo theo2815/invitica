@@ -101,6 +101,20 @@ export function Check({ className }: IconProps) {
   );
 }
 
+/**
+ * The mark that keeps a warning legible without color. Every status message in settings pairs
+ * one of these with its wording, so nothing depends on distinguishing red from the page.
+ */
+export function AlertCircle({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 7.75v5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+      <circle cx="12" cy="16" fill="currentColor" r="0.9" />
+    </svg>
+  );
+}
+
 export function LogOut({ className }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">

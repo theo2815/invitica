@@ -1,14 +1,6 @@
+/* Palette from `globals.css :root`. This block also carried `--danger: #9f2f2f`, one of three
+   reds the codebase held for one semantic token; it is now the shared `#9d2d2d`. */
 .previewPage {
-  --background: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --accent-hover: #5d2632;
-  --danger: #9f2f2f;
-  --focus: #2457c5;
   container-type: inline-size;
   min-width: 320px;
   background: var(--background);
@@ -165,7 +157,7 @@
   border-radius: 0.55rem 0 0 0.55rem;
   background: var(--accent);
   box-shadow: 0 0.5rem 1.5rem rgb(41 35 31 / 18%);
-  color: #ffffff;
+  color: var(--accent-text);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -214,7 +206,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.3rem;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.72rem;
   font-weight: 750;
   text-decoration: none;

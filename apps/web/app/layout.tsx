@@ -8,6 +8,8 @@ import { INVITICA_BRAND_FIELD } from "@invitica/renderer";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
+import { readThemePreference, themeAttribute } from "../src/server/account/theme";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -39,9 +41,14 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  // Read on the server and rendered into the markup, so an explicit theme is already correct in
+  // the first paint. The usual client-side alternative flashes the wrong palette for a frame,
+  // and on a mid-range Philippine phone that frame is not brief.
+  const theme = themeAttribute(await readThemePreference());
+
   return (
-    <html lang="en-PH">
+    <html data-theme={theme} lang="en-PH">
       <body>{children}</body>
     </html>
   );

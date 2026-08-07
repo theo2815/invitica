@@ -106,19 +106,10 @@
 /* ---------------------------------------------------------------- full-screen picker */
 
 .backdrop {
-  /* The picker is portalled to <body>, outside the `.page` element that declares the Warm Editorial
-     tokens, so they are redeclared here. Without this the surfaces resolve to an empty `var()` and
-     the modal chrome renders transparent over the page. */
-  --background: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --accent-hover: #5d2632;
-  --focus: #2457c5;
-  --display-font: "Fraunces Variable", Georgia, serif;
+  /* The picker is portalled to <body>, outside the `.page` element that used to declare the Warm
+     Editorial tokens — which is why they were repeated here, or the modal chrome resolved to an
+     empty `var()` and rendered transparent. The palette is on `:root` now, so it reaches the
+     portal wherever it lands and carries the current theme with it. */
   position: fixed;
   z-index: 100;
   inset: 0;

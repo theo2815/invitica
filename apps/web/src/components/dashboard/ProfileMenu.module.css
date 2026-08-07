@@ -138,6 +138,8 @@
   font-size: 0.72rem;
   font-weight: 720;
   text-align: left;
+  /* Settings is a link now, so the shared row has to say it is not underlined. */
+  text-decoration: none;
   cursor: pointer;
 }
 

@@ -82,18 +82,10 @@
   transform: rotate(180deg);
 }
 
+/* These are portalled out of the surface that opened them, which is why they used to re-declare
+   the palette. From `:root` they inherit it wherever they land. */
 .selectPopover,
 .calendarPopover {
-  --background: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --focus: #2457c5;
-  --danger: #9d2d2d;
-  --display-font: "Fraunces Variable", Georgia, serif;
   position: fixed;
   z-index: 120;
   border: 1px solid var(--border);
@@ -314,7 +306,7 @@
 
 .dayButton[aria-pressed="true"] {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   box-shadow: none;
 }
 

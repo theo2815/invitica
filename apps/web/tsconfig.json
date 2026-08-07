@@ -1,6 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // `scripts/*.ts` run directly on Node 24's type stripping, and Node's ESM resolver requires an
+    // explicit extension. Permitted here because the base config sets `noEmit`, so nothing is
+    // rewritten on the way out. Application code under `app/` and `src/` still resolves through the
+    // bundler and carries no extensions.
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "jsx": "preserve",
     "skipLibCheck": true,

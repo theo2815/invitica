@@ -61,6 +61,8 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 | `0031_delete_invitation.sql` | Owner deletion of any invitation, published or not |
 | `0032_assistant_message_budget.sql` | Server-enforced per-creator daily and global monthly AI assistant message ceilings |
 | `0033_assistant_conversations.sql` | Creator-owned saved assistant conversations, readable and deletable only by their author |
+| `0034_assistant_message_usage.sql` | Read-only per-creator view of the day's assistant allowance, with the cap owned by one function |
+| `0035_account_deletion_requests.sql` | Single-use, expiring, hash-only account deletion tokens claimable only by their own signed-in author |
 
 Migrations are additive and sequential. Do not selectively install a later migration because its
 function body appears to create successfully: PostgreSQL may defer relation resolution until the
@@ -81,11 +83,14 @@ hook. Do not place service-role credentials in browser-visible variables or repo
 ## Tests
 
 Every migration has a numerically matching transaction-wrapped pgTAP file in `tests/`. The current
-33 files declare 677 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
+35 files declare 718 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
 idempotency, concurrency, document preservation, and focused runtime behavior. The latest executed
-all-migration evidence covers `0001` through `0033` (2026-08-06, zero failures at 660 executed
-assertions). Only 660 of the 677 actually run: `0010` executes none of its 17, for the reason in the
+all-migration evidence covers `0001` through `0035` (**2026-08-07, zero failures at 701 executed
+assertions**). Only 701 of the 718 run: `0010` executes none of its 17, for the reason in the
 verification caveat below.
+
+*(This section previously stopped at `0033`/677 and omitted `0034` from the inventory above;
+corrected 2026-08-07 when `0035` was added and run.)*
 
 **Apply every migration before running any suite.** The suites assert the fully-migrated catalog
 rather than the schema at their own number: `0028` inserts three template-version policies and `0029`

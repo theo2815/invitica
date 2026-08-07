@@ -89,7 +89,7 @@
 .actions button:first-child {
   border-color: var(--accent, #7a3442);
   background: var(--accent, #7a3442);
-  color: #ffffff;
+  color: var(--accent-text);
 }
 
 .discard {

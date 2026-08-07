@@ -95,7 +95,7 @@
 .actions button:last-child {
   border-color: var(--danger);
   background: var(--danger);
-  color: #ffffff;
+  color: var(--danger-text);
 }
 
 .actions button:disabled {

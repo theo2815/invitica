@@ -2,11 +2,87 @@
 
 @import "tailwindcss";
 
+/*
+ * The Warm Editorial palette, defined once.
+ *
+ * These eleven names were already the vocabulary — `--accent` appears in 237 declarations,
+ * `--border` in 231 — but every surface carried its own copy of the values, so `.page` in the
+ * creator shell, the auth page, the publication panel, the venue picker, the template preview,
+ * and both `CreatorControl` popovers each re-declared the same hex. A second theme against that
+ * would have meant editing seven blocks to change one color.
+ *
+ * `--accent-text` and `--danger-text` exist because the fill and the ink on it invert together:
+ * white on burgundy in light, dark wine on rose in dark. Nineteen rules used to hard-code
+ * `#ffffff` for that.
+ */
 :root {
   color-scheme: light;
+
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #eee7da;
+  --text: #29231f;
+  --muted: #6d655e;
+  --border: #d5cbbd;
+  --accent: #7a3442;
+  --accent-hover: #5d2632;
+  --accent-text: #ffffff;
+  --focus: #2457c5;
+  --danger: #9d2d2d;
+  --danger-text: #ffffff;
+  --display-font: "Fraunces Variable", Georgia, serif;
+
   font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+/*
+ * Warm Editorial after dark: the same paper and wine, not a blue-black SaaS shell. Backgrounds
+ * keep the brown in them, and the burgundy lifts to a rose light enough to carry text — at
+ * 7.86:1 on `--surface`, where the light theme's burgundy reads 8.62:1 on cream. Every pairing
+ * that carries text clears AA; `--border` is deliberately at 1.58:1, the same subtle divider the
+ * light theme draws.
+ *
+ * Three selectors, because the choice has three values. No attribute means System, and the media
+ * query answers it in CSS with no script and so no flash. An explicit choice stamps the
+ * attribute server-side from a cookie, and must win in both directions — which is why the light
+ * block is an exclusion rather than a default.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --background: #17130f;
+    --surface: #201a15;
+    --surface-muted: #2c2620;
+    --text: #f3ece2;
+    --muted: #b3a696;
+    --border: #453b33;
+    --accent: #e79aa8;
+    --accent-hover: #f0b0bb;
+    --accent-text: #2a1016;
+    --focus: #8fb4ff;
+    --danger: #f09b92;
+    --danger-text: #3a1210;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #17130f;
+  --surface: #201a15;
+  --surface-muted: #2c2620;
+  --text: #f3ece2;
+  --muted: #b3a696;
+  --border: #453b33;
+  --accent: #e79aa8;
+  --accent-hover: #f0b0bb;
+  --accent-text: #2a1016;
+  --focus: #8fb4ff;
+  --danger: #f09b92;
+  --danger-text: #3a1210;
 }
 
 * {
@@ -23,7 +99,11 @@ html {
    so the app appeared to sit in a white frame it never intended.
 
    Declared on `body` alone, with no `html` background, so it propagates to the canvas and covers
-   the whole screen rather than only body's box. */
+   the whole screen rather than only body's box.
+
+   The landing and the legal documents keep their own `--ink`/`--wine`/`--paper` vocabulary and
+   stay light in every theme, so this literal is deliberately not a token: it is their cream,
+   not the themed one. */
 body {
   margin: 0;
   min-width: 320px;
@@ -36,7 +116,14 @@ body {
    `--surface` while that shell is mounted makes the strip and the header read as one bar. Scoped
    rather than global: the landing and auth surfaces have no such header and stay cream. */
 body:has([data-surface="creator"]) {
-  background: #fffdf8;
+  background: var(--surface);
+}
+
+/* The sign-in surfaces follow the theme too, so a creator who chose dark does not meet a cream
+   page when their session lapses. `--background` rather than `--surface`, because that is what
+   `AuthPage.module.css .page` paints and the two must not seam. */
+body:has([data-surface="auth"]) {
+  background: var(--background);
 }
 
 button,

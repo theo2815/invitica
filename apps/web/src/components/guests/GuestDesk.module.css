@@ -832,8 +832,12 @@
 }
 
 .dialog {
-  /* Named because the sticky header has to cancel it out; see `.bulkHeader`. */
-  --dialog-pad-top: clamp(1.5rem, 5vw, 2.5rem);
+  /*
+   * The dialog's top padding, paid by the sticky header instead of the dialog; see
+   * `.dialog:has(> .dialogHeader)`. Tighter than the side padding because the eyebrow's
+   * uppercase line already carries optical space above the title.
+   */
+  --dialog-pad-top: clamp(1.25rem, 3vw, 1.75rem);
 
   width: min(100%, 34rem);
   max-height: calc(100dvh - 2rem);
@@ -844,6 +848,20 @@
   background: var(--surface);
   box-shadow: 0 2rem 6rem rgb(30 24 20 / 28%);
   animation: guest-dialog-in 180ms ease-out both;
+}
+
+/*
+ * A dialog with a sticky header hands that header its top padding.
+ *
+ * A sticky header cannot cover a band it does not own. `top: 0` pins it to the top of the
+ * scrollport, which sits above the dialog's own padding, so the Tala panel scrolled visibly
+ * through the strip between the two and then vanished under the header — the same defect
+ * read as a gap in one dialog and as clipping in the other. Paying the padding inside the
+ * header closes the strip: its background now starts at the first scrolled pixel.
+ */
+.dialog:has(> .bulkHeader),
+.dialog:has(> .dialogHeader) {
+  padding-top: 0;
 }
 
 @keyframes guest-backdrop-in {
@@ -1508,9 +1526,9 @@
  * the only Close control and the 1 / 50 count. A creator halfway down a forty-row list had no
  * way out of the dialog without scrolling back to the top of it.
  *
- * The negative margin and the matching padding swap the dialog's own top padding for the
- * header's. Without them the header sticks below that padding and rows scroll through the
- * uncovered band above it — up to 2.5 rem of content sliding past over nothing.
+ * The header pays the dialog's top padding rather than sitting below it, so its background
+ * reaches the top of the scrollport. The rule underneath is what tells a creator that the
+ * Tala panel slid under a header rather than being cut off.
  */
 .bulkHeader,
 .dialogHeader {
@@ -1521,8 +1539,8 @@
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: calc(var(--dialog-pad-top) * -1);
   padding-block: var(--dialog-pad-top) 0.75rem;
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
@@ -1864,15 +1882,18 @@
 
   .bulkDialog,
   .editDialog {
-    /* The sheet reclaims its own padding, so the sticky header has to cancel this one. */
+    /*
+     * The sheet's top padding is the header's, and it has to clear the notch: on a phone the
+     * strip the header would otherwise leave uncovered is exactly where the status bar sits.
+     */
     --dialog-pad-top: max(1rem, env(safe-area-inset-top));
 
     width: 100%;
     max-height: 100dvh;
     min-height: 100dvh;
     align-self: stretch;
-    padding: var(--dialog-pad-top) max(1rem, env(safe-area-inset-right))
-      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    padding: 0 max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
     border-radius: 0;
   }
 

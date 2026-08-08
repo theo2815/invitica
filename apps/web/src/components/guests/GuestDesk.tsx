@@ -19,6 +19,7 @@ import type {
 } from "../../server/guests/guests";
 import type { InvitationResultSummary } from "../../server/guests/results";
 import { buildGeneralInvitationMessage } from "../../server/guests/sharing";
+import { useOptionalAssistant } from "../assistant/AssistantProvider";
 import { Select } from "../forms/Select";
 import { Check, MoreHorizontal, Plus, Users } from "../Icons";
 import { GuestBulkComposer } from "./GuestBulkComposer";
@@ -32,6 +33,8 @@ import {
 } from "./guest-desk-api";
 
 interface GuestDeskProps {
+  /** Whether Invi is switched on for this deployment. Resolved on the server. */
+  assistantAvailable?: boolean;
   hasMoreParties: boolean;
   invitations: readonly GuestInvitationSummary[];
   nextPartyOffset: number;
@@ -87,7 +90,10 @@ function formatResponseTime(value: string): string {
   }).format(new Date(value));
 }
 
-function confirmationCopy(confirmation: Exclude<Confirmation, null>): {
+function confirmationCopy(
+  confirmation: Exclude<Confirmation, null>,
+  personalOnly = false,
+): {
   action: string;
   description: string;
   eyebrow: string;
@@ -105,8 +111,9 @@ function confirmationCopy(confirmation: Exclude<Confirmation, null>): {
   if (confirmation.kind === "revoke") {
     return {
       action: "Revoke link",
-      description:
-        "The party will lose personalized access immediately. The general invitation will keep working.",
+      description: personalOnly
+        ? "The recipient will lose access immediately. Create a fresh personal link before sharing this invitation again."
+        : "The party will lose personalized access immediately. The general invitation will keep working.",
       eyebrow: "Private link",
       title: "Revoke this personalized link?",
     };
@@ -132,6 +139,7 @@ function confirmationPendingLabel(confirmation: Exclude<Confirmation, null>): st
 }
 
 export function GuestDesk({
+  assistantAvailable = false,
   hasMoreParties,
   invitations,
   nextPartyOffset,
@@ -141,6 +149,10 @@ export function GuestDesk({
   trashedParties,
 }: GuestDeskProps) {
   const router = useRouter();
+  // Optional for the same reason the editor's is: the desk is the product and Invi is an
+  // addition to it, so a desk that refused to render without one would invert that.
+  const assistant = useOptionalAssistant();
+  const romanceInvitation = selectedInvitation?.occasion === "Romance";
   // The invitation switcher changes a search parameter on a segment that is already
   // mounted, which does not re-trigger `loading.tsx`. Without this transition the click
   // produced no feedback at all for the whole server round trip.
@@ -182,6 +194,40 @@ export function GuestDesk({
   const previousInvitationIdRef = useRef(selectedInvitation?.invitationId ?? null);
   const skippedInitialCriteriaRequestRef = useRef(false);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  const setAssistantInvitationId = assistant?.setInvitationId;
+  const selectedInvitationId = selectedInvitation?.invitationId ?? null;
+
+  /**
+   * Puts the open invitation in Invi's context, and releases it on the way out.
+   *
+   * Without this the panel's guest-list mode would have nothing to organize against, since
+   * guest parties belong to one invitation. Releasing it matters as much as setting it: an id
+   * left behind would offer to draft into this invitation from every other route.
+   */
+  useEffect(() => {
+    if (!setAssistantInvitationId) return;
+    // Everything the desk lists is published, so organizing is always available from here.
+    // Drafting is not offered: this desk does not know which editor the invitation uses, and
+    // there is nowhere on this route to read or apply a draft even when it does.
+    setAssistantInvitationId(selectedInvitationId, { canDraft: false, canOrganize: true });
+    return () => setAssistantInvitationId(null);
+  }, [selectedInvitationId, setAssistantInvitationId]);
+
+  /**
+   * Rows parsed in the panel, for the invitation that is open here.
+   *
+   * They arrive as a proposal and stay one: the composer opens holding them, and the
+   * creator's own Create button is still the only thing that writes.
+   */
+  const stagedParties =
+    assistant?.guestList && assistant.guestList.invitationId === selectedInvitationId
+      ? assistant.guestList.parties
+      : null;
+
+  useEffect(() => {
+    if (stagedParties) setCreateOpen(true);
+  }, [stagedParties]);
 
   const requestGuestPage = useCallback(
     async (offset: number, append: boolean) => {
@@ -715,7 +761,9 @@ export function GuestDesk({
       });
       setActionMessage(
         completedKind === "revoke"
-          ? "The private link was revoked. The general invitation remains available."
+          ? romanceInvitation
+            ? "The personal invitation link was revoked. Create a fresh link before sharing it again."
+            : "The private link was revoked. The general invitation remains available."
           : "The party was moved to Recently deleted and its private link was revoked.",
       );
       refreshDesk();
@@ -773,7 +821,9 @@ export function GuestDesk({
           </h2>
           <p>
             {selectedInvitation
-              ? "Each party receives one private invitation and responds together."
+              ? romanceInvitation
+                ? "Each recipient receives one private invitation and answers for themself."
+                : "Each party receives one private invitation and responds together."
               : "Guest parties become available after delivery is confirmed."}
           </p>
         </div>
@@ -836,70 +886,105 @@ export function GuestDesk({
 
       {selectedInvitation && !isSelecting ? (
         <>
-          <section aria-labelledby="general-link-heading" className={styles.generalLink}>
-            <div>
-              <p className={styles.eyebrow}>General invitation</p>
-              <h2 id="general-link-heading">A welcoming message for every guest</h2>
-              <p>It opens the invitation for reading but does not authorize a party RSVP.</p>
-            </div>
-            <div className={styles.copyStack}>
-              <div className={`${styles.invitationActions} ${styles.generalInvitationActions}`}>
-                <button
-                  aria-label={generalBusy ? "Copying general invitation" : undefined}
-                  className={styles.copyInvitationButton}
-                  disabled={copyingPartyId !== null || isRefreshing}
-                  onClick={sendGeneralInvitation}
-                  type="button"
-                >
-                  {generalBusy ? (
-                    "Copying…"
-                  ) : generalDone ? (
-                    <>
-                      <Check /> Copied
-                    </>
-                  ) : (
-                    "Copy general invitation"
-                  )}
-                </button>
+          {romanceInvitation ? (
+            <section aria-labelledby="personal-only-heading" className={styles.generalLink}>
+              <div>
+                <p className={styles.eyebrow}>Personal invitations only</p>
+                <h2 id="personal-only-heading">Create one private link for each recipient</h2>
+                <p>
+                  Add a recipient below, then copy that person&apos;s invitation. Romance
+                  invitations do not offer a general-link sharing action.
+                </p>
+              </div>
+              <div className={styles.copyStack}>
                 <button
                   className={styles.secondaryCopyButton}
                   disabled={copyingPartyId !== null || isRefreshing}
                   onClick={() => {
-                    // A previous confirmation must not linger beside a fresh edit.
                     setShareMessageSaved(null);
                     setMessageEditorOpen(true);
                   }}
                   ref={messageEditorButtonRef}
                   type="button"
                 >
-                  {selectedInvitation.personalShareMessage || selectedInvitation.generalShareMessage
-                    ? "Edit message"
-                    : "Write your own"}
+                  {selectedInvitation.personalShareMessage
+                    ? "Edit personal message"
+                    : "Write your personal message"}
                 </button>
+                {shareMessageSaved ? (
+                  <p aria-live="polite" className={styles.copySuccess} role="status">
+                    <Check /> {shareMessageSaved}
+                  </p>
+                ) : null}
               </div>
-              {copyFeedback?.target === "general" ? (
-                <p
-                  aria-live="polite"
-                  className={
-                    copyFeedback.status === "success" ? styles.copySuccess : styles.copyError
-                  }
-                  role="status"
-                >
-                  {copyFeedback.message}
-                </p>
-              ) : null}
-              {/*
+            </section>
+          ) : (
+            <section aria-labelledby="general-link-heading" className={styles.generalLink}>
+              <div>
+                <p className={styles.eyebrow}>General invitation</p>
+                <h2 id="general-link-heading">A welcoming message for every guest</h2>
+                <p>It opens the invitation for reading but does not authorize a party RSVP.</p>
+              </div>
+              <div className={styles.copyStack}>
+                <div className={`${styles.invitationActions} ${styles.generalInvitationActions}`}>
+                  <button
+                    aria-label={generalBusy ? "Copying general invitation" : undefined}
+                    className={styles.copyInvitationButton}
+                    disabled={copyingPartyId !== null || isRefreshing}
+                    onClick={sendGeneralInvitation}
+                    type="button"
+                  >
+                    {generalBusy ? (
+                      "Copying…"
+                    ) : generalDone ? (
+                      <>
+                        <Check /> Copied
+                      </>
+                    ) : (
+                      "Copy general invitation"
+                    )}
+                  </button>
+                  <button
+                    className={styles.secondaryCopyButton}
+                    disabled={copyingPartyId !== null || isRefreshing}
+                    onClick={() => {
+                      // A previous confirmation must not linger beside a fresh edit.
+                      setShareMessageSaved(null);
+                      setMessageEditorOpen(true);
+                    }}
+                    ref={messageEditorButtonRef}
+                    type="button"
+                  >
+                    {selectedInvitation.personalShareMessage ||
+                    selectedInvitation.generalShareMessage
+                      ? "Edit message"
+                      : "Write your own"}
+                  </button>
+                </div>
+                {copyFeedback?.target === "general" ? (
+                  <p
+                    aria-live="polite"
+                    className={
+                      copyFeedback.status === "success" ? styles.copySuccess : styles.copyError
+                    }
+                    role="status"
+                  >
+                    {copyFeedback.message}
+                  </p>
+                ) : null}
+                {/*
                 The editor closes on a successful save, so its confirmation has to land here,
                 beside the button the creator just used. The page-foot status line is too far
                 away and too quiet to read as an answer.
               */}
-              {shareMessageSaved ? (
-                <p aria-live="polite" className={styles.copySuccess} role="status">
-                  <Check /> {shareMessageSaved}
-                </p>
-              ) : null}
-            </div>
-          </section>
+                {shareMessageSaved ? (
+                  <p aria-live="polite" className={styles.copySuccess} role="status">
+                    <Check /> {shareMessageSaved}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          )}
 
           {copyFallback ? (
             <section aria-labelledby="copy-fallback-heading" className={styles.linkReveal}>
@@ -923,14 +1008,18 @@ export function GuestDesk({
 
           <section aria-label="Guest overview" className={styles.summary}>
             <article>
-              <span>Guest parties</span>
+              <span>{romanceInvitation ? "Personal invitations" : "Guest parties"}</span>
               <strong>{resultSummary?.guestPartyCount ?? 0}</strong>
-              <small>Households and groups</small>
+              <small>
+                {romanceInvitation ? "One recipient per invitation" : "Households and groups"}
+              </small>
             </article>
             <article>
-              <span>Reserved seats</span>
+              <span>{romanceInvitation ? "Recipients" : "Reserved seats"}</span>
               <strong>{resultSummary?.reservedSeats ?? 0}</strong>
-              <small>Maximum party capacity</small>
+              <small>
+                {romanceInvitation ? "Private invitation recipients" : "Maximum party capacity"}
+              </small>
             </article>
             <article>
               <span>Attending guests</span>
@@ -963,7 +1052,7 @@ export function GuestDesk({
                 </h2>
               </div>
               <button
-                aria-label="Add guests"
+                aria-label={romanceInvitation ? "Add recipients" : "Add guests"}
                 className={styles.primaryAction}
                 disabled={isRefreshing}
                 onClick={() => {
@@ -973,7 +1062,7 @@ export function GuestDesk({
                 ref={createButtonRef}
                 type="button"
               >
-                <Plus /> Add guests
+                <Plus /> {romanceInvitation ? "Add recipients" : "Add guests"}
               </button>
             </header>
 
@@ -982,10 +1071,14 @@ export function GuestDesk({
                 <span aria-hidden="true">
                   <Users />
                 </span>
-                <h3>No guest parties yet</h3>
-                <p>Add one person, a family, or paste a full guest list in a single action.</p>
+                <h3>{romanceInvitation ? "No recipients yet" : "No guest parties yet"}</h3>
+                <p>
+                  {romanceInvitation
+                    ? "Add the person who should receive this private invitation."
+                    : "Add one person, a family, or paste a full guest list in a single action."}
+                </p>
                 <button disabled={isRefreshing} onClick={() => setCreateOpen(true)} type="button">
-                  Add the first guests
+                  {romanceInvitation ? "Add the first recipient" : "Add the first guests"}
                 </button>
               </div>
             ) : (
@@ -1341,19 +1434,31 @@ export function GuestDesk({
 
       {createOpen && selectedInvitation ? (
         <GuestBulkComposer
+          // A handoff from the panel mounts a fresh composer, so its rows are seeded even
+          // when one was already open. Without the key React would keep the old instance and
+          // silently discard the parse.
+          key={stagedParties ? "organized" : "manual"}
+          // Omitted rather than passed as undefined: `exactOptionalPropertyTypes` rejects
+          // the latter, and an absent prop reads as "no handoff" rather than as an empty one.
+          {...(stagedParties ? { initialParties: stagedParties } : {})}
           invitation={selectedInvitation}
           onClose={() => {
+            assistant?.clearGuestList();
             setCreateOpen(false);
             createButtonRef.current?.focus();
           }}
           onCreated={(count) => {
+            assistant?.clearGuestList();
             setCreateOpen(false);
             setActionMessage(
-              `${count} ${count === 1 ? "guest party is" : "guest parties are"} ready to share.`,
+              romanceInvitation
+                ? `${count} personal ${count === 1 ? "invitation is" : "invitations are"} ready to share.`
+                : `${count} ${count === 1 ? "guest party is" : "guest parties are"} ready to share.`,
             );
             refreshDesk();
             window.requestAnimationFrame(() => createButtonRef.current?.focus());
           }}
+          organizingAvailable={assistantAvailable}
           returnFocusRef={createButtonRef}
         />
       ) : null}
@@ -1380,11 +1485,13 @@ export function GuestDesk({
             );
           }}
           party={editingParty}
+          singleRecipient={romanceInvitation}
         />
       ) : null}
 
       {messageEditorOpen && selectedInvitation ? (
         <GuestShareMessageEditor
+          assistantAvailable={assistantAvailable}
           invitation={selectedInvitation}
           onClose={() => {
             setMessageEditorOpen(false);
@@ -1403,6 +1510,7 @@ export function GuestDesk({
             refreshDesk();
             window.requestAnimationFrame(() => messageEditorButtonRef.current?.focus());
           }}
+          personalOnly={romanceInvitation}
         />
       ) : null}
 
@@ -1418,9 +1526,15 @@ export function GuestDesk({
             role="dialog"
             tabIndex={-1}
           >
-            <p className={styles.eyebrow}>{confirmationCopy(confirmation).eyebrow}</p>
-            <h2 id="guest-confirmation-title">{confirmationCopy(confirmation).title}</h2>
-            <p id="guest-confirmation-description">{confirmationCopy(confirmation).description}</p>
+            <p className={styles.eyebrow}>
+              {confirmationCopy(confirmation, romanceInvitation).eyebrow}
+            </p>
+            <h2 id="guest-confirmation-title">
+              {confirmationCopy(confirmation, romanceInvitation).title}
+            </h2>
+            <p id="guest-confirmation-description">
+              {confirmationCopy(confirmation, romanceInvitation).description}
+            </p>
             {actionMessage ? (
               <p className={styles.dialogStatus} role="alert">
                 {actionMessage}
@@ -1438,7 +1552,7 @@ export function GuestDesk({
               >
                 {isPending
                   ? confirmationPendingLabel(confirmation)
-                  : confirmationCopy(confirmation).action}
+                  : confirmationCopy(confirmation, romanceInvitation).action}
               </button>
             </div>
           </section>

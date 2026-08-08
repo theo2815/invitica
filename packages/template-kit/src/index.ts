@@ -1,4 +1,5 @@
 export type {
+  TemplateEditorKey,
   TemplateListing,
   TemplateManifest,
   TemplateOccasion,
@@ -6,6 +7,7 @@ export type {
 } from "./manifest.js";
 export {
   templateAccessTierSchema,
+  templateEditorKeySchema,
   templateListingSchema,
   templateManifestSchema,
   templateOccasionSchema,

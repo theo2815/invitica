@@ -161,4 +161,71 @@ describe("publication social preview", () => {
 
     expect(store.objects.get(preview.objectKey)).toBeDefined();
   });
+
+  it("names the step that failed instead of one undiagnosable sentence", async () => {
+    const assetId = "30000000-0000-4000-8000-000000000097";
+    const sourceKey = `publication-media/v1/${"8".repeat(64)}/w900.webp`;
+    const base = snapshot("little-blessings-v1");
+    const heroDocument = {
+      ...base.document,
+      assets: [{ id: assetId, kind: "image" as const }],
+      sections: base.document.sections.map((section) =>
+        section.type === "hero"
+          ? { ...section, props: { ...section.props, imageAssetId: assetId } }
+          : section,
+      ),
+    };
+
+    // The snapshot schema requires the manifest to cover every document asset, so an empty manifest
+    // cannot be parsed at all. The branch is defensive, and reaching it needs a hand-built snapshot.
+    expect(() =>
+      parsePublicationSnapshot({ ...base, assets: [], document: heroDocument }),
+    ).toThrow();
+    await expect(
+      createPublicationSocialPreview(
+        { ...base, assets: [], document: heroDocument } as unknown as ReturnType<
+          typeof parsePublicationSnapshot
+        >,
+        new MemoryStore(),
+      ),
+    ).rejects.toMatchObject({ reason: "hero_rendition_missing_from_manifest" });
+
+    // The manifest names a rendition the bucket does not hold. This is the shape a worker and a web
+    // app pointed at different buckets produce, and it used to be indistinguishable from the rest.
+    const manifest = [
+      {
+        contentType: "image/webp",
+        height: 1_100,
+        id: assetId,
+        kind: "image",
+        renditions: [
+          {
+            byteLength: 4_096,
+            height: 1_100,
+            objectKey: sourceKey,
+            sha256: "8".repeat(64),
+            width: 900,
+          },
+        ],
+        width: 900,
+      },
+    ];
+    const publication = parsePublicationSnapshot({
+      ...base,
+      assets: manifest,
+      document: heroDocument,
+    });
+    await expect(
+      createPublicationSocialPreview(publication, new MemoryStore()),
+    ).rejects.toMatchObject({ reason: "hero_rendition_object_absent" });
+
+    // Anything thrown underneath keeps its cause on the error, which is where a stack trace finds it.
+    const brokenStore = new MemoryStore();
+    brokenStore.objects.set(sourceKey, new Uint8Array([1, 2, 3]));
+    const composition = await createPublicationSocialPreview(publication, brokenStore).catch(
+      (error: unknown) => error,
+    );
+    expect(composition).toMatchObject({ reason: "preview_composition_failed" });
+    expect((composition as Error).cause).toBeInstanceOf(Error);
+  });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { signOut } from "../../server/auth/actions";
@@ -18,7 +19,7 @@ export function ProfileMenu({ creatorName, email, variant }: ProfileMenuProps) {
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const signOutRef = useRef<HTMLButtonElement>(null);
+  const settingsRef = useRef<HTMLAnchorElement>(null);
   const displayName = creatorName ?? "Creator";
   const firstName = displayName.trim().split(/\s+/)[0] || "Creator";
   const initial = (creatorName ?? email ?? "C").charAt(0).toUpperCase();
@@ -26,7 +27,9 @@ export function ProfileMenu({ creatorName, email, variant }: ProfileMenuProps) {
   useEffect(() => {
     if (!open) return;
 
-    const focusFrame = window.requestAnimationFrame(() => signOutRef.current?.focus());
+    // The first item takes focus, not the last. Until Settings existed, opening this menu put
+    // the keyboard on **Sign out**, where one Enter ended the session.
+    const focusFrame = window.requestAnimationFrame(() => settingsRef.current?.focus());
 
     function handlePointerDown(event: PointerEvent) {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
@@ -82,11 +85,18 @@ export function ProfileMenu({ creatorName, email, variant }: ProfileMenuProps) {
             <strong>{displayName}</strong>
             <span>{email}</span>
           </div>
-          <button className={styles.menuAction} disabled type="button">
+          {/* The same destination on both breakpoints. The mobile bottom bar stays at four
+              tabs — the 2026-08-06 navigation decision refused the assistant a fifth, and an
+              account page has a weaker claim than that one did. */}
+          <Link
+            className={styles.menuAction}
+            href="/dashboard/settings"
+            onClick={() => setOpen(false)}
+            ref={settingsRef}
+          >
             <Settings />
             <span>Settings</span>
-            <small>Coming soon</small>
-          </button>
+          </Link>
           <form action={signOut}>
             <PendingFormButton
               className={`${styles.menuAction} ${styles.signOut}`}
@@ -102,7 +112,6 @@ export function ProfileMenu({ creatorName, email, variant }: ProfileMenuProps) {
                   <span>Signing out…</span>
                 </>
               }
-              ref={signOutRef}
               type="submit"
             />
           </form>

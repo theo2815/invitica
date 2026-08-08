@@ -1,4 +1,4 @@
-import { resolveTemplateById } from "@invitica/template-kit";
+import { resolveTemplateVersion } from "@invitica/template-kit";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,7 @@ vi.mock("../src/server/invitations/actions", () => ({
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const nextInvitationId = "71000000-0000-4000-8000-000000000002";
-const gardenPromise = resolveTemplateById("garden-promise");
+const gardenPromise = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 
 function renderEditor() {
   return render(

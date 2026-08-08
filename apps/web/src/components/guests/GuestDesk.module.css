@@ -22,7 +22,7 @@
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 5%);
+  box-shadow: 0 1.25rem 3rem rgb(var(--shadow-rgb) / 5%);
 }
 
 .context h2,
@@ -223,7 +223,7 @@
 }
 
 .copySuccess {
-  color: #3f653e;
+  color: var(--success);
 }
 
 .copyError {
@@ -266,7 +266,7 @@
 }
 
 .copySuccess {
-  color: #3f653e;
+  color: var(--success);
 }
 
 .copyError {
@@ -286,23 +286,23 @@
 .dialogActions button:last-child {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .linkReveal {
   grid-template-columns: auto minmax(0, 1fr);
   margin-top: 1.25rem;
-  border-left: 3px solid #4f734d;
-  background: #f3f5ec;
+  border-left: 3px solid var(--success);
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
 }
 
 .linkReveal > span {
   display: grid;
   width: 3rem;
   height: 3rem;
-  border: 1px solid rgb(79 115 77 / 28%);
+  border: 1px solid color-mix(in srgb, var(--success) 32%, transparent);
   border-radius: 50%;
-  color: #3f653e;
+  color: var(--success);
   place-items: center;
 }
 
@@ -504,7 +504,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   font-size: 0.72rem;
   font-weight: 760;
   cursor: pointer;
@@ -716,7 +716,7 @@
 }
 
 .active {
-  color: #466545;
+  color: var(--success);
 }
 
 .revoked {
@@ -724,7 +724,7 @@
 }
 
 .responseBadge[data-response="attending"] {
-  color: #3f653e;
+  color: var(--success);
 }
 
 .responseBadge[data-response="declined"] {
@@ -753,7 +753,7 @@
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   background: var(--surface);
-  box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 14%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--shadow-rgb) / 14%);
 }
 
 .partyActions[data-open="true"] {
@@ -826,12 +826,19 @@
   overflow-y: auto;
   padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
     max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-  background: rgb(35 28 24 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   animation: guest-backdrop-in 160ms ease-out both;
   place-items: center;
 }
 
 .dialog {
+  /*
+   * The dialog's top padding, paid by the sticky header instead of the dialog; see
+   * `.dialog:has(> .dialogHeader)`. Tighter than the side padding because the eyebrow's
+   * uppercase line already carries optical space above the title.
+   */
+  --dialog-pad-top: clamp(1.25rem, 3vw, 1.75rem);
+
   width: min(100%, 34rem);
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
@@ -839,8 +846,22 @@
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 2rem 6rem rgb(30 24 20 / 28%);
+  box-shadow: 0 2rem 6rem rgb(var(--shadow-rgb) / 28%);
   animation: guest-dialog-in 180ms ease-out both;
+}
+
+/*
+ * A dialog with a sticky header hands that header its top padding.
+ *
+ * A sticky header cannot cover a band it does not own. `top: 0` pins it to the top of the
+ * scrollport, which sits above the dialog's own padding, so the Invi panel scrolled visibly
+ * through the strip between the two and then vanished under the header — the same defect
+ * read as a gap in one dialog and as clipping in the other. Paying the padding inside the
+ * header closes the strip: its background now starts at the first scrolled pixel.
+ */
+.dialog:has(> .bulkHeader),
+.dialog:has(> .dialogHeader) {
+  padding-top: 0;
 }
 
 @keyframes guest-backdrop-in {
@@ -856,9 +877,16 @@
   }
 }
 
+/*
+ * Editorial, not a headline.
+ *
+ * `clamp(2rem, 6vw, 3rem)` is the Guest Desk's own section scale, and applying it to a task
+ * dialog spent about 150 px on two wrapped lines of "Write your own message" before the work
+ * began. The eyebrow above it already names the surface.
+ */
 .dialog h2 {
-  font-size: clamp(2rem, 6vw, 3rem);
-  line-height: 1;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.1;
 }
 
 .dialog form {
@@ -886,11 +914,21 @@
   line-height: 1.5;
 }
 
+/*
+ * Danger by default, because every caller but one is reporting a failure and a silent change
+ * of meaning would be worse than the extra attribute. `data-tone="info"` is opted into by the
+ * Add guests composer, which also uses this slot to say how many rows a paste prepared —
+ * a neutral fact that had been rendering in error red.
+ */
 .dialogStatus {
   margin: 0;
   color: var(--danger);
   font-size: 0.68rem;
   line-height: 1.5;
+}
+
+.dialogStatus[data-tone="info"] {
+  color: var(--muted);
 }
 
 .dialogActions {
@@ -1118,7 +1156,7 @@
     gap: 0.8rem;
     padding: 1rem;
     border-radius: 0.4rem;
-    box-shadow: 0 0.65rem 1.5rem rgb(61 45 37 / 4%);
+    box-shadow: 0 0.65rem 1.5rem rgb(var(--shadow-rgb) / 4%);
   }
 
   .context h2 {
@@ -1301,7 +1339,7 @@
   padding-inline: 0.75rem;
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .copyInvitationButton svg {
@@ -1481,18 +1519,29 @@
   margin-top: 1.25rem;
 }
 
-.bulkHeader {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
+/*
+ * Sticky at every width, not only on the mobile sheet.
+ *
+ * Both dialogs scroll inside themselves on a laptop too, and the row that scrolled away held
+ * the only Close control and the 1 / 50 count. A creator halfway down a forty-row list had no
+ * way out of the dialog without scrolling back to the top of it.
+ *
+ * The header pays the dialog's top padding rather than sitting below it, so its background
+ * reaches the top of the scrollport. The rule underneath is what tells a creator that the
+ * Invi panel slid under a header rather than being cut off.
+ */
+.bulkHeader,
 .dialogHeader {
+  position: sticky;
+  z-index: 2;
+  top: 0;
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
+  padding-block: var(--dialog-pad-top) 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .dialogHeader > div > p:not(.eyebrow) {
@@ -1557,6 +1606,39 @@
   grid-column: 1 / -1;
 }
 
+/*
+ * Reset lives with the fields it clears, not in the footer.
+ *
+ * At 430 px `.dialogActions` stacks into a column, which put "clear both messages" directly
+ * above "save both messages" as two identical full-width buttons.
+ */
+.shareMessageReset {
+  grid-column: 1 / -1;
+}
+
+.shareMessageReset button {
+  min-height: 2.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.shareMessageReset button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.shareMessageReset button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* The two message fields and their preview each need the dialog's full width to stay readable. */
 .shareMessageField {
   display: grid;
@@ -1606,9 +1688,33 @@
   color: var(--danger);
 }
 
+/*
+ * `InviTaskPanel`'s placement inside these two dialogs. Everything the panel looks like lives
+ * in its own module; this is only how wide it is and where it sits.
+ *
+ * Both halves of that mattered. In the message editor the panel inherited `.editPartyForm`'s
+ * two-column grid without spanning it, so Invi rendered at half the dialog while every field
+ * beneath it ran the full width. In the 74 rem Add guests dialog the opposite: a box for one
+ * sentence stretched to 1184 px, with its action stranded at the far bottom-left.
+ */
+.taskPanel {
+  max-width: 46rem;
+  grid-column: 1 / -1;
+}
+
 .bulkRows {
   display: grid;
   gap: 0.55rem;
+  transition: opacity 160ms ease;
+}
+
+/*
+ * These are the rows the answer in flight is about to replace, so they are the one part of the
+ * dialog whose state is genuinely uncertain while a turn runs. Nothing here depends on seeing
+ * it: the fields are already disabled and the panel above says what Invi is doing.
+ */
+.bulkRows[data-waiting="true"] {
+  opacity: 0.5;
 }
 
 .bulkRow {
@@ -1624,6 +1730,18 @@
   transition:
     border-color 160ms ease,
     background 160ms ease;
+}
+
+/*
+ * A row Invi just added or changed, marked for a couple of seconds.
+ *
+ * Only the rows that actually moved: a follow-up correcting one seat count marks one row, so
+ * the edit is findable in a list of forty instead of the creator re-reading all of it. The
+ * status line beside the box states the counts, so this marker is never the only evidence.
+ */
+.bulkRow[data-arrived="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0.2rem 0 0 var(--accent);
 }
 
 .bulkRow[data-invalid="true"] {
@@ -1676,6 +1794,36 @@
   resize: vertical;
 }
 
+.bulkRow:has(.singleRecipientNote) {
+  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(7rem, 0.4fr) auto;
+}
+
+.singleRecipientNote {
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 720;
+  text-align: center;
+}
+
+.singleRecipientEditorNote {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--accent-soft) 60%, white);
+  color: var(--muted);
+}
+
+.singleRecipientEditorNote strong {
+  color: var(--ink);
+}
+
 .bulkTools {
   display: flex;
   gap: 0.5rem;
@@ -1698,6 +1846,10 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
+  .bulkRow:has(.singleRecipientNote) {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
   .bulkRow label:nth-of-type(1),
   .bulkRow label:nth-of-type(2) {
     grid-column: span 3;
@@ -1709,6 +1861,10 @@
 
   .memberField {
     grid-column: span 4;
+  }
+
+  .bulkRow:has(.singleRecipientNote) .singleRecipientNote {
+    grid-column: span 5;
   }
 }
 
@@ -1724,41 +1880,27 @@
     place-items: stretch;
   }
 
-  .bulkDialog {
-    width: 100%;
-    max-height: 100dvh;
-    min-height: 100dvh;
-    align-self: stretch;
-    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
-      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-    border-radius: 0;
-  }
-
+  .bulkDialog,
   .editDialog {
+    /*
+     * The sheet's top padding is the header's, and it has to clear the notch: on a phone the
+     * strip the header would otherwise leave uncovered is exactly where the status bar sits.
+     */
+    --dialog-pad-top: max(1rem, env(safe-area-inset-top));
+
     width: 100%;
     max-height: 100dvh;
     min-height: 100dvh;
     align-self: stretch;
-    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
-      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    padding: 0 max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
     border-radius: 0;
   }
 
-  .bulkHeader,
-  .dialogHeader {
-    position: sticky;
-    z-index: 2;
-    top: 0;
-    padding-block: 0.25rem 0.75rem;
-    background: var(--surface);
-  }
-
-  .bulkHeader h2 {
-    font-size: 1.8rem;
-  }
-
+  /* Sticky is now the rule at every width; the sheet only needs its own type size. */
+  .bulkHeader h2,
   .dialogHeader h2 {
-    font-size: 1.8rem;
+    font-size: 1.45rem;
   }
 
   .bulkRow {
@@ -1770,6 +1912,10 @@
   .bulkRow label:nth-of-type(2),
   .memberField {
     grid-column: 1 / -1;
+  }
+
+  .bulkRow:has(.singleRecipientNote) .singleRecipientNote {
+    grid-column: 1;
   }
 
   .capacityField {

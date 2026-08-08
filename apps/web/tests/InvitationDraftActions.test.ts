@@ -34,11 +34,29 @@ vi.mock("../src/server/invitations/publication-jobs", () => ({
   enqueueInvitationPublication: vi.fn(),
   PublicationEnqueueError: class PublicationEnqueueError extends Error {},
 }));
+
+/** Records the exact order the deletion path removes objects from R2. */
+const deletedKeys: string[] = [];
+const deleteObject = vi.fn(async (key: string) => {
+  deletedKeys.push(key);
+});
+
+vi.mock("../src/server/media/object-store", () => ({
+  R2MediaObjectStore: class {
+    delete = deleteObject;
+  },
+  readR2MediaConfig: () => ({
+    accessKeyId: "key",
+    bucket: "invitica-storage",
+    endpoint: "https://example.r2.cloudflarestorage.com",
+    secretAccessKey: "secret",
+  }),
+}));
 const littleBlessingsV1 = resolveTemplateVersion("40000000-0000-4000-8000-000000000004");
 
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const publicationId = "92000000-0000-4000-8000-000000000001";
-const gardenPromise = resolveTemplateById("garden-promise");
+const gardenPromise = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 const gardenPromiseFields = {
   dateLabel: "February 14, 2027",
   mapUrl: "https://maps.example.test/garden",
@@ -80,6 +98,11 @@ beforeEach(() => {
   vi.mocked(ensurePersonalWorkspace).mockReset();
   vi.mocked(requireConfirmedUser).mockReset();
   vi.mocked(enqueueInvitationPublication).mockReset();
+  deletedKeys.length = 0;
+  deleteObject.mockReset();
+  deleteObject.mockImplementation(async (key: string) => {
+    deletedKeys.push(key);
+  });
 });
 
 describe("create invitation draft action", () => {
@@ -125,7 +148,7 @@ describe("create invitation draft action", () => {
 
   it("keeps renderer fixtures unavailable", async () => {
     const rpc = vi.fn();
-    const fixture = resolveTemplateById("golden-hour");
+    const fixture = resolveTemplateVersion("40000000-0000-4000-8000-000000000002");
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
       error: null,
       supabase: { rpc } as never,
@@ -262,19 +285,78 @@ describe("publish invitation action", () => {
 });
 
 describe("delete invitation action", () => {
-  it("deletes an unpublished invitation and refreshes the library", async () => {
+  const publicIdentifier = "b1b2b3b4b5b6b7b8b9b0b1b2b3b4b5b6";
+  const artifactKey = "publication-artifacts/v2/92000000-0000-4000-8000-000000000001.json";
+
+  /**
+   * `publication_aliases` is queried with one `eq`, `publication_builds` with two,
+   * and both are awaited on the builder itself.
+   */
+  function createPublicationQueries(published: boolean) {
+    const aliasResult = Promise.resolve({
+      data: published ? [{ public_identifier: publicIdentifier }] : [],
+      error: null,
+    });
+    const buildResult = Promise.resolve({
+      data: published ? [{ artifact_key: artifactKey }] : [],
+      error: null,
+    });
+
+    return vi.fn().mockImplementation((table: string) => ({
+      select: vi
+        .fn()
+        .mockReturnValue(
+          table === "publication_aliases"
+            ? { eq: vi.fn().mockReturnValue(aliasResult) }
+            : { eq: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue(buildResult) }) },
+        ),
+    }));
+  }
+
+  it("deletes an unpublished invitation without reaching for the object store", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
     vi.mocked(requireConfirmedUser).mockResolvedValue({
-      supabase: { rpc } as never,
+      supabase: { from: createPublicationQueries(false), rpc } as never,
       user: {} as never,
     });
 
     await expect(deleteInvitationAction({ invitationId })).resolves.toEqual({
       status: "deleted",
     });
-    expect(rpc).toHaveBeenCalledWith("delete_unpublished_invitation", {
-      p_invitation_id: invitationId,
-    });
+    expect(rpc).toHaveBeenCalledWith("delete_invitation", { p_invitation_id: invitationId });
+    expect(deletedKeys).toEqual([]);
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/invitations");
+  });
+
+  it("closes the guest link before deleting a published invitation's records", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
+      supabase: { from: createPublicationQueries(true), rpc } as never,
+      user: {} as never,
+    });
+
+    await expect(deleteInvitationAction({ invitationId })).resolves.toEqual({
+      status: "deleted",
+    });
+    // The alias is what the Viewer resolves, so it goes first and alone.
+    expect(deletedKeys).toEqual([`publication-aliases/v1/${publicIdentifier}.json`, artifactKey]);
+    expect(rpc).toHaveBeenCalledWith("delete_invitation", { p_invitation_id: invitationId });
+  });
+
+  it("keeps the records when the guest link cannot be closed", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    deleteObject.mockRejectedValue(new Error("R2 unavailable"));
+    vi.mocked(requireConfirmedUser).mockResolvedValue({
+      supabase: { from: createPublicationQueries(true), rpc } as never,
+      user: {} as never,
+    });
+
+    await expect(deleteInvitationAction({ invitationId })).resolves.toEqual({
+      message:
+        "The shared link could not be taken down, so nothing was deleted. Try again in a moment.",
+      status: "error",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

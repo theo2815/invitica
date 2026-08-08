@@ -5,10 +5,15 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { InviMark } from "../assistant/InviMascot";
 import { Envelope, Grid, Home, Users } from "../Icons";
 import styles from "./CreatorShell.module.css";
 
-type CreatorPage = "guests" | "invitations" | "overview" | "templates";
+type CreatorPage = "assistant" | "guests" | "invitations" | "overview" | "templates";
+
+interface CreatorNavigationProps extends Pick<WorkspaceLinkProps, "variant"> {
+  showAssistant?: boolean;
+}
 
 interface WorkspaceLinkProps {
   active: boolean;
@@ -27,6 +32,7 @@ interface PendingLinkContentProps {
 }
 
 function creatorPageFromPath(pathname: string): CreatorPage {
+  if (pathname.startsWith("/dashboard/assistant")) return "assistant";
   if (pathname.startsWith("/dashboard/invitations")) return "invitations";
   if (pathname.startsWith("/dashboard/templates")) return "templates";
   if (pathname.startsWith("/dashboard/guests")) return "guests";
@@ -68,13 +74,21 @@ function WorkspaceLink({ active, href, icon, label, mobileLabel, variant }: Work
         variant === "desktop" ? (active ? styles.activeNavItem : styles.navItem) : undefined
       }
       href={href}
+      // Activating the destination you are already on used to start a real navigation: the
+      // tab swapped its icon for a spinner, the route skeleton replaced the page, and the
+      // same content came back. Nothing changed except the wait. The element stays a link
+      // so `href`, focus order, and open-in-new-tab are untouched — only the same-page
+      // default is dropped.
+      onClick={(event) => {
+        if (active) event.preventDefault();
+      }}
     >
       <PendingLinkContent icon={icon} label={label} mobileLabel={mobileLabel} variant={variant} />
     </Link>
   );
 }
 
-export function CreatorNavigation({ variant }: Pick<WorkspaceLinkProps, "variant">) {
+export function CreatorNavigation({ showAssistant = false, variant }: CreatorNavigationProps) {
   const activePage = creatorPageFromPath(usePathname());
 
   const links = (
@@ -87,6 +101,15 @@ export function CreatorNavigation({ variant }: Pick<WorkspaceLinkProps, "variant
         mobileLabel="Home"
         variant={variant}
       />
+      {variant === "desktop" && showAssistant ? (
+        <WorkspaceLink
+          active={activePage === "assistant"}
+          href="/dashboard/assistant"
+          icon={<InviMark />}
+          label="Invi"
+          variant={variant}
+        />
+      ) : null}
       <WorkspaceLink
         active={activePage === "invitations"}
         href="/dashboard/invitations"
@@ -134,7 +157,11 @@ export function CreatorRouteFocus() {
     previousPathRef.current = pathname;
     const page = creatorPageFromPath(pathname);
     const label =
-      page === "guests" ? "Guests and RSVPs" : `${page[0]?.toUpperCase()}${page.slice(1)}`;
+      page === "guests"
+        ? "Guests and RSVPs"
+        : page === "assistant"
+          ? "Invi"
+          : `${page[0]?.toUpperCase()}${page.slice(1)}`;
     setAnnouncement(`${label} loaded.`);
     const frame = window.requestAnimationFrame(() =>
       document.getElementById("creator-content")?.focus({ preventScroll: true }),

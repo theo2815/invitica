@@ -12,6 +12,7 @@ export const gardenPromiseTemplate = {
   },
   // A wedding celebrates two people together.
   celebrantPronoun: "they",
+  editorKey: "focused-event-v1",
   templateVersionId: "40000000-0000-4000-8000-000000000001",
   version: 1,
   qualityStatus: "production",

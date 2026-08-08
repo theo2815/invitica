@@ -1,0 +1,289 @@
+/*
+ * Invi inside a task dialog.
+ *
+ * A paper-beige inset on the dialog's warm white, so it reads as an offer within the task
+ * rather than as a second screen. The rows or fields below it remain the whole feature: this
+ * is the fast path into them, and it is not rendered at all when the assistant is switched off.
+ *
+ * It carries no width of its own. Its two callers are 38 rem and 74 rem dialogs, and a box
+ * sized for one would be half-width in the first and a slab in the second, so each passes its
+ * own constraint through `className`.
+ */
+.panel {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: var(--surface-muted, #eee7da);
+}
+
+.head {
+  display: flex;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+/*
+ * The same mascot the floating panel uses, at the size it uses beside a thinking label. It is
+ * how a creator knows this is the assistant they already met rather than a beige box with a
+ * name in it, and it costs nothing — the SVG is inline and already in this bundle.
+ */
+.mascot {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+}
+
+.head label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.head label span {
+  color: var(--text, #29231f);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.head label small {
+  color: var(--muted, #6d655e);
+  font-size: 0.68rem;
+  font-weight: 520;
+  line-height: 1.5;
+}
+
+/*
+ * The exchange, above the box it is typed into.
+ *
+ * Bounded rather than growing without limit: this sits inside a dialog whose real work is
+ * underneath it, so a long conversation scrolls within itself instead of pushing the rows or
+ * the message fields off the screen.
+ */
+.thread {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 11rem;
+  margin: 0;
+  padding: 0.15rem 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+/* `AssistantAnswer` sets no size of its own and inherits, so sizing lives here once. */
+.thread li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+/* Sender is carried by the label as well as the alignment, so it never depends on position. */
+.thread li[data-role="user"] {
+  justify-items: end;
+  border-color: transparent;
+  background: transparent;
+  text-align: right;
+}
+
+.thread li > p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.role {
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/*
+ * What is happening, in words, while it happens.
+ *
+ * Before this the only evidence of a turn in flight was a changed button label and a form that
+ * had gone grey — on a 74 rem dialog, no evidence at all. The dots are decoration on a sentence
+ * that already says it.
+ */
+.thinking {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 0.18rem;
+  align-self: center;
+}
+
+.dots i {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: currentcolor;
+  animation: invi-task-typing 1.2s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes invi-task-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+
+  30% {
+    opacity: 1;
+  }
+}
+
+.suggestions {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestions button {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px dashed var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.73rem;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestions button:hover:not(:disabled) {
+  border-color: var(--accent, #7a3442);
+}
+
+.suggestions button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.panel textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/*
+ * The day's allowance and the action share one row, the way the floating panel's composer does.
+ * Every turn from here spends one of twenty, and until now that was stated only in the hint
+ * above — never at the moment it was about to be spent.
+ */
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.send {
+  min-height: 2.75rem;
+  padding-inline: 0.9rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.35rem;
+  background: var(--accent, #7a3442);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.send:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.5rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+/*
+ * A question is not a failure. Every message from this panel used to render through the
+ * dialog's own status line, which is unconditionally `--danger`, so an ordinary clarifying
+ * question and a successful count both arrived in error red.
+ */
+.status[data-tone="info"] {
+  color: var(--muted, #6d655e);
+}
+
+.status[data-tone="danger"] {
+  color: var(--danger, #a3302b);
+}
+
+.retry {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+    gap: 0.4rem;
+  }
+
+  .send {
+    width: 100%;
+  }
+}
+
+/* The sentence carries the state on its own, so stopping the dots removes decoration only. */
+@media (prefers-reduced-motion: reduce) {
+  .dots i {
+    animation: none;
+    opacity: 0.65;
+  }
+}

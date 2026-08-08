@@ -83,6 +83,21 @@
   min-height: 16rem;
 }
 
+/* Invi's page is a tall conversation with a picker and a section list beside it, not a row
+   of three cards. The placeholder says so rather than promising a shape that never
+   arrives. */
+.skeleton[data-variant="assistant"] .skeletonPanel {
+  min-height: 22rem;
+}
+
+.skeleton[data-variant="assistant"] .skeletonCards {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.skeleton[data-variant="assistant"] .skeletonCards > span {
+  min-height: 4.5rem;
+}
+
 .error {
   display: grid;
   min-height: min(34rem, 70dvh);
@@ -127,7 +142,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #fffaf6;
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 760;

@@ -2,18 +2,27 @@
 
 import type { InvitationDocument, InvitationSection } from "@invitica/invitation-schema";
 import { type InvitationOpeningState, resolveTemplateRenderer } from "@invitica/renderer";
-import type { TemplateManifest } from "@invitica/template-kit";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  applyLittleBlessingsDetails,
-  littleBlessingsDetailsSchema,
+  applySectionDocumentDetails,
+  sectionDocumentDetailsSchema,
 } from "../../lib/invitations/little-blessings-details";
+import { describeProposalChanges } from "../../lib/invitations/proposal-diff";
+import {
+  isSectionKey,
+  resolveEditorProfile,
+  SECTION_ORDER,
+  type SectionKey,
+} from "../../lib/invitations/section-vocabulary";
 import { getMapTileKey } from "../../lib/map-tile-key";
-import { saveLittleBlessingsAction } from "../../server/invitations/actions";
+import { saveSectionDocumentAction } from "../../server/invitations/actions";
 import type { InvitationPublicationStatus } from "../../server/invitations/publications";
 import type { CreatorImageAsset } from "../../server/media/library";
+import { useOptionalAssistant } from "../assistant/AssistantProvider";
+import { useRegisterDraftFlush } from "./DraftFlushProvider";
 import { InvitationPublicationPanel } from "./InvitationPublicationPanel";
+import type { InvitationEditorProps } from "./invitation-editor-contract";
 import styles from "./LittleBlessingsDraftEditor.module.css";
 import {
   AddItemButton,
@@ -26,63 +35,19 @@ import {
   TextField,
 } from "./LittleBlessingsEditorFields";
 import { LittleBlessingsImageField } from "./LittleBlessingsImageField";
-import { type AvailableTemplateUpgrade, TemplateUpgradePanel } from "./TemplateUpgradePanel";
+import { TemplateUpgradePanel } from "./TemplateUpgradePanel";
 import { type DraftSaveStatus, useDraftAutosave } from "./useDraftAutosave";
 import { VenueLocationPicker } from "./VenueLocationPicker";
 
 const MAX_PHOTOS = 8;
 const MAX_GIFTS = 8;
-
-type SectionKey =
-  | "attire"
-  | "countdown"
-  | "event-details"
-  | "gallery"
-  | "gifts"
-  | "guidance"
-  | "hero"
-  | "message"
-  | "participants"
-  | "rsvp"
-  | "schedule";
-
-/**
- * The curated Little Blessings order. Creators choose what to show, never where
- * it sits: the reply section is last so an invited guest reads the whole
- * invitation before being asked to decide.
- */
-const SECTION_ORDER: readonly SectionKey[] = [
-  "hero",
-  "message",
-  "countdown",
-  "event-details",
-  "participants",
-  "schedule",
-  "attire",
-  "gallery",
-  "guidance",
-  "gifts",
-  "rsvp",
-];
-
-const SECTION_NAMES: Record<SectionKey, string> = {
-  attire: "What to wear",
-  countdown: "Until the celebration",
-  "event-details": "Where and when",
-  gallery: "Little moments",
-  gifts: "Gift ideas",
-  guidance: "A gentle note",
-  hero: "The celebrant",
-  message: "Held in grace",
-  participants: "Ninong and ninang",
-  rsvp: "Celebrate with us",
-  schedule: "Order of the day",
-};
+const MAX_PARTICIPANT_GROUPS = 10;
+const MAX_SCHEDULE_ITEMS = 16;
 
 const LOCKED_SECTIONS: Partial<Record<SectionKey, string>> = {
   "event-details":
     "Guests always need the date, time, and place, so this section cannot be hidden.",
-  hero: "This carries the celebrant's name, date, and portrait, and is what the closed envelope shows, so it cannot be hidden.",
+  hero: "This carries the invitation's main name, date, and portrait, and is what the closed envelope shows, so it cannot be hidden.",
 };
 
 /**
@@ -94,8 +59,7 @@ const LOCKED_SECTIONS: Partial<Record<SectionKey, string>> = {
 const EMPTY_GALLERY_REASON = "Add a photograph and this album can be shown to your guests.";
 
 const SECTION_NOTES: Partial<Record<SectionKey, string>> = {
-  message:
-    "The parents' names live in this section. Hiding it also hides who is signing the invitation.",
+  message: "Hiding this section also hides the invitation's signature.",
   rsvp: "Only guests who open their own personal link ever see this. Guests using the general link never see a reply section.",
 };
 
@@ -154,19 +118,15 @@ interface EditorState {
   };
   message: { body: string; heading: string; signatureLead: string; signatureNames: string[] };
   participants: { groups: { label: string; names: string[] }[]; heading: string };
-  rsvp: { deadline: string; heading: string; message: string };
+  rsvp: {
+    deadline: string;
+    declineButtonBehavior: "static" | "dodge-five";
+    heading: string;
+    message: string;
+    responseMode: "attendance" | "romantic-question";
+  };
   schedule: { heading: string; items: { description: string; timeLabel: string; title: string }[] };
   visible: Record<SectionKey, boolean>;
-}
-
-interface LittleBlessingsDraftEditorProps {
-  initialAssets: readonly CreatorImageAsset[];
-  initialDocument: InvitationDocument;
-  initialPublication?: InvitationPublicationStatus;
-  initialRevision: number;
-  invitationId: string;
-  rendererKey: TemplateManifest["rendererKey"];
-  templateUpgrade?: AvailableTemplateUpgrade | null;
 }
 
 const idlePublication: InvitationPublicationStatus = {
@@ -313,8 +273,11 @@ function buildInitialState(document: InvitationDocument): EditorState {
     },
     rsvp: {
       deadline: rsvp?.props.deadline?.slice(0, 10) ?? "",
+      declineButtonBehavior:
+        rsvp && "declineButtonBehavior" in rsvp.props ? rsvp.props.declineButtonBehavior : "static",
       heading: rsvp?.props.heading ?? "",
       message: rsvp?.props.message ?? "",
+      responseMode: rsvp && "responseMode" in rsvp.props ? rsvp.props.responseMode : "attendance",
     },
     schedule: {
       heading: schedule?.props.heading ?? "",
@@ -441,6 +404,12 @@ function toDetails(document: InvitationDocument, state: EditorState): Record<str
   });
   add("rsvp", {
     deadline: state.rsvp.deadline ? `${state.rsvp.deadline}T23:59:59+08:00` : "",
+    ...(state.rsvp.responseMode === "romantic-question"
+      ? {
+          declineButtonBehavior: state.rsvp.declineButtonBehavior,
+          responseMode: state.rsvp.responseMode,
+        }
+      : {}),
     heading: state.rsvp.heading,
     message: state.rsvp.message,
   });
@@ -456,15 +425,15 @@ const saveStatusLabel: Record<DraftSaveStatus, string> = {
   unsaved: "Unsaved changes",
 };
 
-export function LittleBlessingsDraftEditor({
-  initialAssets,
+export function SectionDocumentDraftEditor({
+  initialAssets = [],
   initialDocument,
   initialPublication = idlePublication,
   initialRevision,
   invitationId,
   rendererKey,
   templateUpgrade = null,
-}: LittleBlessingsDraftEditorProps) {
+}: InvitationEditorProps) {
   const Renderer = resolveTemplateRenderer(rendererKey);
   const mapTileKey = getMapTileKey();
   const [assets, setAssets] = useState<readonly CreatorImageAsset[]>(initialAssets);
@@ -478,12 +447,19 @@ export function LittleBlessingsDraftEditor({
   const [state, setState] = useState<EditorState>(() => buildInitialState(initialDocument));
 
   const details = useMemo(() => toDetails(initialDocument, state), [initialDocument, state]);
-  const parsed = useMemo(() => littleBlessingsDetailsSchema.safeParse(details), [details]);
+  const parsed = useMemo(() => sectionDocumentDetailsSchema.safeParse(details), [details]);
+  const editorProfile = resolveEditorProfile(rendererKey);
+  const romanticInvitation = rendererKey === "little-question-v1";
+  const sectionOrder = useMemo(
+    () => initialDocument.sections.map((section) => section.type).filter(isSectionKey),
+    [initialDocument],
+  );
+
   const signature = useMemo(() => JSON.stringify(details), [details]);
 
   const save = useCallback(
     ({ expectedRevision, payload }: { expectedRevision: number; payload: unknown }) =>
-      saveLittleBlessingsAction({ details: payload, expectedRevision, invitationId }),
+      saveSectionDocumentAction({ details: payload, expectedRevision, invitationId }),
     [invitationId],
   );
 
@@ -509,7 +485,7 @@ export function LittleBlessingsDraftEditor({
   const previewDocument = useMemo(() => {
     if (parsed.success) {
       try {
-        lastValidDocument.current = applyLittleBlessingsDetails(initialDocument, parsed.data);
+        lastValidDocument.current = applySectionDocumentDetails(initialDocument, parsed.data);
       } catch {
         // Keep the last document that parsed.
       }
@@ -545,15 +521,62 @@ export function LittleBlessingsDraftEditor({
     .map((asset) => asset.id);
   const assetsAreReady = referencedImageIds.every((id) => assetsById.has(id));
 
+  // Optional on purpose: the editor is the product and the assistant is an addition to it,
+  // so it renders the same with or without one mounted above.
+  const assistant = useOptionalAssistant();
+  const clearProposal = assistant?.clearProposal;
+  const setAssistantInvitationId = assistant?.setInvitationId;
+  const registerDraftFlush = useRegisterDraftFlush();
+  const flushDraft = autosave.flush;
+
+  // Tells the floating assistant which invitation it is looking at, so it can offer to draft
+  // for this one and nothing else. Cleared on unmount, so leaving the editor also leaves
+  // drafting mode rather than pointing it at an invitation that is no longer on screen.
+  //
+  // Drafting is always available here — this editor is the one surface that can apply a
+  // proposal. Organizing needs a published invitation, and the status read is the one this
+  // page was rendered with: a creator who publishes and asks about guests in the same visit
+  // is told nothing rather than told wrongly, which is the right way round for a suggestion.
+  const publishedOnLoad = initialPublication.status === "delivered";
+
+  useEffect(() => {
+    setAssistantInvitationId?.(invitationId, {
+      canDraft: true,
+      canOrganize: publishedOnLoad,
+    });
+    return () => setAssistantInvitationId?.(null);
+  }, [invitationId, publishedOnLoad, setAssistantInvitationId]);
+
+  // Lets the assistant's own controls settle this draft before they navigate away from it.
+  useEffect(() => {
+    registerDraftFlush(flushDraft);
+    return () => registerDraftFlush(null);
+  }, [flushDraft, registerDraftFlush]);
+
+  /**
+   * A proposal is held here, deliberately outside `state`.
+   *
+   * Putting it into `state` would make the preview correct and the draft wrong: autosave
+   * watches that state and would commit the assistant's draft 800 ms later, without the
+   * creator having agreed to anything. Kept separate, the proposal can be shown and
+   * measured while the stored invitation is untouched — which is the whole rule this stage
+   * is built around.
+   */
+  const stagedProposal =
+    assistant?.proposal?.invitationId === invitationId ? assistant.proposal : null;
+
   const markEdited = autosave.markEdited;
   const edit = useCallback(
     (next: (current: EditorState) => EditorState) => {
       setState(next);
       setRecoveryMessage(null);
       setLastItemPrompt(null);
+      // Editing a field is a decision not to take the draft. Keeping both would let the
+      // creator's own edit be silently overwritten the moment they pressed Keep.
+      clearProposal?.();
       markEdited();
     },
-    [markEdited],
+    [clearProposal, markEdited],
   );
 
   const saveNow = autosave.saveNow;
@@ -572,7 +595,7 @@ export function LittleBlessingsDraftEditor({
   }
 
   /**
-   * Every Little Blessings collection is `min(1)` in the strict contract, so
+   * Every editable collection is `min(1)` in the strict contract, so
    * deleting the last entry would produce a document the schema rejects.
    * Offering to hide the section keeps the creator's writing and uploads.
    */
@@ -605,8 +628,8 @@ export function LittleBlessingsDraftEditor({
   function restoreRecoveredContent() {
     if (!recoveredContent) return;
     try {
-      const recovered = littleBlessingsDetailsSchema.parse(JSON.parse(recoveredContent));
-      setState(buildInitialState(applyLittleBlessingsDetails(initialDocument, recovered)));
+      const recovered = sectionDocumentDetailsSchema.parse(JSON.parse(recoveredContent));
+      setState(buildInitialState(applySectionDocumentDetails(initialDocument, recovered)));
       autosave.discardRecoveredSnapshot();
       markEdited();
       setRecoveryMessage("Your recovered changes are back. They will save automatically.");
@@ -616,24 +639,52 @@ export function LittleBlessingsDraftEditor({
     }
   }
 
+  const proposalChanges = useMemo(
+    () => (stagedProposal ? describeProposalChanges(previewDocument, stagedProposal.document) : []),
+    [previewDocument, stagedProposal],
+  );
+
+  // The preview is where a proposal is judged, so on a phone the arrival of one moves the
+  // creator to it. Showing "the assistant drafted something" beside fields that still hold
+  // the old text would describe a change they cannot see.
+  useEffect(() => {
+    if (stagedProposal) setMobilePanel("preview");
+  }, [stagedProposal]);
+
+  /**
+   * Accepts the draft into the editor, where it becomes an ordinary unsaved change: the same
+   * autosave, the same revision guard, the same Save now button. The assistant never touches
+   * the save path — this click is what puts its work on the normal one.
+   */
+  function keepProposal() {
+    if (!stagedProposal) return;
+    setState(buildInitialState(stagedProposal.document));
+    setRecoveryMessage(null);
+    setLastItemPrompt(null);
+    clearProposal?.();
+    markEdited();
+  }
+
+  const shownDocument = stagedProposal?.document ?? previewDocument;
+
   // A general-link guest never receives the reply section. Previewing that is a
   // document question, not a renderer one: the section is simply not shown.
   const previewedDocument =
     previewAudience === "general"
       ? {
-          ...previewDocument,
-          sections: previewDocument.sections.map((section) =>
+          ...shownDocument,
+          sections: shownDocument.sections.map((section) =>
             section.type === "rsvp" ? { ...section, visible: false } : section,
           ),
         }
-      : previewDocument;
+      : shownDocument;
 
   return (
-    <section aria-labelledby="blessings-editor-heading" className={styles.editor}>
+    <section aria-labelledby="section-document-editor-heading" className={styles.editor}>
       <div className={styles.editorHeading}>
         <div>
-          <p className={styles.eyebrow}>Little Blessings editor</p>
-          <h2 id="blessings-editor-heading">Tell the story of her day.</h2>
+          <p className={styles.eyebrow}>{editorProfile.editorEyebrow}</p>
+          <h2 id="section-document-editor-heading">{editorProfile.heading}</h2>
         </div>
 
         <div aria-live="polite" className={styles.saveStatus} data-status={saveStatus}>
@@ -675,15 +726,20 @@ export function LittleBlessingsDraftEditor({
           </div>
 
           <div className={styles.sectionList}>
-            {SECTION_ORDER.map((key, position) => {
+            {sectionOrder.map((key, position) => {
               const open = openSection === key;
               const emptyGallery = key === "gallery" && state.gallery.images.length === 0;
               const lockedReason =
-                LOCKED_SECTIONS[key] ?? (emptyGallery ? EMPTY_GALLERY_REASON : undefined);
-              const note = SECTION_NOTES[key];
+                editorProfile.lockedSections?.[key] ??
+                LOCKED_SECTIONS[key] ??
+                (emptyGallery ? EMPTY_GALLERY_REASON : undefined);
+              const note =
+                romanticInvitation && key === "rsvp"
+                  ? "Only a recipient who opens their personal invitation can answer this question."
+                  : SECTION_NOTES[key];
               const cardProps = {
                 index: position + 1,
-                name: SECTION_NAMES[key],
+                name: editorProfile.sectionNames[key],
                 onToggleOpen: () => setOpenSection(open ? null : key),
                 onToggleVisible: (visible: boolean) => setVisible(key, visible),
                 open,
@@ -718,7 +774,7 @@ export function LittleBlessingsDraftEditor({
                     <TextField
                       id="lb-hero-title"
                       invalid={blank(state.hero.title)}
-                      label="The celebrant's name"
+                      label={editorProfile.heroTitleLabel}
                       maxLength={120}
                       onChange={(value) =>
                         edit((current) => ({ ...current, hero: { ...current.hero, title: value } }))
@@ -815,7 +871,7 @@ export function LittleBlessingsDraftEditor({
                           message: { ...current.message, signatureLead: value },
                         }))
                       }
-                      placeholder="With love, her parents"
+                      placeholder={editorProfile.signaturePlaceholder}
                       requirement="Optional · 80 characters"
                       value={state.message.signatureLead}
                     />
@@ -1201,6 +1257,9 @@ export function LittleBlessingsDraftEditor({
                       value={state.participants.heading}
                     />
                     <div className={styles.collection}>
+                      <p className={styles.collectionLabel}>
+                        Groups <span>Up to {MAX_PARTICIPANT_GROUPS}</span>
+                      </p>
                       {state.participants.groups.map((group, index) => (
                         <CollectionItem
                           canRemove
@@ -1247,7 +1306,7 @@ export function LittleBlessingsDraftEditor({
                                 },
                               }))
                             }
-                            placeholder="Tito"
+                            placeholder={editorProfile.participantPlaceholder}
                             requirement="Required · 120 characters"
                             value={group.label}
                           />
@@ -1280,7 +1339,7 @@ export function LittleBlessingsDraftEditor({
                         </CollectionItem>
                       ))}
                       <AddItemButton
-                        atLimit={state.participants.groups.length >= 4}
+                        atLimit={state.participants.groups.length >= MAX_PARTICIPANT_GROUPS}
                         label="Add another list"
                         onAdd={() =>
                           edit((current) => ({
@@ -1294,7 +1353,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="Ninong and ninang needs at least one list. Hiding the section keeps what you have written."
+                          message="This people section needs at least one group. Hiding it keeps what you have written."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -1320,6 +1379,9 @@ export function LittleBlessingsDraftEditor({
                       value={state.schedule.heading}
                     />
                     <div className={styles.collection}>
+                      <p className={styles.collectionLabel}>
+                        Moments <span>Up to {MAX_SCHEDULE_ITEMS}</span>
+                      </p>
                       {state.schedule.items.map((item, index) => (
                         <CollectionItem
                           canRemove
@@ -1413,7 +1475,7 @@ export function LittleBlessingsDraftEditor({
                         </CollectionItem>
                       ))}
                       <AddItemButton
-                        atLimit={state.schedule.items.length >= 12}
+                        atLimit={state.schedule.items.length >= MAX_SCHEDULE_ITEMS}
                         label="Add a moment"
                         onAdd={() =>
                           edit((current) => ({
@@ -1430,7 +1492,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="The order of the day needs at least one moment. Hiding the section keeps what you have written."
+                          message="This schedule needs at least one moment. Hiding it keeps what you have written."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -1583,7 +1645,7 @@ export function LittleBlessingsDraftEditor({
                                 },
                               }))
                             }
-                            placeholder="Ninong and ninang"
+                            placeholder={editorProfile.attireGroupPlaceholder}
                             requirement="Required · 120 characters"
                             value={group.label}
                           />
@@ -1854,7 +1916,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="Little moments needs at least one photograph. Hiding the section keeps your uploads."
+                          message="This gallery needs at least one photograph. Hiding it keeps your uploads."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -1947,7 +2009,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="A gentle note needs at least one line. Hiding the section keeps what you have written."
+                          message="Guest notes need at least one line. Hiding the section keeps what you have written."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -2102,7 +2164,7 @@ export function LittleBlessingsDraftEditor({
                       />
                       {lastItemPrompt === key ? (
                         <LastItemNotice
-                          message="Gift ideas needs at least one idea. Hiding the section keeps your uploads."
+                          message="This gifts section needs at least one idea. Hiding it keeps your uploads."
                           onHideSection={() => setVisible(key, false)}
                         />
                       ) : null}
@@ -2115,12 +2177,21 @@ export function LittleBlessingsDraftEditor({
                 <SectionCard key={key} {...cardProps}>
                   <TextField
                     id="lb-rsvp-heading"
-                    label="Heading"
+                    invalid={
+                      state.rsvp.responseMode === "romantic-question" && blank(state.rsvp.heading)
+                    }
+                    label={
+                      state.rsvp.responseMode === "romantic-question" ? "Your question" : "Heading"
+                    }
                     maxLength={120}
                     onChange={(value) =>
                       edit((current) => ({ ...current, rsvp: { ...current.rsvp, heading: value } }))
                     }
-                    requirement="Optional · 120 characters"
+                    requirement={
+                      state.rsvp.responseMode === "romantic-question"
+                        ? "Required · 120 characters"
+                        : "Optional · 120 characters"
+                    }
                     value={state.rsvp.heading}
                   />
                   <TextField
@@ -2134,10 +2205,37 @@ export function LittleBlessingsDraftEditor({
                     rows={3}
                     value={state.rsvp.message}
                   />
+                  {state.rsvp.responseMode === "romantic-question" ? (
+                    <label className={styles.optionToggle} htmlFor="lb-rsvp-moving-no">
+                      <input
+                        checked={state.rsvp.declineButtonBehavior === "dodge-five"}
+                        id="lb-rsvp-moving-no"
+                        onChange={(event) =>
+                          edit((current) => ({
+                            ...current,
+                            rsvp: {
+                              ...current.rsvp,
+                              declineButtonBehavior: event.target.checked ? "dodge-five" : "static",
+                            },
+                          }))
+                        }
+                        type="checkbox"
+                      />
+                      <span>
+                        <strong>Move the No button</strong>
+                        <small>
+                          When enabled, No moves on each of the first five pointer taps or clicks.
+                          Keyboard and reduced-motion guests can select it immediately.
+                        </small>
+                      </span>
+                    </label>
+                  ) : null}
                   <DateField
                     hint="End of the selected day in Philippine time."
                     id="lb-rsvp-deadline"
-                    label="Reply by"
+                    label={
+                      state.rsvp.responseMode === "romantic-question" ? "Answer by" : "Reply by"
+                    }
                     onChange={(value) =>
                       edit((current) => ({
                         ...current,
@@ -2245,15 +2343,72 @@ export function LittleBlessingsDraftEditor({
 
           <p className={styles.autosaveNote}>
             Autosave begins after a short pause. An unlisted invitation is shareable by anyone who
-            has its link, so treat the photographs here as you would any family album.
+            has its link, so treat its photographs as you would any private album.
           </p>
         </aside>
 
         <div className={styles.previewPanel}>
+          {stagedProposal ? (
+            <section aria-labelledby="assistant-proposal-heading" className={styles.proposalPanel}>
+              <div className={styles.proposalIntro}>
+                <p className={styles.eyebrow}>Assistant draft</p>
+                <h3 id="assistant-proposal-heading">
+                  This preview is showing a draft. Nothing has been saved.
+                </h3>
+                <p>
+                  Your invitation is exactly as you left it until you keep this. Editing any field
+                  discards the draft.
+                </p>
+              </div>
+
+              {proposalChanges.length > 0 ? (
+                <ul className={styles.proposalChanges}>
+                  {proposalChanges.map((change) => (
+                    <li key={change.type}>
+                      <strong>
+                        {isSectionKey(change.type)
+                          ? editorProfile.sectionNames[change.type]
+                          : change.type}
+                      </strong>
+                      <span>
+                        {[
+                          change.visibility === "shown"
+                            ? "now shown to guests"
+                            : change.visibility === "hidden"
+                              ? "now hidden from guests"
+                              : null,
+                          change.fields.length > 0
+                            ? `changes the ${change.fields.join(", ")}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.proposalChangesEmpty}>
+                  This draft matches what your invitation already says, so keeping it changes
+                  nothing.
+                </p>
+              )}
+
+              <div className={styles.proposalActions}>
+                <button className={styles.proposalKeep} onClick={keepProposal} type="button">
+                  Keep these changes
+                </button>
+                <button onClick={() => clearProposal?.()} type="button">
+                  Discard the draft
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           <div className={styles.previewHeading}>
             <div>
               <p className={styles.eyebrow}>Live invitation preview</p>
-              <h3>Little Blessings</h3>
+              <h3>{editorProfile.previewTitle}</h3>
             </div>
             <div className={styles.previewMeta}>
               <span>Shared renderer · Responsive document</span>
@@ -2279,19 +2434,23 @@ export function LittleBlessingsDraftEditor({
             >
               Invited guest
             </button>
-            <button
-              aria-pressed={previewAudience === "general"}
-              onClick={() => setPreviewAudience("general")}
-              type="button"
-            >
-              General link
-            </button>
+            {!romanticInvitation ? (
+              <button
+                aria-pressed={previewAudience === "general"}
+                onClick={() => setPreviewAudience("general")}
+                type="button"
+              >
+                General link
+              </button>
+            ) : null}
           </fieldset>
 
           <p className={styles.audienceNote}>
-            {previewAudience === "general"
-              ? "Anyone with the shared link reads the invitation without a reply section."
-              : "A guest who opens their own personal link also sees the reply section."}
+            {romanticInvitation
+              ? "Romance invitations are prepared and shared through personal invitation links."
+              : previewAudience === "general"
+                ? "Anyone with the shared link reads the invitation without a reply section."
+                : "A guest who opens their own personal link also sees the reply section."}
           </p>
 
           <div className={styles.previewFrame}>
@@ -2310,6 +2469,8 @@ export function LittleBlessingsDraftEditor({
     </section>
   );
 }
+
+export const LittleBlessingsDraftEditor = SectionDocumentDraftEditor;
 
 interface GalleryPhotoAdderProps {
   atLimit: boolean;

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +15,11 @@ vi.mock("../src/server/auth/actions", () => ({
 }));
 
 vi.mock("../src/components/invitations/InvitationDeleteButton", () => ({
-  InvitationDeleteButton: () => <button type="button">Delete</button>,
+  InvitationDeleteButton: ({ published }: { published: boolean }) => (
+    <button data-published={published} type="button">
+      Delete
+    </button>
+  ),
 }));
 
 vi.mock("../src/server/auth/session", () => ({
@@ -38,7 +44,27 @@ beforeEach(() => {
   vi.mocked(listInvitationPublicationStatuses).mockResolvedValue({});
 });
 
+function imageSource(image: HTMLImageElement) {
+  return image.src.includes("/_next/image")
+    ? new URL(image.src).searchParams.get("url")
+    : image.getAttribute("src");
+}
+
 describe("invitations page", () => {
+  it("keeps desktop invitation cards in stable three-column tracks", async () => {
+    const stylesheet = await readFile(
+      resolve(process.cwd(), "app/dashboard/invitations/Invitations.module.css"),
+      "utf8",
+    );
+
+    expect(stylesheet).toContain(`.invitationGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));`);
+    expect(stylesheet).not.toContain(
+      "grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));",
+    );
+  });
+
   it("renders the dedicated invitation library empty state", async () => {
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
       error: null,
@@ -97,11 +123,52 @@ describe("invitations page", () => {
     expect(screen.getByText("1 saved invitation")).toBeDefined();
     expect(screen.getByText("Draft")).toBeDefined();
     expect(screen.getByRole("heading", { level: 3, name: "Mara & Joaquin" })).toBeDefined();
+    const artwork = screen.getByRole("img", { name: "Garden Promise design preview" });
+    const image = artwork.querySelector<HTMLImageElement>("img");
+    expect(image?.getAttribute("alt")).toBe("");
+    if (!image) throw new Error("Missing Garden Promise still");
+    expect(imageSource(image)).toBe("/landing/templates/garden-promise-svg-20260805.jpg");
     expect(screen.queryByText("Your first invitation begins here.")).toBeNull();
     expect(screen.getByRole("link", { name: "Continue editing" }).getAttribute("href")).toBe(
       "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
     );
-    expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Delete" }).getAttribute("data-published")).toBe(
+      "false",
+    );
+  });
+
+  it("uses the Little Blessings still instead of neutral fallback artwork", async () => {
+    vi.mocked(ensurePersonalWorkspace).mockResolvedValue({
+      error: null,
+      supabase: {} as never,
+      user: { email: "maria@example.com", user_metadata: {} } as never,
+      workspaceId: "72000000-0000-4000-8000-000000000001",
+    });
+    vi.mocked(listInvitationDrafts).mockResolvedValue([
+      {
+        dateLabel: "April 11, 2027",
+        invitationId: "71000000-0000-4000-8000-000000000002",
+        manifest: {
+          listing: {
+            id: "little-blessings",
+            name: "Little Blessings",
+            occasion: "Christening",
+          },
+        },
+        revision: 3,
+        templateVersionId: "40000000-0000-4000-8000-000000000002",
+        title: "Eliana's Christening",
+        updatedAt: "2026-07-29T04:00:00+00:00",
+      },
+    ] as never);
+
+    render(await InvitationsPage());
+
+    const artwork = screen.getByRole("img", { name: "Little Blessings design preview" });
+    const image = artwork.querySelector<HTMLImageElement>("img");
+    if (!image) throw new Error("Missing Little Blessings still");
+    expect(imageSource(image)).toBe("/landing/templates/little-blessings-svg-20260805.jpg");
+    expect(screen.getByText("Little Blessings design")).toBeDefined();
   });
 
   it("labels a delivered current revision as published", async () => {
@@ -137,7 +204,11 @@ describe("invitations page", () => {
     render(await InvitationsPage());
 
     expect(screen.getByText("Published")).toBeDefined();
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    // A published invitation is deletable too, and is told so, because its
+    // confirmation has to name the guest link and the replies it will remove.
+    expect(screen.getByRole("button", { name: "Delete" }).getAttribute("data-published")).toBe(
+      "true",
+    );
   });
 
   it("shows the workspace provisioning failure without claiming an empty library", async () => {

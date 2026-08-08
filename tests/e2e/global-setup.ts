@@ -8,6 +8,7 @@ import { renderFixture } from "./render-fixture.generated.mjs";
 const clientRoot = resolve("apps/viewer/dist/client");
 const publicIdentifier = "e000000000000000000000000000000e";
 const littleBlessingsIdentifier = "f000000000000000000000000000000f";
+const romanceIdentifier = "d000000000000000000000000000000d";
 
 // Tiny solid-color WebP bodies (64x64) standing in for immutable publication
 // renditions so browser lanes can load real image bytes without object storage.
@@ -47,7 +48,8 @@ function contentType(pathname: string): string {
 }
 
 export default async function globalSetup(_config: FullConfig) {
-  const { littleBlessingsHtml, publicationHtml, unavailableHtml } = renderFixture();
+  const { landingTemplateHtml, littleBlessingsHtml, publicationHtml, unavailableHtml } =
+    renderFixture();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
 
@@ -57,12 +59,29 @@ export default async function globalSetup(_config: FullConfig) {
       return;
     }
 
+    if (url.pathname.startsWith("/preview/")) {
+      const templateId = url.pathname.slice("/preview/".length);
+      const body = landingTemplateHtml[templateId];
+      response.writeHead(body ? 200 : 404, {
+        "cache-control": body ? "public, max-age=0" : "private, no-store",
+        "content-security-policy":
+          "default-src 'none'; connect-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
+        "content-type": "text/html; charset=utf-8",
+        "referrer-policy": "no-referrer",
+        "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
+      });
+      response.end(body ?? unavailableHtml);
+      return;
+    }
+
     if (url.pathname.startsWith("/i/")) {
       const body = url.pathname.endsWith(publicIdentifier)
         ? publicationHtml
         : url.pathname.endsWith(littleBlessingsIdentifier)
           ? littleBlessingsHtml
-          : null;
+          : url.pathname.endsWith(romanceIdentifier)
+            ? landingTemplateHtml["a-little-question"]
+            : null;
       response.writeHead(body ? 200 : 404, {
         "cache-control": body ? "public, max-age=0" : "private, no-store",
         "content-security-policy":

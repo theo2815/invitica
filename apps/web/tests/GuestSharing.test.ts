@@ -75,6 +75,7 @@ describe("guest invitation copy", () => {
       "get ready to welcome our little one.",
       "Thank you for being part of this new chapter.",
     ],
+    ["Romance", "one little question waiting for you inside.", "Open it when you are ready."],
     ["Anniversary", "mark another year together.", "Thank you for being part of our story."],
   ] as const)("writes wording made for a %s", (occasion, celebration, closing) => {
     const message = buildGeneralInvitationMessage(
@@ -86,6 +87,19 @@ describe("guest invitation copy", () => {
     expect(message).toContain(closing);
     // A first sacrament belongs to a christening and to nothing else in the catalog.
     if (occasion !== "Christening") expect(message).not.toContain("sacrament");
+  });
+
+  it("writes Romance copy for one named recipient", () => {
+    const message = buildPersonalInvitationMessage(
+      context({ occasion: "Romance", title: "A Little Question" }),
+      "Mia",
+      "https://invite.example/i/a#g=private-token",
+    );
+
+    expect(message).toContain("Hi, Mia");
+    expect(message).toContain("I made this invitation just for you.");
+    expect(message).toContain("There is one little question waiting for you inside.");
+    expect(message).toContain("View your invitation here:");
   });
 
   it("falls back to neutral wording when the occasion cannot be resolved", () => {

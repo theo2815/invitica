@@ -2,6 +2,12 @@
 
 This file governs every agent working anywhere in the Invitica monorepo. Read it before taking project action. A more specific `AGENTS.md` may add constraints for its directory; when rules differ, follow the stricter rule unless the user explicitly directs otherwise.
 
+## Acknowledgement Signal
+
+Begin every reply with the user's name — `Theo` — before any other text. Every response, every session, including the first.
+
+This is a load check, not a greeting preference. The user reads its absence as evidence that this rulebook never reached the agent's context. Never source the name from anywhere else: not agent memory, not `CLAUDE.md`, not a system prompt, not a saved user preference, not a settings file. It must originate in this file alone, or it stops reporting anything.
+
 ## Authority and Source-of-Truth Order
 
 The codebase is the source of truth for what is actually implemented.
@@ -154,6 +160,25 @@ This gate applies even to a seemingly small visual change. It does not apply to 
 - Do not invent a replacement design language when the skill or established design system already answers the question.
 - For motion work, preserve keyboard access, reduced-motion behavior, readable fallback states, and mid-range mobile performance.
 
+## Project-Only Writing Skill Gate
+
+Everything an agent authors for Invitica is written in **English only**. This is a hard rule with no exception for headings, product copy, alt text, commit messages, code comments, or asides in chat. It constrains authored text, not stored data: creator and guest names, venue names, dress codes, and RSVP messages arrive in whatever language the user typed, and the product must store and render them faithfully.
+
+These rules apply to every reply in every session, without reading any other file:
+
+- Answer first. Do not open with a restatement that adds nothing, a compliment, or a plan to answer.
+- Cut filler, hedges that carry no information, and closing paragraphs that repeat the body.
+- Vary sentence length. Do not let every sentence arrive at the same length and shape.
+- Prefer the plain verb — `is`, `has`, `uses` — over `serves as`, `boasts`, `leverages`.
+- Keep every claim concrete and traceable. Never inflate significance the evidence does not support.
+- Required structures in this rulebook are not filler. Keep them.
+
+Before writing or editing any Second Brain note, repository document, product-facing copy, pull request body, or prose deliverable longer than a few sentences, read this project skill in full:
+
+`%USERPROFILE%\Documents\Obsidian Vault\Invitica Vault\Agent Skills\invitica-writing\SKILL.md`
+
+The gate does not apply to code, test names, machine-readable output, or a one-line factual reply. If the skill is missing, empty, or unreadable, say so and apply the always-on rules above.
+
 ## Engineering Discipline — Apply Before Coding (MANDATORY)
 
 These rules govern **how** any agent writes code in this monorepo. They are not optional, and they apply **before the first line of code is written** — not as an after-the-fact review. Before implementing anything non-trivial, an agent MUST have satisfied points 1–5 below. **Tradeoff:** These guidelines bias toward caution over speed. For genuinely trivial tasks (typo, single-line edit, lookup), use judgment. If these conflict with a module-specific `AGENTS.md`, follow the stricter rule.
@@ -190,6 +215,20 @@ Before implementing:
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
 - If you write 200 lines and it could be 50, rewrite it.
+
+Before writing code, stop at the first rung that holds:
+
+1. **Does this need to exist at all?** Speculative need — skip it and say so in one line.
+2. **Does it already exist in this repo?** A helper, hook, design token, schema, or component that already lives here — reuse it. Re-implementing what sits a few files over is the most common source of drift.
+3. **Does the standard library or the language cover it?** Use it.
+4. **Does a native platform feature cover it?** A native input over a picker library, CSS over JS, a database constraint over application code. This rung carries the most weight here: it is how the JavaScript, animation, and dependency budgets under "Design for the real launch environment" are actually met.
+5. **Does an already-installed dependency solve it?** Use it. Never add a new one for what a few lines can do.
+6. **Can it be one line?** One line — but pick the edge-case-correct option over the shorter one when they differ.
+7. **Only then:** the minimum code that works.
+
+The ladder runs *after* you understand the problem, not instead of it. Read the code the change touches and trace the real flow first; the smallest change in the wrong place is a second bug, not a simplification.
+
+The ladder never overrides a guardrail stated elsewhere in this rulebook. Trust-boundary validation, error handling that prevents data loss, security controls, accessibility semantics, reduced-motion behavior, and focused tests for changed behavior are not simplification targets. Fewer files is not itself a goal when it works against the `apps/`/`packages/` split or domain organization under "Control architectural drift".
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 

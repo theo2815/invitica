@@ -2,49 +2,45 @@ import type { TemplateRendererKey } from "@invitica/template-kit";
 import type { ComponentType } from "react";
 
 import { GardenPromiseRenderer } from "./GardenPromiseRenderer.js";
+import { GardenPromiseRendererV2 } from "./GardenPromiseRendererV2.js";
+import { GoldenHourRendererV2 } from "./GoldenHourRendererV2.js";
 import { InvitationRenderer, type InvitationRendererProps } from "./InvitationRenderer.js";
 import { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
 import { LittleBlessingsRendererV2 } from "./LittleBlessingsRendererV2.js";
+import { LittleQuestionRenderer } from "./LittleQuestionRenderer.js";
+import {
+  resolveTemplateRendererVersion,
+  type TemplateRendererRegistration,
+} from "./renderer-registration.js";
+import { SundayJoyRendererV2 } from "./SundayJoyRendererV2.js";
 
-export class UnknownTemplateRendererError extends Error {
-  constructor(rendererKey: string) {
-    super(`Unknown template renderer: ${rendererKey}`);
-    this.name = "UnknownTemplateRendererError";
-  }
-}
+export {
+  type TemplateRendererRegistration,
+  UnknownTemplateRendererError,
+} from "./renderer-registration.js";
 
-export interface TemplateRendererRegistration {
-  readonly component: ComponentType<InvitationRendererProps>;
-  readonly version: number;
-}
-
-const templateRendererRegistry = {
-  "garden-promise-v1": {
-    component: GardenPromiseRenderer,
-    version: 1,
-  },
-  "little-blessings-v1": {
-    component: LittleBlessingsRenderer,
-    version: 1,
-  },
-  "little-blessings-v2": {
-    component: LittleBlessingsRendererV2,
-    version: 2,
-  },
-  "standard-v1": {
-    component: InvitationRenderer,
-    version: 1,
-  },
-} satisfies Record<TemplateRendererKey, TemplateRendererRegistration>;
+const templateRendererComponents = {
+  "garden-promise-v1": GardenPromiseRenderer,
+  "garden-promise-v2": GardenPromiseRendererV2,
+  "golden-hour-v2": GoldenHourRendererV2,
+  "little-blessings-v1": LittleBlessingsRenderer,
+  "little-blessings-v2": LittleBlessingsRendererV2,
+  "little-question-v1": LittleQuestionRenderer,
+  "standard-v1": InvitationRenderer,
+  "sunday-joy-v2": SundayJoyRendererV2,
+} satisfies Record<TemplateRendererKey, ComponentType<InvitationRendererProps>>;
 
 export function resolveTemplateRendererRegistration(
   rendererKey: string,
 ): TemplateRendererRegistration {
-  if (!Object.hasOwn(templateRendererRegistry, rendererKey)) {
-    throw new UnknownTemplateRendererError(rendererKey);
-  }
+  const version = resolveTemplateRendererVersion(rendererKey);
+  const typedRendererKey = rendererKey as TemplateRendererKey;
 
-  return templateRendererRegistry[rendererKey as TemplateRendererKey];
+  return {
+    component: templateRendererComponents[typedRendererKey],
+    rendererKey: typedRendererKey,
+    version,
+  };
 }
 
 export function resolveTemplateRenderer(

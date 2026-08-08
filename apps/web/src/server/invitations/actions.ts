@@ -5,18 +5,22 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { ensurePersonalWorkspace, requireConfirmedUser } from "../auth/session";
+import { R2MediaObjectStore, readR2MediaConfig } from "../media/object-store";
 import {
   createInitialInvitationDraft,
-  deleteUnpublishedInvitation,
-  InvitationDeletionUnavailableError,
+  deleteInvitation,
   InvitationDraftConflictError,
   InvitationDraftPersistenceError,
   saveGardenPromiseDraft,
   saveGardenPromiseInputSchema,
   TemplateUnavailableError,
 } from "./drafts";
-import { saveLittleBlessingsDraft, saveLittleBlessingsInputSchema } from "./little-blessings";
+import { saveSectionDocumentDraft, saveSectionDocumentInputSchema } from "./little-blessings";
 import { enqueueInvitationPublication, PublicationEnqueueError } from "./publication-jobs";
+import {
+  purgePublishedInvitationObjects,
+  readPublishedInvitationObjects,
+} from "./publication-purge";
 import {
   type InvitationPublicationStatus,
   loadInvitationPublicationStatus,
@@ -62,7 +66,7 @@ export type SaveGardenPromiseActionResult =
   | { revision: number; status: "saved" }
   | { message: string; retryable?: boolean; status: "conflict" | "error" };
 
-export type SaveLittleBlessingsActionResult =
+export type SaveSectionDocumentActionResult =
   | { revision: number; status: "saved" }
   | { message: string; retryable?: boolean; status: "conflict" | "error" };
 
@@ -78,6 +82,14 @@ export type DeleteInvitationActionResult =
   | { status: "deleted" }
   | { message: string; status: "error" };
 
+/**
+ * The edge is unpublished before the records are, never after. A published
+ * invitation lives in R2 and the Viewer never consults Postgres, so deleting the
+ * rows first would hand back a "Deleted" the guest link would keep contradicting,
+ * with nothing left to retry from. In the other order a failure is recoverable:
+ * the link is already dead and the invitation is still listed, so deleting again
+ * finishes the job.
+ */
 export async function deleteInvitationAction(
   input: unknown,
 ): Promise<DeleteInvitationActionResult> {
@@ -92,14 +104,29 @@ export async function deleteInvitationAction(
   const { supabase } = await requireConfirmedUser();
 
   try {
-    await deleteUnpublishedInvitation(supabase, parsed.data.invitationId);
+    const objects = await readPublishedInvitationObjects(supabase, parsed.data.invitationId);
+
+    if (objects.aliasKey || objects.artifactKeys.length > 0) {
+      await purgePublishedInvitationObjects(new R2MediaObjectStore(readR2MediaConfig()), objects);
+    }
+  } catch {
+    return {
+      message:
+        "The shared link could not be taken down, so nothing was deleted. Try again in a moment.",
+      status: "error",
+    };
+  }
+
+  try {
+    await deleteInvitation(supabase, parsed.data.invitationId);
     revalidatePath("/dashboard/invitations");
     return { status: "deleted" };
-  } catch (error: unknown) {
-    if (error instanceof InvitationDeletionUnavailableError) {
-      return { message: error.message, status: "error" };
-    }
-    return { message: "This invitation could not be deleted. Try again.", status: "error" };
+  } catch {
+    return {
+      message:
+        "The shared link is now closed, but this invitation could not be removed. Try again.",
+      status: "error",
+    };
   }
 }
 
@@ -148,7 +175,7 @@ export async function createInvitationDraftAction(
  * anything a creator typed — so a report of "it did not save" can be diagnosed.
  */
 function logSaveFailure(
-  template: "garden-promise" | "little-blessings",
+  template: "garden-promise" | "section-document",
   reason: string,
   invitationId: string | null,
   error?: unknown,
@@ -205,26 +232,26 @@ export async function saveGardenPromiseAction(
   }
 }
 
-export async function saveLittleBlessingsAction(
+export async function saveSectionDocumentAction(
   input: unknown,
-): Promise<SaveLittleBlessingsActionResult> {
-  const parsed = saveLittleBlessingsInputSchema.safeParse(input);
+): Promise<SaveSectionDocumentActionResult> {
+  const parsed = saveSectionDocumentInputSchema.safeParse(input);
 
   if (!parsed.success) {
-    logSaveFailure("little-blessings", "invalid_payload", null);
+    logSaveFailure("section-document", "invalid_payload", null);
     return { message: "Check the highlighted invitation details and try again.", status: "error" };
   }
 
   const { supabase } = await requireConfirmedUser();
 
   try {
-    const revision = await saveLittleBlessingsDraft(supabase, parsed.data);
+    const revision = await saveSectionDocumentDraft(supabase, parsed.data);
     return { revision, status: "saved" };
   } catch (error: unknown) {
     const invitationId = parsed.data.invitationId;
 
     if (error instanceof InvitationDraftConflictError) {
-      logSaveFailure("little-blessings", "revision_conflict", invitationId);
+      logSaveFailure("section-document", "revision_conflict", invitationId);
       return {
         message: "This draft changed in another session. Reload the latest version before saving.",
         status: "conflict",
@@ -232,12 +259,12 @@ export async function saveLittleBlessingsAction(
     }
 
     if (error instanceof TemplateUnavailableError) {
-      logSaveFailure("little-blessings", "template_unavailable", invitationId);
+      logSaveFailure("section-document", "template_unavailable", invitationId);
       return { message: error.message, status: "error" };
     }
 
     if (error instanceof InvitationDraftPersistenceError) {
-      logSaveFailure("little-blessings", "persistence_failed", invitationId);
+      logSaveFailure("section-document", "persistence_failed", invitationId);
       return {
         message: "Your latest changes could not be saved. Try again.",
         retryable: true,
@@ -245,7 +272,7 @@ export async function saveLittleBlessingsAction(
       };
     }
 
-    logSaveFailure("little-blessings", "unexpected", invitationId, error);
+    logSaveFailure("section-document", "unexpected", invitationId, error);
     return {
       message: "This invitation update could not be completed.",
       retryable: true,

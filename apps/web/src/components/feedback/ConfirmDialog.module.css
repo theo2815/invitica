@@ -1,0 +1,125 @@
+/*
+ * Values match the Guest Desk confirmation this pattern comes from, so a creator who has moved
+ * a party to trash meets the same dialog when they close one with work still in it.
+ *
+ * `z-index` is one above the dialogs it protects (100), because it is always raised over one
+ * of them rather than over the page.
+ */
+.backdrop {
+  position: fixed;
+  z-index: 101;
+  inset: 0;
+  display: grid;
+  overflow-y: auto;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: rgb(var(--overlay-rgb) / 58%);
+  animation: discard-backdrop-in 160ms ease-out both;
+  place-items: center;
+}
+
+.dialog {
+  width: min(100%, 28rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: clamp(1.4rem, 5vw, 2rem);
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.5rem;
+  background: var(--surface, #fffdf8);
+  box-shadow: 0 2rem 6rem rgb(var(--shadow-rgb) / 28%);
+  animation: discard-dialog-in 180ms ease-out both;
+}
+
+@keyframes discard-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes discard-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dialog h2 {
+  margin: 0.6rem 0 0;
+  font-size: clamp(1.4rem, 3vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.dialog > p:not(.eyebrow) {
+  margin: 0.7rem 0 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.5rem;
+}
+
+.actions button {
+  min-height: 2.75rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+/* Keep editing is the safe answer, so it is the one that looks like the way out. */
+.actions button:first-child {
+  border-color: var(--accent, #7a3442);
+  background: var(--accent, #7a3442);
+  color: var(--accent-text);
+}
+
+.discard {
+  border-color: var(--danger, #a3302b);
+  color: var(--danger, #a3302b);
+}
+
+.dialog :is(button):focus-visible {
+  outline: 3px solid var(--focus, #2457c5);
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .dialog {
+    align-self: end;
+    width: 100%;
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .dialog {
+    animation: none;
+  }
+}

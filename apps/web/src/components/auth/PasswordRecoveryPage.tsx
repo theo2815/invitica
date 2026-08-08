@@ -4,15 +4,23 @@ import Link from "next/link";
 import { type FormEvent, useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { assessPassword } from "../../server/auth/password-strength";
 import type { AuthActionState, AuthFieldErrors } from "../../server/auth/types";
 import {
   validatePasswordUpdate,
   validateRecoveryCode,
   validateRecoveryEmail,
 } from "../../server/auth/validation";
-import { FieldError, PasswordField, PendingButton } from "./AuthFormFields";
+import { FieldError, GeneratePasswordButton, PasswordField, PendingButton } from "./AuthFormFields";
 import styles from "./AuthPage.module.css";
 import { AuthShell } from "./AuthShell";
+import { LegalFooter } from "./LegalFooter";
+import {
+  CAPTCHA_FIELD_ID,
+  CaptchaTokenInput,
+  TurnstileField,
+  useTurnstile,
+} from "./TurnstileField";
 
 type AuthAction = (state: AuthActionState, formData: FormData) => Promise<AuthActionState>;
 
@@ -43,15 +51,30 @@ export function ForgotPasswordPage({ action }: { action: AuthAction }) {
   const [state, formAction] = useActionState(action, { error: null });
   const [email, setEmail] = useState("");
   const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
+  const turnstile = useTurnstile();
   const fieldErrors = { ...state.fieldErrors, ...clientErrors };
+  if (turnstile.token) {
+    delete fieldErrors.captchaToken;
+  }
+
+  // A single-use token is spent or refused on every action result, so a fresh one has to be
+  // minted. The effect runs *on* a new result rather than reading one, hence the dependency.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional run-on-change trigger
+  useEffect(() => {
+    turnstile.reset();
+  }, [state, turnstile.reset]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const result = validateRecoveryEmail(new FormData(event.currentTarget));
+    const result = validateRecoveryEmail(new FormData(event.currentTarget), {
+      requireCaptcha: turnstile.required,
+    });
 
     if (!result.ok) {
       event.preventDefault();
       setClientErrors(result.fieldErrors);
-      document.getElementById("recovery-email")?.focus();
+      document
+        .getElementById(result.fieldErrors.email ? "recovery-email" : CAPTCHA_FIELD_ID)
+        ?.focus();
       return;
     }
 
@@ -93,27 +116,39 @@ export function ForgotPasswordPage({ action }: { action: AuthAction }) {
           />
           <FieldError id="recovery-email-error" message={fieldErrors.email} />
         </div>
+        <TurnstileField error={fieldErrors.captchaToken} instance={turnstile} />
         <FormFeedback state={state} />
         <PendingButton idleLabel="Send recovery code" pendingLabel="Sending code…" />
       </form>
       <p className={styles.alternate}>
         <Link href="/login">Back to sign in</Link>
       </p>
+      <LegalFooter />
     </AuthShell>
   );
 }
 
-function ResendButton({ cooldown }: { cooldown: number }) {
+/**
+ * The resend form has no fields of its own, so there is nothing to validate on submit and no place
+ * to put an error. It is disabled until the shared challenge is solved instead — the one case on
+ * these pages where a control waits on Turnstile rather than reporting it afterwards.
+ */
+function ResendButton({ cooldown, disabled }: { cooldown: number; disabled: boolean }) {
   const { pending } = useFormStatus();
-  const disabled = pending || cooldown > 0;
   const label = pending
     ? "Sending another code…"
     : cooldown > 0
       ? `Send another code in ${cooldown}s`
-      : "Send another code";
+      : disabled
+        ? "Complete the verification first"
+        : "Send another code";
 
   return (
-    <button className={styles.secondaryButton} disabled={disabled} type="submit">
+    <button
+      className={styles.secondaryButton}
+      disabled={pending || cooldown > 0 || disabled}
+      type="submit"
+    >
       {label}
     </button>
   );
@@ -131,7 +166,13 @@ export function VerifyRecoveryPage({
   const [otp, setOtp] = useState("");
   const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
   const [cooldown, setCooldown] = useState(60);
+  // One challenge for both forms. A Turnstile token is single-use, so mounting a second widget for
+  // "Send another code" would put two challenges on a page whose whole job is one six-digit code.
+  const turnstile = useTurnstile();
   const fieldErrors = { ...state.fieldErrors, ...clientErrors };
+  if (turnstile.token) {
+    delete fieldErrors.captchaToken;
+  }
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -148,13 +189,22 @@ export function VerifyRecoveryPage({
     }
   }, [resendState.notice]);
 
+  // A single-use token is spent or refused on every action result, so a fresh one has to be
+  // minted. The effect runs *on* a new result rather than reading one, hence the dependency.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional run-on-change trigger
+  useEffect(() => {
+    turnstile.reset();
+  }, [state, resendState, turnstile.reset]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const result = validateRecoveryCode(new FormData(event.currentTarget));
+    const result = validateRecoveryCode(new FormData(event.currentTarget), {
+      requireCaptcha: turnstile.required,
+    });
 
     if (!result.ok) {
       event.preventDefault();
       setClientErrors(result.fieldErrors);
-      document.getElementById("recovery-code")?.focus();
+      document.getElementById(result.fieldErrors.otp ? "recovery-code" : CAPTCHA_FIELD_ID)?.focus();
       return;
     }
 
@@ -204,17 +254,20 @@ export function VerifyRecoveryPage({
           </p>
           <FieldError id="recovery-code-error" message={fieldErrors.otp} />
         </div>
+        <TurnstileField error={fieldErrors.captchaToken} instance={turnstile} />
         <FormFeedback state={state} />
         <PendingButton idleLabel="Verify code" pendingLabel="Verifying code…" />
       </form>
 
       <form action={resendFormAction} className={styles.resendForm}>
-        <ResendButton cooldown={cooldown} />
+        <CaptchaTokenInput instance={turnstile} />
+        <ResendButton cooldown={cooldown} disabled={turnstile.required && !turnstile.token} />
       </form>
       <FormFeedback state={resendState} />
       <p className={styles.alternate}>
         <Link href="/forgot-password">Use a different email address</Link>
       </p>
+      <LegalFooter />
     </AuthShell>
   );
 }
@@ -223,7 +276,11 @@ export function ResetPasswordPage({ action }: { action: AuthAction }) {
   const [state, formAction] = useActionState(action, { error: null });
   const [values, setValues] = useState({ confirmPassword: "", password: "" });
   const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const fieldErrors = { ...state.fieldErrors, ...clientErrors };
+  // No name or email to compare against here: this form is reached by a verified recovery code and
+  // carries neither. The length and blocklist rules still apply.
+  const strength = assessPassword(values.password);
 
   function updateValue(name: "confirmPassword" | "password", value: string) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -232,6 +289,12 @@ export function ResetPasswordPage({ action }: { action: AuthAction }) {
       delete next[name];
       return next;
     });
+  }
+
+  function useGeneratedPassword(password: string) {
+    setValues({ confirmPassword: password, password });
+    setClientErrors({});
+    setPasswordVisible(true);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -250,7 +313,7 @@ export function ResetPasswordPage({ action }: { action: AuthAction }) {
 
   return (
     <AuthShell
-      description="Use at least eight characters. Choose something unique to your Invitica account."
+      description="Choose something unique to your Invitica account. A phrase of a few unrelated words is easier to remember and harder to guess."
       eyebrow="Secure your account"
       heading="Choose a new password"
       headingId="reset-password-heading"
@@ -268,9 +331,13 @@ export function ResetPasswordPage({ action }: { action: AuthAction }) {
           error={fieldErrors.password}
           id="new-password"
           label="New password"
+          labelAction={<GeneratePasswordButton onGenerate={useGeneratedPassword} />}
           name="password"
           onChange={(value) => updateValue("password", value)}
+          onVisibleChange={setPasswordVisible}
+          strength={strength}
           value={values.password}
+          visible={passwordVisible}
         />
         <PasswordField
           autoComplete="new-password"
@@ -284,6 +351,7 @@ export function ResetPasswordPage({ action }: { action: AuthAction }) {
         <FormFeedback state={state} />
         <PendingButton idleLabel="Change password" pendingLabel="Changing password…" />
       </form>
+      <LegalFooter />
     </AuthShell>
   );
 }

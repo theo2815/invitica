@@ -90,6 +90,19 @@ export interface DraftAutosave {
   readonly canSaveNow: boolean;
   /** Serialized content found in session storage after an interrupted session. */
   readonly discardRecoveredSnapshot: () => void;
+  /**
+   * Settles the draft before the editor is navigated away from, and resolves once there is
+   * nothing left in flight.
+   *
+   * Autosave waits 800 ms before it sends anything, so a creator who types and immediately
+   * leaves has changes that exist only on screen. `saveNow` cannot be awaited and a click
+   * handler cannot wait on a debounce, so a caller that navigates needs this instead.
+   *
+   * It resolves rather than rejects on failure: the creator asked to go somewhere, and a
+   * save that did not land is already reported by the editor's own status. Holding them on
+   * a page to re-report it would be a second, worse failure.
+   */
+  readonly flush: () => Promise<void>;
   readonly isSaved: boolean;
   readonly markEdited: () => void;
   readonly message: string | null;
@@ -129,6 +142,22 @@ export function useDraftAutosave<TPayload>({
   latestSignature.current = signature;
   const saveRef = useRef(save);
   saveRef.current = save;
+
+  /**
+   * `flush` runs from another component's click handler, so it cannot read state through a
+   * closure that a render has not refreshed yet. These mirror the four values it needs, and
+   * `runSave` updates the two it owns the moment it knows them rather than waiting for the
+   * re-render, so a flush that follows a completed save does not send it a second time.
+   */
+  const pendingSave = useRef<null | Promise<void>>(null);
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
+  const revisionRef = useRef(revision);
+  revisionRef.current = revision;
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const lastSavedSignatureRef = useRef(lastSavedSignature);
+  lastSavedSignatureRef.current = lastSavedSignature;
 
   // Offer recovery only for content edited against the revision now on screen. A
   // snapshot from an older revision cannot be reapplied without silently reverting
@@ -189,6 +218,8 @@ export function useDraftAutosave<TPayload>({
           }
 
           if (outcome.status === "saved") {
+            revisionRef.current = outcome.revision;
+            lastSavedSignatureRef.current = submittedSignature;
             setRevision(outcome.revision);
             setLastSavedSignature(submittedSignature);
             setStatus(latestSignature.current === submittedSignature ? "saved" : "unsaved");
@@ -231,7 +262,7 @@ export function useDraftAutosave<TPayload>({
     const submittedSignature = signature;
     const expectedRevision = revision;
     const timer = window.setTimeout(() => {
-      void runSave(submittedPayload, submittedSignature, expectedRevision);
+      pendingSave.current = runSave(submittedPayload, submittedSignature, expectedRevision);
     }, AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
@@ -241,8 +272,22 @@ export function useDraftAutosave<TPayload>({
     if (payload === null || status === "conflict") return;
     // Deliberately not gated on `status === "saving"`: that is what made a stalled
     // save unrecoverable. `inFlight` inside `runSave` prevents the duplicate request.
-    void runSave(payload, latestSignature.current, revision);
+    pendingSave.current = runSave(payload, latestSignature.current, revision);
   }, [payload, revision, runSave, status]);
+
+  const flush = useCallback(async () => {
+    // Wait out whatever is already going, so the check below reads a settled revision
+    // rather than racing the request that is about to change it.
+    await pendingSave.current?.catch(() => undefined);
+
+    const stillDirty = latestSignature.current !== lastSavedSignatureRef.current;
+    if (!stillDirty || payloadRef.current === null || statusRef.current === "conflict") return;
+
+    // The debounce may never have fired — this is the common case, a creator who typed and
+    // left inside 800 ms — so the save that autosave was going to make happens here instead.
+    pendingSave.current = runSave(payloadRef.current, latestSignature.current, revisionRef.current);
+    await pendingSave.current.catch(() => undefined);
+  }, [runSave]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -277,6 +322,7 @@ export function useDraftAutosave<TPayload>({
   return {
     canSaveNow,
     discardRecoveredSnapshot,
+    flush,
     isSaved: status === "saved" && !dirty,
     markEdited,
     message,

@@ -2,17 +2,38 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DashboardError from "../app/dashboard/error";
 import DashboardLoading from "../app/dashboard/loading";
+import { CreatorNavigation } from "../src/components/dashboard/CreatorNavigation";
 import { CreatorShell } from "../src/components/dashboard/CreatorShell";
 
+const refresh = vi.fn();
+let pathname = "/dashboard/invitations/71000000-0000-4000-8000-000000000001";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard/invitations/71000000-0000-4000-8000-000000000001",
+  useRouter: () => ({ refresh }),
+  usePathname: () => pathname,
 }));
 
 vi.mock("../src/server/auth/actions", () => ({
   signOut: vi.fn(() => new Promise(() => undefined)),
 }));
 
-afterEach(cleanup);
+// jsdom ships no `matchMedia`. The shell's pull-to-refresh asks it for the mobile
+// breakpoint on mount; these tests are about the chrome, so it answers desktop.
+window.matchMedia = ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia;
+
+afterEach(() => {
+  cleanup();
+  pathname = "/dashboard/invitations/71000000-0000-4000-8000-000000000001";
+});
 
 describe("creator workspace shell", () => {
   it("keeps desktop and mobile navigation around the route content", () => {
@@ -32,7 +53,54 @@ describe("creator workspace shell", () => {
     expect(screen.getAllByRole("link", { name: "Invitica home" })).toHaveLength(2);
   });
 
-  it("restores focus after the profile menu closes", () => {
+  it("does not navigate when the destination you are on is activated again", () => {
+    render(
+      <CreatorShell email="maria@example.com" metadata={{ full_name: "Maria Santos" }}>
+        <h1>Invitation editor</h1>
+      </CreatorShell>,
+    );
+    const desktopNavigation = screen.getByRole("navigation", { name: "Creator workspace" });
+
+    // `fireEvent` returns false when the handler called preventDefault.
+    const currentPage = within(desktopNavigation).getByRole("link", { name: "Invitations" });
+    expect(fireEvent.click(currentPage)).toBe(false);
+    // The link keeps its href, so opening it in a new tab still works.
+    expect(currentPage.getAttribute("href")).toBe("/dashboard/invitations");
+
+    const otherPage = within(desktopNavigation).getByRole("link", { name: "Templates" });
+    expect(fireEvent.click(otherPage)).toBe(true);
+  });
+
+  it("gives Invi a desktop destination without adding a mobile destination", () => {
+    pathname = "/dashboard/assistant";
+    render(
+      <>
+        <CreatorNavigation showAssistant variant="desktop" />
+        <CreatorNavigation showAssistant variant="mobile" />
+      </>,
+    );
+
+    const desktopNavigation = screen.getByRole("navigation", { name: "Creator workspace" });
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "Mobile creator workspace",
+    });
+
+    expect(
+      within(desktopNavigation).getByRole("link", { name: "Invi" }).getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      within(desktopNavigation)
+        .getByRole("link", { name: "Overview" })
+        .getAttribute("aria-current"),
+    ).toBeNull();
+    expect(within(mobileNavigation).queryByRole("link", { name: "Invi" })).toBeNull();
+    expect(within(mobileNavigation).getAllByRole("link")).toHaveLength(4);
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "Home" }).getAttribute("aria-current"),
+    ).toBeNull();
+  });
+
+  it("restores focus after the profile menu closes", async () => {
     render(
       <CreatorShell email="maria@example.com" metadata={{ full_name: "Maria Santos" }}>
         <h1>Invitation editor</h1>
@@ -44,10 +112,13 @@ describe("creator workspace shell", () => {
     if (!profileTrigger) throw new Error("Expected the desktop profile trigger.");
 
     fireEvent.click(profileTrigger);
-    expect(screen.getByRole("button", { name: "Settings Coming soon" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    // Settings was a disabled "Coming soon" button until the destination existed. It is now a
+    // link, and it is the item that takes focus — opening this menu used to put the keyboard
+    // directly on Sign out.
+    const settings = screen.getByRole("link", { name: "Settings" });
+    expect(settings.getAttribute("href")).toBe("/dashboard/settings");
+    // Focus is taken in a `requestAnimationFrame`, which jsdom does not run synchronously.
+    await waitFor(() => expect(document.activeElement).toBe(settings));
     expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
     fireEvent.keyDown(document, { key: "Escape" });
 

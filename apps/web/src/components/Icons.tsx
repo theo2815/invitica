@@ -101,6 +101,20 @@ export function Check({ className }: IconProps) {
   );
 }
 
+/**
+ * The mark that keeps a warning legible without color. Every status message in settings pairs
+ * one of these with its wording, so nothing depends on distinguishing red from the page.
+ */
+export function AlertCircle({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 7.75v5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+      <circle cx="12" cy="16" fill="currentColor" r="0.9" />
+    </svg>
+  );
+}
+
 export function LogOut({ className }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
@@ -236,6 +250,34 @@ export function Trash({ className }: IconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+export function Expand({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+export function Collapse({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
       />
     </svg>
   );

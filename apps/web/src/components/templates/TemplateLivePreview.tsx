@@ -24,6 +24,7 @@ export function TemplateLivePreview({
   templateId,
   usedBefore,
 }: TemplateLivePreviewProps) {
+  const [hydrated, setHydrated] = useState(false);
   const [openingState, setOpeningState] = useState<InvitationOpeningState>("closed");
   const [actionsExpanded, setActionsExpanded] = useState(true);
   const actionPanelId = useId();
@@ -36,6 +37,9 @@ export function TemplateLivePreview({
   const previewPath = `/templates/${manifest.listing.id}/preview?intent=use`;
   const loginHref = `/login?next=${encodeURIComponent(previewPath)}`;
   const actionsAvailable = openingState === "opened";
+  const previewScrollGated = hydrated && !actionsAvailable;
+
+  useEffect(() => setHydrated(true), []);
 
   useEffect(() => {
     if (!actionsAvailable || !actionsToggledRef.current) {
@@ -55,11 +59,22 @@ export function TemplateLivePreview({
   }
 
   return (
-    <div className={styles.previewPage} data-cta-visible={actionsAvailable}>
+    <div
+      className={styles.previewPage}
+      data-cta-visible={actionsAvailable}
+      data-preview-scroll-gated={previewScrollGated}
+    >
+      {/*
+        Preview mode, matching the quick-preview modal exactly. Published mode hides the reply
+        section, because the renderer omits RSVP from every published general link — so the two
+        preview surfaces disagreed about how many sections the template has. The full-viewport
+        closed scene that published mode used to provide is restored in this page's stylesheet,
+        where a page-layout concern belongs.
+      */}
       <Renderer
         document={manifest.defaultDocument}
         mapTileKey={getMapTileKey()}
-        mode="published"
+        mode="preview"
         onOpeningStateChange={setOpeningState}
       />
 

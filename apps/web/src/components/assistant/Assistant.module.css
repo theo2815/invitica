@@ -1,0 +1,1041 @@
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+  The stacking rule. The mobile tab bar is 20 and every creator confirmation dialog is 50,
+  so the assistant sits between: above navigation, beneath any decision a creator is being
+  asked to make. A publish or delete confirmation must cover the assistant, never the reverse.
+*/
+.widget {
+  position: fixed;
+  z-index: 30;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.bubble {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  min-width: 2.75rem;
+  height: 3.25rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 50%;
+  background: var(--surface, #fffdf8);
+  box-shadow: 0 0.75rem 1.75rem rgb(var(--shadow-rgb) / 22%);
+  color: var(--accent, #7a3442);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.bubble:hover {
+  background: var(--surface-muted, #eee7da);
+}
+
+.bubble:active {
+  transform: scale(0.96);
+}
+
+.bubbleGlyph {
+  display: grid;
+  place-items: center;
+}
+
+.bubbleGlyph > svg:not([data-invi-state]) {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.bubbleGlyph > [data-invi-state] {
+  width: 2.65rem;
+  height: 2.65rem;
+}
+
+/*
+  The panel was 24rem wide and capped at 32rem tall — 384 x 512 px. Its own chrome takes
+  about 300 px of that (header, thread bar, mode switch, composer), which left roughly
+  210 px of conversation, and about 130 px whenever the mode-routing offer appeared. Three
+  lines of an answer inside a 512 px panel is not a reading surface.
+
+  Two changes rather than one. The default is wider and materially taller, and the cap now
+  follows the viewport instead of stopping at 32 rem on a screen with twice that free. The
+  reserved 7rem is what the bubble, its gap, and the bottom inset actually occupy, so the
+  panel grows into real space rather than over its own control.
+
+  `--panel-height` exists so the expanded state below changes one value instead of
+  restating the whole rule.
+*/
+.panel {
+  /*
+    Measured, not estimated. At 1440x900 the old panel gave 248 px of conversation; 38rem
+    here gave 268, because the mode switch is now always on screen and costs about 90 px
+    that used to be spent only when an invitation was in context. 44rem is what actually
+    buys the reading space back — roughly 380 px by default, against 465 expanded.
+  */
+  --panel-height: min(44rem, calc(100dvh - 7rem));
+
+  display: flex;
+  flex-direction: column;
+  width: min(28rem, calc(100vw - 2rem));
+  height: var(--panel-height);
+  overflow: hidden;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.6rem;
+  background: var(--surface, #fffdf8);
+  box-shadow: 0 1.5rem 3rem rgb(var(--shadow-rgb) / 18%);
+  color: var(--text, #29231f);
+  transition:
+    width 180ms ease,
+    height 180ms ease;
+}
+
+/*
+  The taller size, for reading a long answer or checking a parsed guest list without
+  leaving the page. It stops short of the full viewport on purpose: this panel is not
+  modal, and a creator has to be able to see the work it is about.
+*/
+.panel[data-expanded="true"] {
+  --panel-height: calc(100dvh - 7rem);
+
+  width: min(34rem, calc(100vw - 2rem));
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem 0.55rem 1rem;
+  border-bottom: 1px solid var(--border, #d5cbbd);
+}
+
+.panelIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.panelMascot {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.panelHeading {
+  min-width: 0;
+}
+
+.panelEyebrow {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.panelTitle {
+  margin: 0.15rem 0 0;
+  font-family: var(--display-font);
+  font-size: 1.05rem;
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.panelAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.panelAction svg {
+  width: 0.9rem;
+  margin-left: 0.3rem;
+}
+
+.panelAction:hover:not(:disabled),
+.panelAction:focus-visible {
+  border-color: var(--border, #d5cbbd);
+  color: var(--text, #29231f);
+}
+
+.panelAction:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/*
+  Expand and Close. Icon-only, because the header now carries three actions and the panel
+  is 28rem wide — but both keep a real accessible name and a `title`, so neither depends on
+  a creator decoding a glyph. "Open full view" beside them stays a word: it is the one that
+  leaves the page, and that is not a thing to guess at.
+*/
+.panelIconAction {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  cursor: pointer;
+}
+
+.panelIconAction svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.panelIconAction:hover,
+.panelIconAction:focus-visible {
+  border-color: var(--border, #d5cbbd);
+  color: var(--text, #29231f);
+}
+
+.panelIconAction[aria-pressed="true"] {
+  border-color: var(--border, #d5cbbd);
+  background: var(--surface-muted, #eee7da);
+  color: var(--text, #29231f);
+}
+
+/*
+  `min-width: 0` is load-bearing, not tidiness.
+
+  On `/dashboard/assistant` this is a flex item of a row container that clips what it cannot
+  fit, so its automatic minimum width was its min-content width — and one saved conversation
+  whose title did not wrap set that to 667 px at every viewport. Measured against the real
+  CSS: at 1440 the card was 508 px and this column 667, putting the delete button at
+  x 720-764 and **Back to chat** at 680-764, both past a clipped edge; at 390 they were
+  260 px outside it. That is why the history list could not be closed or deleted from.
+  Removing `white-space: nowrap` from the title below is the other half of the same fix.
+*/
+.conversation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Thread-level controls: which conversation, rather than what the next message does.
+   Above the mode switch because starting a new thread or opening an old one changes the
+   conversation the mode applies to. */
+.threadBar {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: space-between;
+  padding: 0.25rem 1rem 0;
+}
+
+.threadAction {
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.threadAction:hover:not(:disabled) {
+  border-color: var(--border, #d5cbbd);
+  color: var(--text, #29231f);
+}
+
+.threadAction[data-active="true"] {
+  border-color: var(--border, #d5cbbd);
+  background: var(--surface-muted, #eee7da);
+  color: var(--text, #29231f);
+  font-weight: 700;
+}
+
+.threadAction:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* A segmented control, not tabs: the thread below is one conversation, and this changes
+   what the next message does rather than switching between two views of it. */
+/* Three equal columns rather than two since guest-list organizing joined the modes. The
+   minmax(0, …) is what lets a label wrap inside its own column instead of widening it. */
+.modeGroup {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem 0;
+}
+
+.modeSwitch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Why a tab is unavailable, rather than a tab that merely looks broken. Quiet: this is
+   orientation, not a warning, and nothing has gone wrong. */
+.modeHint {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.modeSwitch button {
+  min-height: 2.75rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.78rem;
+  /* After `font: inherit`, which is a shorthand and would otherwise reset it. Three labels
+     wrap where two did not, and this keeps a wrapped one inside the row. */
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+/* The selected mode is carried by weight and fill together, so it does not depend on
+   colour alone. `aria-pressed` is the same signal assistive technology reads. */
+.modeSwitch button[aria-pressed="true"] {
+  border-color: var(--accent, #7d2b3f);
+  background: var(--accent, #7d2b3f);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/*
+  Unavailable, not faded out.
+
+  These tabs are now on screen at all times, so a creator reads the disabled ones far more
+  often than they used to. The old `opacity: 0.55` dropped muted ink to roughly 2.3:1
+  against the paper — legible only if you already knew what it said. A dashed border says
+  "not now" without spending contrast, and the line underneath says why in words, so the
+  state survives monochrome, low vision, and a screen reader alike.
+*/
+.modeSwitch button:disabled {
+  border-style: dashed;
+  color: color-mix(in srgb, var(--muted, #6d655e) 78%, var(--surface, #fffdf8));
+  cursor: not-allowed;
+}
+
+.log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+}
+
+.empty {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.emptyLead {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Says what the buttons below now do, because they stopped sending and started filling
+   the composer. Without it the change would read as a broken tap. */
+.suggestionsLead {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.suggestions {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface-muted, #eee7da);
+  color: var(--text, #29231f);
+  font-size: 0.83rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover:not(:disabled) {
+  border-color: var(--accent, #7a3442);
+}
+
+.suggestion:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.messages {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.message {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Sender is carried by a text label as well as alignment, so the distinction survives
+   without colour or position. */
+.message[data-role="user"] {
+  justify-items: end;
+  text-align: right;
+}
+
+.messageRole {
+  color: var(--muted, #6d655e);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.messageBody {
+  max-width: 92%;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.45rem;
+  background: var(--surface-muted, #eee7da);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+/* The creator's own text is reproduced exactly, line breaks and all. An answer is not:
+   it arrives as Markdown and `AssistantAnswer` turns it into real blocks, so preserving
+   the model's arbitrary wrapping would fight the paragraphs it just built. */
+.message[data-role="user"] .messageBody {
+  white-space: pre-wrap;
+}
+
+.message[data-role="assistant"] .messageBody {
+  background: var(--surface, #fffdf8);
+}
+
+/* Copy and Edit. Quiet by default so a thread reads as a conversation rather than as a
+   row of controls, and always present rather than hover-revealed — a phone has no hover
+   and these are the two things a creator reaches for most. */
+.messageAction {
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: none;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.messageAction:hover {
+  color: var(--text, #29231f);
+}
+
+/* The rendered answer. Tight vertical rhythm: a two-sentence reply with one list should
+   read as a single short answer, not as a document. */
+.answer {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.answer p {
+  margin: 0;
+}
+
+.answerHeading {
+  font-weight: 700;
+}
+
+.answerList,
+.answerSteps {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.answerList li,
+.answerSteps li {
+  padding-left: 0.15rem;
+}
+
+.answerCode {
+  padding: 0.05rem 0.25rem;
+  border-radius: 0.2rem;
+  background: var(--surface-muted, #eee7da);
+  font-size: 0.92em;
+}
+
+/*
+  Invi, in the thread, while the answer is still coming.
+
+  Before this the thread pushed an empty message and the bordered bubble rendered as a
+  bare horizontal line — a loading state that looked like a rule. Invi standing in the
+  conversation says the same thing and says who is saying it.
+*/
+.thinking {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  margin-top: 0.9rem;
+}
+
+.thinkingMascot {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+}
+
+.thinkingLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  color: var(--muted, #6d655e);
+  font-size: 0.82rem;
+}
+
+.thinkingDots {
+  display: inline-flex;
+  gap: 0.18rem;
+}
+
+.thinkingDots i {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: currentcolor;
+  animation: assistant-typing 1.2s ease-in-out infinite;
+}
+
+.thinkingDots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinkingDots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes assistant-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+
+  30% {
+    opacity: 1;
+  }
+}
+
+/* The label carries the state on its own, so stopping the dots removes decoration and
+   no information. */
+@media (prefers-reduced-motion: reduce) {
+  .thinkingDots i {
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
+/* Not an alert: the creator did this on purpose, and `role="alert"` would interrupt a
+   screen reader to report their own button press back to them. */
+.stopped {
+  margin: 0.9rem 0 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.notice {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.4rem;
+  color: var(--text, #29231f);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+/* A parsed guest list, summarised. It is deliberately not an editable table: the Add guests
+   composer already is one, and it is the only surface that can create these rows. */
+.guestList {
+  margin: 0.9rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.4rem;
+  background: var(--surface-muted, #eee7da);
+}
+
+.guestListHeading {
+  margin: 0 0 0.5rem;
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+
+.guestRows {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+}
+
+.guestRows li {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.guestRows span:last-child {
+  flex: none;
+  color: var(--muted, #6d655e);
+  font-size: 0.76rem;
+}
+
+.guestListActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.guestListActions button {
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.guestListActions .review {
+  flex: 1;
+  border-color: var(--accent, #7d2b3f);
+  background: var(--accent, #7d2b3f);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.guestListActions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Sits between the thread and the composer, where the creator is already looking while they
+   type. Deliberately quieter than a notice: nothing has gone wrong, and the message they are
+   writing still works exactly as it is. */
+.routing {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0;
+}
+
+.routingReason {
+  margin: 0;
+  color: var(--muted, #6d655e);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.routingActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.routingActions button {
+  min-height: 2.75rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.routingActions .routingSwitch {
+  flex: 1;
+  border-color: var(--accent, #7d2b3f);
+  color: var(--text, #29231f);
+  font-weight: 700;
+  text-align: left;
+}
+
+.routingActions button:hover {
+  background: var(--surface-muted, #eee7da);
+}
+
+.composer {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border, #d5cbbd);
+  background: var(--surface, #fffdf8);
+}
+
+/*
+  `resize: none` on purpose. The composer grows with what is typed — `AssistantConversation`
+  writes an inline height on every keystroke — and a manual drag handle set the same
+  property, so any size a creator chose was overwritten by their next character. Offering a
+  control that undoes itself is worse than not offering it.
+*/
+.input {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.88rem;
+  resize: none;
+}
+
+.input:focus-visible {
+  border-color: var(--accent, #7a3442);
+  outline: 2px solid var(--focus, #2457c5);
+  outline-offset: 1px;
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.counter {
+  flex: 1;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+}
+
+/*
+  Occupies the send button's place while an answer runs, so the control a creator is
+  already looking at becomes the one that stops it. Outlined rather than filled: stopping
+  is a correction, not the action the composer is for.
+*/
+.stopAction {
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.35rem;
+  background: var(--surface, #fffdf8);
+  color: var(--accent, #7a3442);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stopAction:hover {
+  background: var(--surface-muted, #eee7da);
+}
+
+/* Saved threads, newest first. */
+
+/* Names the list a creator has just replaced their conversation with, and says the two
+   things they ask about it. Inside the scrolling log, so it costs the thread no height. */
+.historyHeading {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.historyNote {
+  margin: 0.2rem 0 0.7rem;
+  color: var(--muted, #6d655e);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.historyLoading {
+  margin: 0 0 0.5rem;
+  color: var(--muted, #6d655e);
+  font-size: 0.78rem;
+}
+
+.historyEmpty {
+  color: var(--muted, #6d655e);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.historyEmpty p {
+  margin: 0;
+}
+
+.historyList {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+  A grid rather than a flex row, so the title column is `minmax(0, 1fr)` and can genuinely
+  be narrower than its own text. The delete control keeps its intrinsic width beside it
+  instead of being pushed out of the panel by a long first message.
+*/
+.historyItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.historyOpen {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+  justify-items: start;
+  min-height: 2.75rem;
+  align-content: center;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--text, #29231f);
+  font: inherit;
+  font-size: 0.83rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.historyOpen:hover:not(:disabled) {
+  border-color: var(--border, #d5cbbd);
+}
+
+/* The open thread is marked by fill and weight together, so it does not rely on colour. */
+.historyOpen[aria-current="true"] {
+  border-color: var(--border, #d5cbbd);
+  background: var(--surface-muted, #eee7da);
+  font-weight: 700;
+}
+
+/*
+  Two lines, wrapped, rather than one line ellipsised at whatever the row had left.
+
+  Titles are the creator's own first message, and one line of a run-on question is often
+  identical to the next one's — the reported list held two rows both reading "can you help
+  me create a invitation?" with nothing to tell them apart. Two lines plus the time below
+  separates them. The clamp is what stops a 200-character title from owning the list.
+*/
+.historyTitle {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Under the title now, not beside it. On its own line it stops competing for the width the
+   title needs, and it is the only thing distinguishing two threads that start the same. */
+.historyWhen {
+  color: var(--muted, #6d655e);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+
+.historyDelete,
+.historyDeleteConfirm,
+.historyDeleteCancel {
+  display: grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border, #d5cbbd);
+  border-radius: 0.35rem;
+  background: none;
+  color: var(--muted, #6d655e);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/*
+  A bordered button carrying the shared Trash mark, where it used to be a bare `×` in muted
+  ink on the paper. It was a 44 px target the whole time; nothing said so, and the founder
+  reported not finding a way to delete at all. Sized through the descendant selector the
+  panel's own icon buttons use, so the icon takes no prop.
+*/
+.historyDelete svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.historyDelete:hover,
+.historyDeleteCancel:hover {
+  border-color: var(--text, #29231f);
+  color: var(--text, #29231f);
+}
+
+.historyConfirm {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.historyDeleteConfirm {
+  border-color: var(--accent, #7d2b3f);
+  color: var(--accent, #7d2b3f);
+  font-weight: 700;
+}
+
+.historyDeleteConfirm:hover {
+  background: var(--accent, #7d2b3f);
+  color: var(--accent-text);
+}
+
+.sendAction {
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border: 1px solid var(--accent, #7a3442);
+  border-radius: 0.35rem;
+  background: var(--accent, #7a3442);
+  /* The ink on an accent fill, not the page behind it. Both happen to land dark-on-rose in the
+     dark theme, but only one of them is meant to. */
+  color: var(--accent-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sendAction:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/*
+  At 900px and below the creator navigation becomes a fixed bottom tab bar 4rem tall plus the
+  device's own safe-area inset. The bubble clears both, so it never covers a tab, and the
+  panel becomes a full-height sheet — a 24rem floating card at 390px is a takeover with
+  nothing useful left behind it, so it may as well be honest about covering the screen.
+*/
+@media (max-width: 900px) {
+  .widget {
+    bottom: calc(4rem + env(safe-area-inset-bottom) + 0.75rem);
+  }
+
+  .widget[data-open="true"] {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  /* The sheet is the full viewport at every state, so the expanded width and the
+     viewport-derived height above are both overridden rather than inherited. */
+  .widget[data-open="true"] .panel,
+  .widget[data-open="true"] .panel[data-expanded="true"] {
+    --panel-height: 100dvh;
+
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    transition: none;
+  }
+
+  /* Inside the open sheet the bubble would be a second, redundant close control sitting on
+     top of the composer. The header's Close is the one way out, plus Escape. */
+  .widget[data-open="true"] .bubble {
+    display: none;
+  }
+
+  .panelHeader {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding-top: calc(0.55rem + env(safe-area-inset-top));
+  }
+
+  .panelEyebrow {
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+  }
+
+  .panelTitle {
+    margin-top: 0.05rem;
+    font-size: 0.98rem;
+  }
+
+  .panelMascot {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .panelActions {
+    flex-wrap: nowrap;
+    margin-left: auto;
+  }
+
+  .panelAction {
+    padding-inline: 0.45rem;
+    font-size: 0.75rem;
+  }
+
+  .composer {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}

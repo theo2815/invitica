@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!apps/viewer/worker-configuration.d.ts"]
+    "includes": ["**", "!!apps/viewer/worker-configuration.d.ts", "!apps/web/emails/supabase"]
   },
   "formatter": {
     "enabled": true,

@@ -12,6 +12,11 @@ import type { createClient } from "../../lib/supabase/server";
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 const invitationIdSchema = z.string().uuid();
+const invitationSectionUpdateSchema = z.strictObject({
+  id: invitationIdSchema,
+  props: z.record(z.string(), z.unknown()),
+  visible: z.boolean(),
+});
 
 const createDraftInputSchema = z.strictObject({
   invitationId: invitationIdSchema,
@@ -72,6 +77,7 @@ const occasionByListing: Record<TemplateManifest["listing"]["occasion"], string>
   Birthday: "birthday",
   Christening: "christening",
   Debut: "debut",
+  Romance: "romance",
   Wedding: "wedding",
 };
 
@@ -96,23 +102,60 @@ export class InvitationDraftConflictError extends Error {
   }
 }
 
-export class InvitationDeletionUnavailableError extends Error {
-  constructor() {
-    super("Only invitations that have never been submitted for publishing can be deleted here.");
-    this.name = "InvitationDeletionUnavailableError";
-  }
+interface SaveInvitationSectionsInput {
+  expectedRevision: number;
+  invitationId: string;
+  sectionUpdates: readonly z.infer<typeof invitationSectionUpdateSchema>[];
 }
 
-export async function deleteUnpublishedInvitation(
+export async function saveInvitationSectionsDraft(
   supabase: SupabaseServerClient,
-  invitationId: string,
+  input: SaveInvitationSectionsInput,
 ) {
+  const parsed = z
+    .strictObject({
+      expectedRevision: z.number().int().positive(),
+      invitationId: invitationIdSchema,
+      sectionUpdates: z.array(invitationSectionUpdateSchema).min(1).max(30),
+    })
+    .parse(input);
+  const { data, error } = await supabase.rpc("update_invitation_sections", {
+    p_expected_revision: parsed.expectedRevision,
+    p_invitation_id: parsed.invitationId,
+    p_section_updates: parsed.sectionUpdates,
+  });
+
+  if (error?.code === "40001") {
+    throw new InvitationDraftConflictError();
+  }
+
+  if (error) {
+    console.error("[Invitation editor] update_invitation_sections failed", {
+      code: error.code,
+      details: error.details || undefined,
+      hint: error.hint || undefined,
+      invitationId: parsed.invitationId,
+      message: error.message,
+    });
+    throw new InvitationDraftPersistenceError();
+  }
+
+  return z.coerce.number().int().positive().parse(data);
+}
+
+/**
+ * Removes the invitation and everything cascading from it. Publication state is
+ * no longer a refusal: `0031` deletes a published invitation too. The guest link
+ * is not this function's concern — the caller must have purged the R2 alias
+ * first, or the invitation stays live at the edge with no record left to retry
+ * from. See `publication-purge.ts`.
+ */
+export async function deleteInvitation(supabase: SupabaseServerClient, invitationId: string) {
   const parsedInvitationId = invitationIdSchema.parse(invitationId);
-  const { error } = await supabase.rpc("delete_unpublished_invitation", {
+  const { error } = await supabase.rpc("delete_invitation", {
     p_invitation_id: parsedInvitationId,
   });
 
-  if (error?.code === "55000") throw new InvitationDeletionUnavailableError();
   if (error) throw new InvitationDraftPersistenceError();
 }
 
@@ -175,6 +218,38 @@ export async function loadInvitationDraft(supabase: SupabaseServerClient, invita
     manifest,
     revision: record.revision,
   };
+}
+
+/**
+ * How many invitations this creator has, without loading one.
+ *
+ * The assistant needs the difference between "no invitations yet" and "has some but none
+ * selected" to answer a first-time creator usefully, and that is the whole of what it needs.
+ * A head count says it in one round trip, where `listInvitationDrafts` would parse every
+ * document and resolve every manifest to arrive at the same integer.
+ *
+ * No workspace filter: the select policy from migration `0002` already restricts these rows to
+ * workspaces the caller actively owns, so an unfiltered count is their own count.
+ *
+ * Returns `null` when it could not be counted, which is deliberately not `0`. The caller uses
+ * this to decide whether to tell the assistant that a creator has no invitations yet, and a
+ * failed query reported as zero would have Invi confidently send someone with nine invitations
+ * off to the Templates page. Unknown has to stay distinguishable from none.
+ */
+export async function countInvitationDrafts(
+  supabase: SupabaseServerClient,
+): Promise<null | number> {
+  try {
+    const { count, error } = await supabase
+      .from("invitation_drafts")
+      .select("invitation_id", { count: "exact", head: true });
+
+    if (error) return null;
+
+    return count;
+  } catch {
+    return null;
+  }
 }
 
 export async function listInvitationDrafts(supabase: SupabaseServerClient, workspaceId: string) {
@@ -276,37 +351,19 @@ export async function saveGardenPromiseDraft(supabase: SupabaseServerClient, inp
     throw new InvitationDraftConflictError();
   }
 
-  applyGardenPromiseFields(draft.document, parsed);
+  const updatedDocument = applyGardenPromiseFields(draft.document, parsed);
+  const editableTypes = new Set(["hero", "venue", "rsvp"]);
+  const sectionUpdates = updatedDocument.sections
+    .filter((section) => editableTypes.has(section.type))
+    .map(({ id, props, visible }) => ({ id, props, visible }));
 
-  const { data, error } = await supabase.rpc("update_garden_promise_details", {
-    p_date_label: parsed.dateLabel || null,
-    p_expected_revision: parsed.expectedRevision,
-    p_invitation_id: parsed.invitationId,
-    p_map_url: parsed.mapUrl || null,
-    p_rsvp_deadline: parsed.rsvpDeadline || null,
-    p_rsvp_message: parsed.rsvpMessage || null,
-    p_subtitle: parsed.subtitle || null,
-    p_title: parsed.title,
-    p_venue_address: parsed.venueAddress,
-    p_venue_name: parsed.venueName,
-  });
-
-  if (error?.code === "40001") {
-    throw new InvitationDraftConflictError();
-  }
-
-  if (error) {
-    // See the matching record in `little-blessings.ts`: without the PostgreSQL code
-    // a failed save is indistinguishable from any other cause.
-    console.error("[Invitation editor] update_garden_promise_details failed", {
-      code: error.code,
-      details: error.details || undefined,
-      hint: error.hint || undefined,
-      invitationId: parsed.invitationId,
-      message: error.message,
-    });
+  if (sectionUpdates.length !== editableTypes.size) {
     throw new InvitationDraftPersistenceError();
   }
 
-  return z.coerce.number().int().positive().parse(data);
+  return saveInvitationSectionsDraft(supabase, {
+    expectedRevision: parsed.expectedRevision,
+    invitationId: parsed.invitationId,
+    sectionUpdates,
+  });
 }

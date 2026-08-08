@@ -139,6 +139,7 @@ describe("guest RSVP persistence service", () => {
 
   it.each([
     ["22023", "invalid"],
+    ["23514", "invalid"],
     ["40001", "conflict"],
     ["P0001", "closed"],
     ["P0002", "unavailable"],

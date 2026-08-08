@@ -26,6 +26,7 @@ describe("invitation delete button", () => {
     render(
       <InvitationDeleteButton
         invitationId="71000000-0000-4000-8000-000000000001"
+        published={false}
         title="Mara & Joaquin"
       />,
     );
@@ -44,6 +45,7 @@ describe("invitation delete button", () => {
     render(
       <InvitationDeleteButton
         invitationId="71000000-0000-4000-8000-000000000001"
+        published={false}
         title="Mara & Joaquin"
       />,
     );
@@ -56,11 +58,40 @@ describe("invitation delete button", () => {
     });
   });
 
+  it("warns that a published invitation loses its guest link and replies", () => {
+    render(
+      <InvitationDeleteButton
+        invitationId="71000000-0000-4000-8000-000000000001"
+        published
+        title="Mara & Joaquin"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    const description = screen.getByRole("dialog").textContent ?? "";
+    expect(description).toContain("shared link stops working");
+    expect(description).toContain("every guest reply");
+  });
+
+  it("does not warn about a guest link an unpublished invitation never had", () => {
+    render(
+      <InvitationDeleteButton
+        invitationId="71000000-0000-4000-8000-000000000001"
+        published={false}
+        title="Mara & Joaquin"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(screen.getByRole("dialog").textContent).not.toContain("shared link");
+  });
+
   it("recovers when the deletion request is rejected", async () => {
     vi.mocked(deleteInvitationAction).mockRejectedValue(new Error("Network unavailable"));
     render(
       <InvitationDeleteButton
         invitationId="71000000-0000-4000-8000-000000000001"
+        published={false}
         title="Mara & Joaquin"
       />,
     );

@@ -1,5 +1,9 @@
 import { GardenPromiseRenderer, InvitationRenderer } from "@invitica/renderer";
-import { resolveTemplateById, templateCatalog } from "@invitica/template-kit";
+import {
+  resolveTemplateById,
+  resolveTemplateVersion,
+  templateCatalog,
+} from "@invitica/template-kit";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,6 +35,7 @@ const creationRequestIds = {
   "golden-hour": "71000000-0000-4000-8000-000000000002",
   "sunday-joy": "71000000-0000-4000-8000-000000000003",
   "little-blessings": "71000000-0000-4000-8000-000000000004",
+  "a-little-question": "71000000-0000-4000-8000-000000000005",
 };
 
 afterEach(cleanup);
@@ -56,7 +61,32 @@ describe("templates page", () => {
     render(await TemplatesPage());
 
     expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeDefined();
-    expect(screen.getAllByRole("article")).toHaveLength(4);
+    expect(screen.getAllByRole("article")).toHaveLength(5);
+  });
+
+  it("uses the distinct renderer-derived still for every template card", () => {
+    render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
+
+    const sources = templateCatalog.map((template) => {
+      const image = screen
+        .getByRole("button", { name: `Quick preview ${template.name}` })
+        .querySelector<HTMLImageElement>("img");
+
+      expect(image?.getAttribute("alt")).toBe("");
+      if (!image) throw new Error(`Missing still for ${template.id}`);
+
+      return image.src.includes("/_next/image")
+        ? new URL(image.src).searchParams.get("url")
+        : image.getAttribute("src");
+    });
+
+    expect(sources).toEqual([
+      "/landing/templates/garden-promise-svg-20260805.jpg",
+      "/landing/templates/golden-hour-svg-20260805.jpg",
+      "/landing/templates/sunday-joy-svg-20260805.jpg",
+      "/landing/templates/little-blessings-svg-20260805.jpg",
+      "/landing/templates/a-little-question-svg-20260805.jpg",
+    ]);
   });
 
   it("shows the workspace failure instead of a template collection", async () => {
@@ -118,17 +148,14 @@ describe("templates page", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("enables creation only for the production templates with stable request keys", () => {
+  it("enables creation for every production template with stable request keys", () => {
     render(<TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />);
 
     const creationButtons = screen.getAllByRole("button", { name: "Use this template" });
-    const previewOnlyButtons = screen.getAllByRole("button", { name: "Preview only" });
+    const previewOnlyButtons = screen.queryAllByRole("button", { name: "Preview only" });
 
-    // Garden Promise and Little Blessings are real; the two standard-renderer
-    // concepts are still fixtures.
-    expect(creationButtons).toHaveLength(2);
-    expect(previewOnlyButtons).toHaveLength(2);
-    expect(previewOnlyButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
+    expect(creationButtons).toHaveLength(5);
+    expect(previewOnlyButtons).toHaveLength(0);
     expect(
       creationButtons.map(
         (button) =>
@@ -136,15 +163,17 @@ describe("templates page", () => {
             'input[name="invitationId"]',
           )?.value,
       ),
-    ).toEqual([creationRequestIds["garden-promise"], creationRequestIds["little-blessings"]]);
+    ).toEqual([
+      creationRequestIds["garden-promise"],
+      creationRequestIds["golden-hour"],
+      creationRequestIds["sunday-joy"],
+      creationRequestIds["little-blessings"],
+      creationRequestIds["a-little-question"],
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Quick preview Golden Hour" }));
-    expect(
-      screen.getByText("Interactive concept preview — production creation is unavailable."),
-    ).toBeDefined();
-    expect(
-      screen.getAllByRole("button", { name: "Preview only" }).at(-1)?.hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.getByText("Production renderer")).toBeDefined();
+    expect(screen.getAllByRole("button", { name: "Use this template" }).at(-1)).toBeDefined();
   });
 
   it("asks before reusing a template and offers the existing invitation library", () => {
@@ -211,6 +240,57 @@ describe("templates page", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  /**
+   * The quick preview and the full preview route must show a creator the same template. Both assert
+   * against the showcase document rather than a copied list, so the two cannot drift apart — the
+   * matching assertion lives in `TemplateLivePreview.test.tsx`.
+   */
+  it("previews every Garden Promise section and image slot, like the full route", () => {
+    const { container } = render(
+      <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Quick preview Garden Promise" }));
+
+    // Scoped to the preview stage: the catalog cards also carry `data-template`.
+    const invitation = container.querySelector('[data-testid="template-preview-stage"]');
+    if (!invitation) throw new Error("Expected the Garden Promise renderer in the modal");
+
+    const showcase = resolveTemplateById("garden-promise").defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(8);
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+  });
+
+  it.each([
+    ["golden-hour", "Golden Hour", 7],
+    ["sunday-joy", "Sunday Joy", 8],
+  ])("previews every %s section and image slot, like the full route", (templateId, templateName, placeholders) => {
+    const { container } = render(
+      <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: `Quick preview ${templateName}` }));
+
+    const invitation = container.querySelector('[data-testid="template-preview-stage"]');
+    if (!invitation) throw new Error(`Expected the ${templateId} renderer in the modal`);
+
+    const showcase = resolveTemplateById(templateId).defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(placeholders);
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+  });
+
   it("handles no matches, loading, and unexpected errors", () => {
     const { unmount } = render(
       <TemplateCatalog creationRequestIds={creationRequestIds} templates={templateCatalog} />,
@@ -220,7 +300,7 @@ describe("templates page", () => {
     });
     expect(screen.getByRole("heading", { name: "No templates match your search." })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getAllByRole("article")).toHaveLength(4);
+    expect(screen.getAllByRole("article")).toHaveLength(5);
     unmount();
 
     const loading = render(<TemplatesLoading />);
@@ -272,7 +352,7 @@ describe("standard template cinematic takeover", () => {
 });
 
 describe("Garden Promise invitation interaction", () => {
-  const gardenPromise = resolveTemplateById("garden-promise");
+  const gardenPromise = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 
   afterEach(() => {
     vi.useRealTimers();

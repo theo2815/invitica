@@ -1,0 +1,352 @@
+/*
+ * Creator settings — clarity work, not expression. The Warm Editorial page header matches every
+ * other creator route; below it the surface is a single scrolling column of bordered paper
+ * panels, because six account groups are not peer views of one object and so are not tabs.
+ *
+ * Tokens come from the creator shell's `.page`, which is where every `/dashboard/*` surface
+ * inherits them.
+ */
+
+.page {
+  /* A settings form stretched to a 1440 px dashboard would put a 1,200 px input under a
+     twelve-character label. Reading measure governs the column, not the viewport. */
+  max-width: 46rem;
+  padding-block: clamp(2rem, 4vw, 3.75rem);
+}
+
+.pageHeader {
+  padding-bottom: clamp(1.75rem, 3.5vw, 2.75rem);
+  border-bottom: 1px solid var(--border);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin: 0.65rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(2.35rem, 5vw, 3.6rem);
+  font-weight: 520;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.pageDescription {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.sections {
+  display: grid;
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+  margin-top: clamp(1.75rem, 3.5vw, 2.75rem);
+}
+
+.section {
+  padding: clamp(1.15rem, 3vw, 1.6rem);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.section[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 780;
+  letter-spacing: -0.01em;
+}
+
+.sectionDescription {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.sectionBody {
+  margin-top: 1.15rem;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.submitButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1.15rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: var(--accent-text, #ffffff);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.submitButton:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.dangerButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding-inline: 1.15rem;
+  border: 1px solid var(--danger);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.dangerButton svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The action row of a panel whose body is prose rather than fields. */
+.panelActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.15rem;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.dangerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+/*
+ * Status never rests on color. Each tone carries its own mark and its own wording, so the
+ * message survives a monochrome screen and a creator who does not distinguish red from green.
+ */
+.status {
+  display: grid;
+  align-items: start;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 0.35rem;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.status svg {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.08rem;
+}
+
+.status[data-tone="success"] {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--text);
+}
+
+.status[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface));
+  color: var(--danger);
+}
+
+/*
+ * Two mutually exclusive cards. Selection is carried by border, fill, and a checked radio —
+ * never by fill alone, so the current theme is still identifiable without color.
+ */
+.themeGroup {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 0.55rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.themeGroup:disabled {
+  opacity: 0.7;
+}
+
+.themeOption {
+  display: grid;
+  min-height: 2.75rem;
+  align-content: start;
+  gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.themeOption:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.themeOption[data-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+/* The native control stays in the accessibility tree and in the tab order; it is drawn small
+   beside the label rather than replaced by one. */
+.themeOption input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0 0.15rem;
+  accent-color: var(--accent);
+}
+
+.themeOption:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.themeLabel {
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.themeDescription {
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.factList {
+  display: grid;
+  margin: 0;
+  gap: 0.85rem;
+}
+
+.factList > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.factList dt {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 780;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.factList dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  font-weight: 620;
+}
+
+.factList a {
+  color: var(--accent);
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.inlineNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.meter {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+.meterTrack {
+  height: 0.4rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 60%, var(--surface));
+}
+
+.meterFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.meterLabel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  /* Two cards at 320 px leave about 138 px each, which is enough for the label but drops both
+     descriptions to three lines of four words. One column below this width instead. */
+  .themeGroup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .formActions,
+  .panelActions {
+    flex-direction: column-reverse;
+  }
+
+  .formActions > *,
+  .panelActions > * {
+    width: 100%;
+  }
+}

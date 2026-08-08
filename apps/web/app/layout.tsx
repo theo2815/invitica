@@ -1,8 +1,15 @@
-import "@fontsource-variable/fraunces/index.css";
+// The WONK subset carries the same weight range as the default wght file within 132 bytes across all
+// three unicode ranges, and defaults to WONK 0, so it renders identically everywhere that does not
+// opt in. Garden Promise opts in for display type. Keep this identical to the Viewer import so
+// creator preview and published output resolve the same face.
+import "@fontsource-variable/fraunces/wonk.css";
 import "@fontsource-variable/instrument-sans/index.css";
 import { INVITICA_BRAND_FIELD } from "@invitica/renderer";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+
+import { ThemeProvider } from "../src/components/ThemeContext";
+import { readThemePreference, themeAttribute } from "../src/server/account/theme";
 
 import "./globals.css";
 
@@ -35,10 +42,20 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  // Read on the server and rendered into the markup, so the theme is already correct in the first
+  // paint. The usual client-side alternative flashes the wrong palette for a frame, and on a
+  // mid-range Philippine phone that frame is not brief.
+  //
+  // The attribute drives the palette; the provider exists only for the header wordmark, which is a
+  // raster and so has to choose a file rather than a colour.
+  const theme = await readThemePreference();
+
   return (
-    <html lang="en-PH">
-      <body>{children}</body>
+    <html data-theme={themeAttribute(theme)} lang="en-PH">
+      <body>
+        <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

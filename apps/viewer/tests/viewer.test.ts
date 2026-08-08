@@ -8,7 +8,7 @@ import {
   publicationSocialPreviewObjectKey,
 } from "@invitica/invitation-schema";
 import { resolveTemplateRendererRegistration } from "@invitica/renderer";
-import { resolveTemplateById } from "@invitica/template-kit";
+import { resolveTemplateById, templateStarterDocument } from "@invitica/template-kit";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -25,6 +25,12 @@ import worker from "../src/index";
 
 const gardenPromise = resolveTemplateById("garden-promise");
 const renderer = resolveTemplateRendererRegistration(gardenPromise.rendererKey);
+/**
+ * A publication comes from a creator's draft, so these fixtures build on the starter rather than the
+ * catalog showcase. The showcase carries image slots for the album a creator has not filled in, and
+ * a publication must supply one manifest entry for every document asset.
+ */
+const gardenPromiseDocument = templateStarterDocument(gardenPromise);
 
 function snapshot(
   title = "Mara & Joaquin",
@@ -39,8 +45,8 @@ function snapshot(
     templateVersion: gardenPromise.version,
     draftRevision: 4,
     document: {
-      ...gardenPromise.defaultDocument,
-      sections: gardenPromise.defaultDocument.sections.map((section) =>
+      ...gardenPromiseDocument,
+      sections: gardenPromiseDocument.sections.map((section) =>
         section.type === "hero"
           ? {
               ...section,
@@ -116,7 +122,8 @@ describe("public guest viewer", () => {
     expect(html).toContain("Mara &amp; Joaquin");
     expect(html).toContain("Preparing invitation…");
     expect(html).toContain('aria-disabled="true"');
-    expect(html).toContain("Use your personalized invitation link to respond");
+    expect(html).not.toContain("Use your personalized invitation link to respond");
+    expect(html).not.toContain("Kindly reply by December 17, 2026");
     expect(html).toContain('data-render-mode="published"');
     expect(html).toContain('id="publication-artifact"');
     expect(html).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');

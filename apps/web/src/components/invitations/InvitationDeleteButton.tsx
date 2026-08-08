@@ -8,10 +8,16 @@ import styles from "./InvitationDeleteButton.module.css";
 
 interface InvitationDeleteButtonProps {
   invitationId: string;
+  /** A published invitation loses its guest link too, so it is confirmed differently. */
+  published: boolean;
   title: string;
 }
 
-export function InvitationDeleteButton({ invitationId, title }: InvitationDeleteButtonProps) {
+export function InvitationDeleteButton({
+  invitationId,
+  published,
+  title,
+}: InvitationDeleteButtonProps) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -93,7 +99,9 @@ export function InvitationDeleteButton({ invitationId, title }: InvitationDelete
             <p className={styles.eyebrow}>Permanent action</p>
             <h2 id="delete-invitation-title">Delete this invitation?</h2>
             <p id="delete-invitation-description">
-              “{title}” and its saved draft will be permanently removed. This cannot be undone.
+              {published
+                ? `“${title}”, its saved draft, and every guest reply will be permanently removed. The shared link stops working for your guests within a minute. This cannot be undone.`
+                : `“${title}” and its saved draft will be permanently removed. This cannot be undone.`}
             </p>
             {errorMessage ? <p role="alert">{errorMessage}</p> : null}
             <div className={styles.actions}>

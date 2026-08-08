@@ -1,0 +1,102 @@
+/*
+  The indicator rests at the mobile header's lower edge, shifted up by its own
+  height so the opaque header hides it (header `z-index: 30`, this `25`). The pull
+  distance pushes it out from behind the header and back, which is why the
+  gesture reads as revealing a control rather than fading one in.
+
+  That hiding depends entirely on the mobile header, and the header only exists
+  below 900px — the shell's breakpoint. On desktop nothing covers the indicator,
+  so it has to be removed outright rather than parked off-screen. The gesture is
+  mobile-only anyway; desktop has the browser's reload control.
+*/
+.indicator {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .indicator {
+    position: fixed;
+    z-index: 25;
+    top: calc(env(safe-area-inset-top) + 3.5rem);
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: 0 0.5rem 1.5rem rgb(var(--shadow-rgb) / 12%);
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    pointer-events: none;
+    transform: translate3d(-50%, calc(var(--pull-distance, 0px) - 100%), 0);
+  }
+}
+
+/* Following the finger must not be animated; releasing and refreshing must be. */
+.indicator[data-phase="idle"],
+.indicator[data-phase="refreshing"] {
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.indicator[data-phase="ready"],
+.indicator[data-phase="refreshing"] {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  color: var(--accent);
+}
+
+.spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+}
+
+.indicator[data-phase="refreshing"] .spinner {
+  animation: pull-refresh-spin 0.7s linear infinite;
+}
+
+/* The arc alone reads as an arrow pointing the way the finger should travel. */
+.indicator[data-phase="ready"] .spinner {
+  transform: rotate(180deg);
+}
+
+.label {
+  white-space: nowrap;
+}
+
+/*
+  Reduced motion keeps the gesture and all three of its states; it drops the
+  travel. The indicator appears in place at the header edge as soon as the pull
+  starts, and its label, border, and arc carry the phase — nothing here is
+  communicated by movement alone. `globals.css` already collapses the transition
+  and the spin, so only the resting position needs restating.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .indicator:not([data-phase="idle"]) {
+    transform: translate3d(-50%, 0.5rem, 0);
+  }
+
+  .indicator[data-phase="ready"] .spinner {
+    transform: rotate(180deg);
+  }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes pull-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

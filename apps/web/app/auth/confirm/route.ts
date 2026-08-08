@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "../../../src/lib/supabase/server";
 import { getSafeNextPath, getSiteOrigin } from "../../../src/server/auth/redirects";
+import {
+  applyPendingTermsAcceptance,
+  getPostAuthLegalRedirect,
+} from "../../../src/server/legal/acceptance";
 
 const allowedOtpTypes = new Set<EmailOtpType>([
   "email",
@@ -33,9 +37,20 @@ export async function GET(request: Request) {
       : { error: new Error("Missing confirmation token") };
 
   if (!verification.error) {
-    const { error: workspaceError } = await supabase.rpc("ensure_personal_workspace");
-    if (!workspaceError) {
-      return NextResponse.redirect(new URL(next, siteOrigin));
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await applyPendingTermsAcceptance(supabase, user.id);
+      const acceptanceRedirect = await getPostAuthLegalRedirect(supabase, user.id, next);
+      if (acceptanceRedirect) {
+        return NextResponse.redirect(new URL(acceptanceRedirect, siteOrigin));
+      }
+
+      const { error: workspaceError } = await supabase.rpc("ensure_personal_workspace");
+      if (!workspaceError) {
+        return NextResponse.redirect(new URL(next, siteOrigin));
+      }
     }
   }
 

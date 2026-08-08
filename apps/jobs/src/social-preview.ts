@@ -26,10 +26,25 @@ export interface PublicationSocialPreviewStore {
   ): Promise<void>;
 }
 
+/**
+ * Every distinct failure here used to arrive in the log as the same sentence with no cause, so a
+ * missing font, an oversized preview, a rendition absent from the bucket, and a sharp crash were
+ * indistinguishable. `reason` names the step; `cause` carries whatever was thrown underneath. The
+ * creator-facing wording lives in the publication panel, so this string is free to be diagnostic.
+ */
+export type PublicationSocialPreviewFailure =
+  | "hero_rendition_missing_from_manifest"
+  | "hero_rendition_object_absent"
+  | "preview_exceeds_byte_cap"
+  | "preview_composition_failed";
+
 export class PublicationSocialPreviewError extends Error {
-  constructor() {
-    super("The publication social preview could not be generated.");
+  readonly reason: PublicationSocialPreviewFailure;
+
+  constructor(reason: PublicationSocialPreviewFailure, options?: { cause?: unknown }) {
+    super(`The publication social preview could not be generated: ${reason}.`, options);
     this.name = "PublicationSocialPreviewError";
+    this.reason = reason;
   }
 }
 
@@ -128,10 +143,13 @@ async function heroImage(
     (widest, candidate) => (!widest || candidate.width > widest.width ? candidate : widest),
     null,
   );
-  if (!rendition) throw new PublicationSocialPreviewError();
+  if (!rendition) throw new PublicationSocialPreviewError("hero_rendition_missing_from_manifest");
 
   const bytes = await store.getBinary(rendition.objectKey, MAX_RENDITION_BYTES);
-  if (!bytes) throw new PublicationSocialPreviewError();
+  // The manifest names this object but the bucket does not hold it, which in practice means the
+  // worker and the web app disagree about which bucket stores creator media. The reason alone says
+  // that; the key stays out of the error so it cannot reach a log that must not carry identifiers.
+  if (!bytes) throw new PublicationSocialPreviewError("hero_rendition_object_absent");
   return bytes;
 }
 
@@ -307,7 +325,11 @@ export async function createPublicationSocialPreview(
       .toBuffer();
 
     if (output.byteLength > MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES) {
-      throw new PublicationSocialPreviewError();
+      throw new PublicationSocialPreviewError("preview_exceeds_byte_cap", {
+        cause: new Error(
+          `Preview was ${output.byteLength} bytes against a ${MAX_PUBLICATION_SOCIAL_PREVIEW_BYTES} byte cap`,
+        ),
+      });
     }
 
     const sha256 = createHash("sha256").update(output).digest("hex");
@@ -327,6 +349,8 @@ export async function createPublicationSocialPreview(
     });
   } catch (error) {
     if (error instanceof PublicationSocialPreviewError) throw error;
-    throw new PublicationSocialPreviewError();
+    // Font file, sharp, and R2 write failures all land here. Keeping the cause is the difference
+    // between a one-line log and a debugging session.
+    throw new PublicationSocialPreviewError("preview_composition_failed", { cause: error });
   }
 }

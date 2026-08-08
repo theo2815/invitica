@@ -31,7 +31,7 @@
   inset: 0;
   display: grid;
   padding: 1.25rem;
-  background: rgb(41 35 31 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   place-items: center;
 }
 
@@ -42,7 +42,7 @@
   border-top: 3px solid var(--danger);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 2rem 5rem rgb(41 35 31 / 22%);
+  box-shadow: 0 2rem 5rem rgb(var(--shadow-rgb) / 22%);
 }
 
 .eyebrow {
@@ -95,7 +95,7 @@
 .actions button:last-child {
   border-color: var(--danger);
   background: var(--danger);
-  color: #ffffff;
+  color: var(--danger-text);
 }
 
 .actions button:disabled {

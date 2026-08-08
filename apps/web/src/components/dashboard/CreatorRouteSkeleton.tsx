@@ -2,7 +2,7 @@ import styles from "./CreatorRouteFeedback.module.css";
 
 interface CreatorRouteSkeletonProps {
   label: string;
-  variant: "editor" | "guests" | "invitations" | "overview" | "templates";
+  variant: "assistant" | "editor" | "guests" | "invitations" | "overview" | "templates";
 }
 
 export function CreatorRouteSkeleton({ label, variant }: CreatorRouteSkeletonProps) {

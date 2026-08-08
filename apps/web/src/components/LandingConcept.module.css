@@ -1,31 +1,89 @@
-/* biome-ignore-all lint/style/noDescendingSpecificity: Component-scoped descendant selectors intentionally follow the landing-page reading order. */
+/* biome-ignore-all lint/style/noDescendingSpecificity: Component-scoped descendants follow the landing-page reading order. */
 
+/*
+ * The landing keeps its own vocabulary rather than the creator app's, because it is a slightly
+ * warmer paper and a slightly cooler wine than the product chrome — the brand lock of
+ * 2026-07-15 — and reads as a marketing surface partly for that reason. The light values below
+ * are unchanged.
+ *
+ * What is new is a dark branch. It was previously exempt from the theme, which meant a creator who
+ * chose dark met a full-brightness cream page the moment they clicked the wordmark home.
+ *
+ * `--wine-ink` was called `--white`, and the rename is the point: it is the ink that sits *on* a
+ * wine fill, so in dark it is a deep wine on a rose fill. A token named `--white` holding `#2a1016`
+ * is the kind of thing someone later "corrects" back to white.
+ */
 .page {
-  --background: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --accent-hover: #5d2632;
-  --accent-text: #ffffff;
-  --focus: #2457c5;
-  --art-one: #dce4cf;
-  --art-two: #ead0c8;
-  --art-three: #e7d5a9;
+  --paper: #f6f0e6;
+  --paper-light: #fffaf2;
+  --paper-deep: #e8ddce;
+  --ink: #27211d;
+  --ink-soft: #6a6159;
+  --line: #cfc1b1;
+  --wine: #783547;
+  --wine-deep: #572535;
+  --wine-ink: #fffdf9;
   --display-font: "Fraunces Variable", Georgia, serif;
   min-width: 320px;
   overflow-x: clip;
-  background: var(--background);
-  color: var(--text);
+  background:
+    radial-gradient(
+      circle at 79% 6%,
+      color-mix(in srgb, var(--wine) 7%, transparent),
+      transparent 28rem
+    ),
+    var(--paper);
+  color: var(--ink);
   font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+}
+
+/*
+ * Warm Editorial after dark, in the landing's own register: the paper darkens, the wine lifts to
+ * the rose that can carry text, and the two surface steps invert their direction so `--paper-light`
+ * is still the raised one. `--focus` is inherited from `globals.css` rather than restated, so the
+ * keyboard ring follows the theme without a second definition to keep in sync.
+ */
+:root[data-theme="dark"] .page {
+  --paper: #17130f;
+  --paper-light: #201a15;
+  --paper-deep: #2c2620;
+  --ink: #f3ece2;
+  --ink-soft: #b3a696;
+  --line: #453b33;
+  --wine: #e79aa8;
+  --wine-deep: #f0b0bb;
+  --wine-ink: #2a1016;
+}
+
+/*
+ * The closing band is the one element that does not change between themes, and the browser is what
+ * settled it.
+ *
+ * A rose pill is the right accent at button size; the same rose across a full-width block is the
+ * brightest thing on the page — the dark capture showed a ~1240 x 260 slab of `#e79aa8` glaring out
+ * of `#17130f`. In light this block is a *deep* wine that anchors the foot of the page, so
+ * inverting the token inverted its role too.
+ *
+ * Going deeper instead does not work either, and the arithmetic says why: no wine separates from a
+ * near-black page by lightness. `#3a1720` reads 1.16:1 against `#17130f`, and even the landing's
+ * own `#783547` reaches only 2.11:1. What makes the band a block is **chroma** — a saturated wine
+ * against an almost neutral brown — and that is undiminished in the dark theme.
+ *
+ * So the band keeps its light values by redeclaring them for its own subtree, and every descendant
+ * that already reads `--wine` or `--wine-ink` follows: the label at 72%, the drawn circle at 24%,
+ * the inverse button, and its hover. Cream on the band is 7.46:1 in both themes.
+ */
+:root[data-theme="dark"] .finalCta {
+  --wine: #783547;
+  --wine-ink: #fffdf9;
+  --paper-deep: #e8ddce;
 }
 
 .page a:focus-visible,
 .page button:focus-visible,
 .page summary:focus-visible {
-  outline-color: var(--focus);
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .header {
@@ -35,82 +93,81 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  width: min(100% - 2.5rem, 1200px);
-  /* Sticks to the top of a viewport that now extends under the status bar. */
+  width: min(100% - 3rem, 1240px);
   min-height: calc(4.75rem + env(safe-area-inset-top));
   margin-inline: auto;
   padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--background) 94%, transparent);
-  backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--paper) 91%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .brand {
   width: fit-content;
-  font-size: 1.15rem;
-  font-weight: 760;
-  letter-spacing: -0.04em;
+  color: var(--ink);
   text-decoration: none;
 }
 
-.brand svg {
-  color: var(--accent);
+.brand svg,
+.footerBrand svg {
+  color: var(--wine);
 }
 
 .desktopNav {
   display: flex;
-  gap: clamp(1.2rem, 2.5vw, 2.4rem);
+  align-items: center;
+  gap: clamp(1.25rem, 2.4vw, 2.25rem);
 }
 
-.desktopNav a {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 650;
+.desktopNav a,
+.footer nav a {
+  color: var(--ink-soft);
+  font-size: 0.73rem;
+  font-weight: 680;
+  letter-spacing: 0.01em;
   text-decoration: none;
 }
 
-.desktopNav a:hover {
-  color: var(--text);
+.desktopNav a:hover,
+.footer nav a:hover {
+  color: var(--wine);
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.5rem;
   justify-self: end;
 }
 
-.loginLink {
-  display: grid;
+.loginLink,
+.headerCta {
+  display: inline-grid;
   min-height: 2.75rem;
   place-items: center;
-  padding-inline: 0.8rem;
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 720;
+  padding-inline: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 740;
   text-decoration: none;
+}
+
+.loginLink {
+  color: var(--ink-soft);
 }
 
 .loginLink:hover {
-  color: var(--text);
+  color: var(--ink);
 }
 
 .headerCta {
-  display: grid;
-  min-height: 2.75rem;
-  place-items: center;
-  padding-inline: 1rem;
-  border-radius: 0.35rem;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: 0.76rem;
-  font-weight: 750;
-  text-decoration: none;
+  border-radius: 999px;
+  background: var(--wine);
+  color: var(--wine-ink);
   transition: background 160ms ease;
 }
 
 .headerCta:hover {
-  background: var(--accent-hover);
+  background: var(--wine-deep);
 }
 
 .menuButton,
@@ -119,475 +176,445 @@
 }
 
 .hero,
-.section,
 .templateSection,
-.featureSection,
-.pricing,
+.processSection,
+.detailSection,
 .faq,
 .finalCta,
-.footer,
-.quickBenefits {
-  width: min(100% - 2.5rem, 1200px);
+.footer {
+  width: min(100% - 3rem, 1240px);
   margin-inline: auto;
 }
 
 .hero {
   display: grid;
-  min-height: clamp(32rem, 72vh, 44rem);
-  grid-template-columns: minmax(0, 48rem);
+  min-height: min(50rem, calc(100svh - 4.75rem));
+  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.6fr);
   align-items: center;
-  padding-block: clamp(4.5rem, 8vw, 7.5rem);
+  gap: clamp(3rem, 8vw, 8rem);
+  padding-block: clamp(4rem, 8vw, 7rem);
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 1;
+  max-width: 46rem;
 }
 
 .eyebrow,
 .sectionLabel {
-  margin: 0 0 1rem;
-  color: var(--accent);
-  font-size: 0.7rem;
-  font-weight: 780;
-  letter-spacing: 0.1em;
+  margin: 0 0 1.1rem;
+  color: var(--wine);
+  font-size: 0.66rem;
+  font-weight: 790;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
 .heroCopy h1,
 .sectionHeading h2,
-.templateHeading h2,
-.featureIntro h2,
-.pricing h2,
+.processIntro h2,
+.detailStatement h2,
 .faqHeading h2,
 .finalCta h2 {
   margin: 0;
   font-family: var(--display-font);
-  font-size: clamp(2.9rem, 5.4vw, 5rem);
-  font-weight: 520;
+  font-weight: 480;
   letter-spacing: -0.055em;
-  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.heroCopy h1 {
+  max-width: 45rem;
+  font-size: clamp(3.4rem, 6.2vw, 6.3rem);
+  line-height: 0.91;
 }
 
 .heroDescription {
-  max-width: 37rem;
-  margin: 1.5rem 0 0;
-  color: var(--muted);
-  font-size: clamp(1rem, 1.5vw, 1.18rem);
-  line-height: 1.65;
+  max-width: 38rem;
+  margin: 1.6rem 0 0;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 1.4vw, 1.16rem);
+  line-height: 1.7;
 }
 
 .heroActions {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 1.25rem;
   margin-top: 2rem;
 }
 
 .primaryButton,
-.secondaryButton {
+.inverseButton {
   display: inline-flex;
+  min-height: 3.35rem;
   align-items: center;
   justify-content: center;
-  min-height: 3.25rem;
-  padding-inline: 1.2rem;
-  border-radius: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 760;
+  gap: 0.75rem;
+  padding-inline: 1.35rem;
+  border-radius: 999px;
+  background: var(--wine);
+  color: var(--wine-ink);
+  font-size: 0.76rem;
+  font-weight: 780;
   text-decoration: none;
-}
-
-.primaryButton {
-  gap: 0.8rem;
-  background: var(--accent);
-  color: var(--accent-text);
   transition:
     background 160ms ease,
     transform 160ms ease;
 }
 
 .primaryButton:hover {
-  background: var(--accent-hover);
+  background: var(--wine-deep);
   transform: translateY(-1px);
 }
 
-.primaryButton svg {
-  width: 1rem;
-}
-
-.secondaryButton {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.secondaryButton:hover {
-  border-color: var(--text);
-}
-
-.heroNote {
-  margin: 1rem 0 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
-.quickBenefits {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-block: 1px solid var(--border);
-}
-
-.quickBenefits p {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin: 0;
-  padding: 1.3rem 1rem;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-
-.quickBenefits p + p {
-  border-left: 1px solid var(--border);
-}
-
-.quickBenefits svg,
-.featureColumns svg {
+.primaryButton svg,
+.inverseButton svg,
+.previewAction svg,
+.templateAction svg {
   width: 1rem;
   flex: none;
-  color: var(--accent);
 }
 
-.section,
-.templateSection,
-.featureSection,
-.faq {
-  padding-block: clamp(5.5rem, 9vw, 9rem);
+.textLink {
+  padding-block: 0.75rem;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 740;
+  text-decoration: none;
 }
 
-.sectionHeading,
-.templateHeading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.36fr);
-  align-items: end;
-  gap: 3rem;
+.textLink:hover {
+  color: var(--wine);
+  border-color: var(--wine);
 }
 
-.sectionHeading .sectionLabel {
-  grid-column: 1 / -1;
-  margin-bottom: 0;
-}
-
-.sectionHeading h2,
-.templateHeading h2,
-.featureIntro h2,
-.pricing h2,
-.faqHeading h2,
-.finalCta h2 {
-  font-size: clamp(2.25rem, 4.2vw, 4rem);
-  line-height: 1.03;
-}
-
-.sectionHeading > p:last-child,
-.templateHeading > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.65;
-}
-
-.steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  margin: 4rem 0 0;
+.heroProof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.35rem;
+  margin: 2rem 0 0;
   padding: 0;
-  border-block: 1px solid var(--border);
+  color: var(--ink-soft);
   list-style: none;
 }
 
-.steps li {
-  min-height: 17rem;
-  padding: 1.8rem;
-}
-
-.steps li + li {
-  border-left: 1px solid var(--border);
-}
-
-.steps li > span {
-  display: grid;
-  width: 2rem;
-  aspect-ratio: 1;
-  place-items: center;
-  border: 1px solid var(--accent);
-  border-radius: 50%;
-  color: var(--accent);
-  font-size: 0.7rem;
-  font-weight: 780;
-}
-
-.steps h3,
-.templateDetails h3,
-.featureColumns h3 {
-  margin: 3rem 0 0.8rem;
-  font-family: var(--display-font);
-  font-size: 1.65rem;
-  font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
-}
-
-.steps li p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.6;
-}
-
-.templateSection {
-  border-top: 1px solid var(--border);
-}
-
-.templateHeading {
-  margin-bottom: 3rem;
-}
-
-.templateGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.templateCard {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 0.6rem;
-  background: var(--surface);
-  transition:
-    border-color 160ms ease,
-    transform 160ms ease;
-}
-
-.templateCard:hover {
-  transform: translateY(-2px);
-}
-
-.templateArtwork {
-  position: relative;
+.heroProof li {
   display: flex;
   align-items: center;
-  min-height: 23rem;
-  overflow: hidden;
-  flex-direction: column;
-  justify-content: center;
-  padding: 2rem;
-  background: var(--art-one);
-  color: var(--text);
-  text-align: center;
+  gap: 0.4rem;
+  font-size: 0.69rem;
+  font-weight: 650;
 }
 
-.templateArtwork[data-index="1"] {
-  background: var(--art-two);
+.heroProof svg {
+  width: 0.85rem;
+  color: var(--wine);
 }
 
-.templateArtwork[data-index="2"] {
-  background: var(--art-three);
+.heroPreview {
+  display: block;
+  width: min(100%, 22rem);
+  justify-self: end;
+  color: var(--ink);
+  text-decoration: none;
 }
 
-.templateArtwork::before {
-  position: absolute;
-  width: 70%;
-  aspect-ratio: 1;
-  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-radius: 50%;
-  content: "";
-}
-
-.templateArtwork small,
-.templateArtwork strong,
-.templateArtwork span {
-  position: relative;
-  z-index: 1;
-}
-
-.templateArtwork small {
-  font-size: 0.56rem;
+.previewKicker {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--wine);
+  font-size: 0.61rem;
   font-weight: 780;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
-.templateArtwork strong {
-  margin: 1.5rem 0;
-  font-family: var(--display-font);
-  font-size: 2.3rem;
-  font-weight: 560;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
+.heroImageFrame,
+.templateImageFrame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--paper-deep);
 }
 
-.templateArtwork span {
-  font-size: 0.58rem;
+.heroImageFrame {
+  box-shadow:
+    1.2rem 1.2rem 0 var(--paper-deep),
+    1.2rem 1.2rem 0 1px var(--line);
 }
 
-.templateDetails {
+.heroImageFrame img,
+.templateImageFrame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.heroPreview:hover .heroImageFrame img,
+.templateLink:hover .templateImageFrame img {
+  transform: scale(1.012);
+}
+
+.heroImageFrame img,
+.templateImageFrame img {
+  transition: transform 300ms ease;
+}
+
+.previewCaption {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.2rem;
+  margin-top: 2rem;
+  font-family: var(--display-font);
+  font-size: 1.2rem;
+  font-weight: 560;
 }
 
-.templateDetails p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 680;
-}
-
-.templateDetails h3 {
-  margin: 0.35rem 0 0;
-  font-size: 1.25rem;
-}
-
-.templateDetails > a {
-  display: inline-flex;
-  min-width: 5rem;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 0.3rem;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.7rem;
-  font-weight: 740;
-  text-align: center;
-  text-decoration: none;
-}
-
-.templateDetails > a:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.featureSection {
-  border-top: 1px solid var(--border);
-}
-
-.featureIntro {
-  max-width: 46rem;
-}
-
-.featureColumns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-top: 3.5rem;
-}
-
-.featureColumns article {
-  padding: clamp(2rem, 4vw, 3.5rem);
-  border: 1px solid var(--border);
-  border-radius: 0.6rem;
-  background: var(--surface);
-}
-
-.featureColumns article > p {
-  margin: 0;
-  color: var(--accent);
-  font-size: 0.68rem;
-  font-weight: 780;
+.previewCaption small {
+  display: block;
+  margin-bottom: 0.28rem;
+  color: var(--ink-soft);
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+  font-size: 0.58rem;
+  font-weight: 730;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.featureColumns h3 {
-  max-width: 28rem;
-  margin-top: 1.5rem;
-  font-size: clamp(1.7rem, 3vw, 2.6rem);
+.previewAction,
+.templateAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--wine);
+  font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+  font-size: 0.67rem;
+  font-weight: 760;
 }
 
-.featureColumns ul {
+.templateSection,
+.processSection,
+.detailSection,
+.faq {
+  padding-block: clamp(6rem, 10vw, 10rem);
+}
+
+.templateSection {
+  border-top: 1px solid var(--line);
+}
+
+.sectionHeading {
   display: grid;
-  gap: 1rem;
-  margin: 2rem 0 0;
+  grid-template-columns: minmax(0, 0.95fr) minmax(15rem, 0.36fr);
+  align-items: end;
+  gap: 2.5rem;
+  margin-bottom: clamp(3rem, 5vw, 5rem);
+}
+
+.sectionHeading .sectionLabel {
+  grid-column: 1 / -1;
+  margin-bottom: -0.5rem;
+}
+
+.sectionHeading h2,
+.processIntro h2,
+.detailStatement h2,
+.faqHeading h2,
+.finalCta h2 {
+  font-size: clamp(2.65rem, 5vw, 5rem);
+  line-height: 0.98;
+}
+
+.sectionHeading > p:last-child {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: clamp(0.8rem, 1.7vw, 1.4rem);
+}
+
+.templateCard {
+  min-width: 0;
+}
+
+.templateCard:nth-child(even) {
+  padding-top: clamp(1.5rem, 3vw, 3rem);
+}
+
+.templateLink {
+  display: block;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.templateImageFrame {
+  border: 1px solid var(--line);
+  box-shadow: 0 0.8rem 2.25rem rgb(var(--shadow-rgb) / 8%);
+}
+
+.templateDetails {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding-top: 1.05rem;
+}
+
+.templateDetails small,
+.templateDetails strong {
+  display: block;
+}
+
+.templateDetails small {
+  margin-bottom: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.57rem;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.templateDetails strong {
+  font-family: var(--display-font);
+  font-size: clamp(1.1rem, 1.7vw, 1.42rem);
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.templateAction {
+  padding-bottom: 0.08rem;
+  white-space: nowrap;
+}
+
+.processSection {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  border-top: 1px solid var(--line);
+}
+
+.processIntro {
+  align-self: start;
+  position: sticky;
+  top: 7rem;
+}
+
+.processIntro h2 {
+  font-size: clamp(2.6rem, 4.3vw, 4.4rem);
+}
+
+.steps {
+  margin: 0;
   padding: 0;
+  border-top: 1px solid var(--line);
   list-style: none;
 }
 
-.featureColumns li {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  color: var(--muted);
+.steps li {
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 1rem;
+  padding-block: clamp(2.2rem, 4vw, 3.5rem);
+  border-bottom: 1px solid var(--line);
+}
+
+.stepNumber {
+  color: var(--wine);
+  font-family: var(--display-font);
   font-size: 0.82rem;
+  font-variant-numeric: lining-nums;
 }
 
-.pricing,
-.finalCta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 3rem;
-  padding: clamp(3rem, 6vw, 5rem);
-  border-radius: 0.75rem;
-  background: var(--text);
-  color: var(--background);
+.steps h3,
+.detailList h3 {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  font-weight: 520;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 
-.pricing > div,
-.finalCta > div {
-  max-width: 43rem;
+.steps p,
+.detailList p {
+  max-width: 34rem;
+  margin: 0.8rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.7;
 }
 
-.pricing .sectionLabel,
-.finalCta .sectionLabel {
-  color: color-mix(in srgb, var(--background) 74%, transparent);
+.detailSection {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  border-top: 1px solid var(--line);
 }
 
-.pricing h2,
-.finalCta h2 {
-  color: var(--background);
+.detailStatement {
+  max-width: 34rem;
 }
 
-.pricing > div > p:last-child {
-  max-width: 38rem;
-  margin: 1.2rem 0 0;
-  color: color-mix(in srgb, var(--background) 72%, transparent);
-  font-size: 0.87rem;
-  line-height: 1.65;
+.detailList {
+  border-top: 1px solid var(--line);
 }
 
-.pricing .primaryButton,
-.finalCta .primaryButton {
-  flex: none;
-  background: var(--background);
-  color: var(--text);
+.detailList article {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  gap: 0 1.25rem;
+  padding-block: 2.2rem;
+  border-bottom: 1px solid var(--line);
 }
 
-.pricing .primaryButton:hover,
-.finalCta .primaryButton:hover {
-  background: var(--surface-muted);
+.detailList article > span {
+  grid-row: 1 / span 2;
+  color: var(--wine);
+  font-size: 0.63rem;
+  font-weight: 780;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.detailList h3 {
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
 }
 
 .faq {
   display: grid;
-  grid-template-columns: 0.7fr 1.3fr;
-  gap: clamp(3rem, 8vw, 8rem);
+  grid-template-columns: minmax(15rem, 0.65fr) minmax(0, 1.35fr);
+  gap: clamp(3rem, 9vw, 9rem);
+  border-top: 1px solid var(--line);
+}
+
+.faqHeading h2 {
+  font-size: clamp(2.6rem, 4.2vw, 4.2rem);
 }
 
 .accordion {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 .accordion details {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
 }
 
 .accordion summary {
   position: relative;
-  padding: 1.35rem 3rem 1.35rem 0;
-  font-size: 0.92rem;
-  font-weight: 700;
+  padding: 1.45rem 3.25rem 1.45rem 0;
+  font-size: 0.91rem;
+  font-weight: 710;
   cursor: pointer;
   list-style: none;
 }
@@ -598,16 +625,18 @@
 
 .accordion summary::after {
   position: absolute;
-  top: 1.05rem;
-  right: 0.2rem;
+  top: 1rem;
+  right: 0;
   display: grid;
-  width: 1.8rem;
+  width: 2rem;
   aspect-ratio: 1;
   place-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 50%;
   content: "+";
-  color: var(--accent);
+  color: var(--wine);
+  font-size: 1rem;
+  font-weight: 450;
 }
 
 .accordion details[open] summary::after {
@@ -615,54 +644,79 @@
 }
 
 .accordion details p {
-  max-width: 38rem;
+  max-width: 37rem;
   margin: 0;
-  padding: 0 3rem 1.5rem 0;
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.65;
+  padding: 0 3.25rem 1.7rem 0;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.7;
 }
 
 .finalCta {
-  margin-bottom: clamp(5rem, 8vw, 8rem);
-  background: var(--accent);
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3rem;
+  margin-bottom: clamp(6rem, 10vw, 9rem);
+  padding: clamp(3rem, 6vw, 5.5rem);
+  background: var(--wine);
+  color: var(--wine-ink);
+}
+
+.finalCta::after {
+  position: absolute;
+  right: -6rem;
+  bottom: -11rem;
+  width: 25rem;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--wine-ink) 24%, transparent);
+  border-radius: 50%;
+  content: "";
+}
+
+.finalCta > * {
+  position: relative;
+  z-index: 1;
+}
+
+.finalCta > div {
+  max-width: 48rem;
 }
 
 .finalCta .sectionLabel {
-  color: color-mix(in srgb, var(--accent-text) 74%, transparent);
+  color: color-mix(in srgb, var(--wine-ink) 72%, transparent);
 }
 
 .finalCta h2 {
-  color: var(--accent-text);
+  color: var(--wine-ink);
+  font-size: clamp(2.5rem, 4.5vw, 4.5rem);
 }
 
-.finalCta .primaryButton {
-  background: var(--accent-text);
-  color: var(--accent);
+.inverseButton {
+  flex: none;
+  background: var(--wine-ink);
+  color: var(--wine);
+}
+
+.inverseButton:hover {
+  background: var(--paper-deep);
+  transform: translateY(-1px);
 }
 
 .footer {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 3rem;
-  padding-block: 3rem 6rem;
-  border-top: 1px solid var(--border);
+  padding-block: 3rem calc(5rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
 }
 
-.footer > div > span {
-  font-size: 1.1rem;
-  font-weight: 760;
-  letter-spacing: -0.04em;
-}
-
-.footer > div svg {
-  color: var(--accent);
-}
-
-.footer > div p {
+.footerBrand p {
   margin: 0.8rem 0 0;
-  color: var(--muted);
-  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
 }
 
 .footer nav {
@@ -670,21 +724,14 @@
   gap: 1.5rem;
 }
 
-.footer nav a {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.footer > p {
+.copyright {
   grid-column: 1 / -1;
-  margin: 1rem 0 0;
-  color: var(--muted);
-  font-size: 0.62rem;
+  margin: 0.75rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.61rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
   .header {
     grid-template-columns: 1fr auto;
   }
@@ -698,27 +745,27 @@
     display: block;
     min-width: 4.5rem;
     min-height: 2.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.35rem;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.72rem;
-    font-weight: 720;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper-light);
+    color: var(--ink);
+    font-size: 0.7rem;
+    font-weight: 730;
     cursor: pointer;
   }
 
   .mobileNav {
     position: sticky;
     z-index: 49;
-    top: 4.75rem;
+    top: calc(4.75rem + env(safe-area-inset-top));
     display: none;
-    width: min(100% - 2.5rem, 1200px);
+    width: min(100% - 3rem, 1240px);
     margin-inline: auto;
-    padding: 1rem;
-    border: 1px solid var(--border);
+    padding: 0.8rem 1rem 1rem;
+    border: 1px solid var(--line);
     border-top: 0;
-    background: var(--surface);
-    box-shadow: 0 1rem 2rem rgb(28 24 22 / 10%);
+    background: var(--paper-light);
+    box-shadow: 0 1rem 2rem rgb(var(--shadow-rgb) / 10%);
   }
 
   .mobileNav[data-open="true"] {
@@ -727,12 +774,12 @@
 
   .mobileNav a {
     display: flex;
+    min-height: 3.1rem;
     align-items: center;
-    min-height: 3rem;
-    border-bottom: 1px solid var(--border);
-    color: var(--text);
-    font-size: 0.82rem;
-    font-weight: 650;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 680;
     text-decoration: none;
   }
 
@@ -740,176 +787,191 @@
     justify-content: center;
     margin-top: 0.8rem;
     border: 0;
-    border-radius: 0.35rem;
-    background: var(--accent);
-    color: var(--accent-text);
-  }
-
-  .heroCopy {
-    max-width: 44rem;
-  }
-
-  .sectionHeading,
-  .templateHeading {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .templateHeading > p {
-    max-width: 32rem;
-  }
-}
-
-@media (max-width: 700px) {
-  .header,
-  .hero,
-  .section,
-  .templateSection,
-  .featureSection,
-  .pricing,
-  .faq,
-  .finalCta,
-  .footer,
-  .quickBenefits,
-  .mobileNav {
-    width: min(100% - 1.5rem, 1200px);
-  }
-
-  .header {
-    min-height: 4.25rem;
-  }
-
-  .mobileNav {
-    top: 4.25rem;
+    border-radius: 999px;
+    background: var(--wine);
+    color: var(--wine-ink);
   }
 
   .hero {
-    min-height: auto;
-    padding-block: 3.75rem 4.5rem;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.56fr);
+    gap: 3rem;
   }
 
   .heroCopy h1 {
-    font-size: clamp(2.65rem, 13vw, 3.7rem);
+    font-size: clamp(3.5rem, 7.8vw, 5.2rem);
+  }
+
+  .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem 1rem;
+  }
+
+  .templateCard:nth-child(even) {
+    padding-top: 2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .header,
+  .hero,
+  .templateSection,
+  .processSection,
+  .detailSection,
+  .faq,
+  .finalCta,
+  .footer,
+  .mobileNav {
+    width: min(100% - 1.5rem, 1240px);
+  }
+
+  .header {
+    min-height: calc(4.25rem + env(safe-area-inset-top));
+  }
+
+  .mobileNav {
+    top: calc(4.25rem + env(safe-area-inset-top));
+  }
+
+  .hero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 4.25rem;
+    padding-block: 4rem 6rem;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(3.2rem, 16vw, 4.6rem);
+  }
+
+  .heroDescription {
+    font-size: 0.98rem;
   }
 
   .heroActions {
     align-items: stretch;
     flex-direction: column;
+    gap: 0.8rem;
   }
 
-  .primaryButton,
-  .secondaryButton {
+  .primaryButton {
     width: 100%;
   }
 
-  .quickBenefits {
+  .textLink {
+    width: fit-content;
+    align-self: center;
+  }
+
+  .heroProof {
+    display: grid;
     grid-template-columns: 1fr;
+    gap: 0.7rem;
   }
 
-  .quickBenefits p + p {
-    border-top: 1px solid var(--border);
-    border-left: 0;
+  .heroPreview {
+    width: min(78vw, 21rem);
+    justify-self: center;
   }
 
-  .section,
+  .heroImageFrame {
+    box-shadow:
+      0.8rem 0.8rem 0 var(--paper-deep),
+      0.8rem 0.8rem 0 1px var(--line);
+  }
+
+  .previewCaption {
+    margin-top: 1.6rem;
+  }
+
   .templateSection,
-  .featureSection,
+  .processSection,
+  .detailSection,
   .faq {
-    padding-block: 5rem;
+    padding-block: 6rem;
+  }
+
+  .sectionHeading {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .sectionHeading .sectionLabel {
+    grid-column: 1;
+    margin-bottom: -0.25rem;
   }
 
   .sectionHeading h2,
-  .templateHeading h2,
-  .featureIntro h2,
-  .pricing h2,
-  .faqHeading h2,
-  .finalCta h2 {
-    font-size: clamp(2.15rem, 10vw, 3rem);
-  }
-
-  .steps,
-  .featureColumns {
-    grid-template-columns: 1fr;
+  .processIntro h2,
+  .detailStatement h2,
+  .faqHeading h2 {
+    font-size: clamp(2.7rem, 13vw, 3.75rem);
   }
 
   .templateGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
+    gap: 1.6rem 0.55rem;
   }
 
-  .steps li {
-    min-height: auto;
-    padding: 1.8rem 0;
-  }
-
-  .steps li + li {
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
-
-  .steps h3 {
-    margin-top: 2rem;
-  }
-
-  .templateArtwork {
-    min-height: 12.5rem;
-    padding: 0.75rem;
-  }
-
-  .templateArtwork small {
-    font-size: 0.46rem;
-    letter-spacing: 0.08em;
-  }
-
-  .templateArtwork strong {
-    margin-block: 0.8rem;
-    font-size: clamp(1.2rem, 6vw, 1.6rem);
-    line-height: 1;
-  }
-
-  .templateArtwork span {
-    font-size: 0.48rem;
+  .templateCard:nth-child(even) {
+    padding-top: 1.75rem;
   }
 
   .templateDetails {
-    align-items: stretch;
+    align-items: flex-start;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    gap: 0.6rem;
+    padding-top: 0.75rem;
   }
 
-  .templateDetails p {
-    font-size: 0.54rem;
+  .templateDetails small {
+    font-size: 0.51rem;
   }
 
-  .templateDetails h3 {
-    margin-top: 0.3rem;
-    font-size: 1rem;
-    line-height: 1.1;
+  .templateDetails strong {
+    font-size: clamp(0.98rem, 5vw, 1.25rem);
   }
 
-  .templateDetails > a {
-    width: 100%;
-    min-width: 0;
-    padding-inline: 0.45rem;
-    font-size: 0.62rem;
+  .templateAction {
+    font-size: 0.61rem;
   }
 
-  .pricing,
+  .processSection,
+  .detailSection,
+  .faq {
+    grid-template-columns: 1fr;
+    gap: 3.5rem;
+  }
+
+  .processIntro {
+    position: static;
+  }
+
+  .steps li {
+    grid-template-columns: 2.5rem 1fr;
+  }
+
+  .detailList article {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .detailList article > span {
+    grid-row: auto;
+    margin-bottom: 0.8rem;
+  }
+
   .finalCta {
     align-items: flex-start;
     flex-direction: column;
-    padding: 2.5rem 1.5rem;
+    padding: 3rem 1.5rem;
   }
 
-  .pricing .primaryButton,
-  .finalCta .primaryButton {
+  .finalCta h2 {
+    font-size: clamp(2.5rem, 12vw, 3.5rem);
+  }
+
+  .inverseButton {
     width: 100%;
-  }
-
-  .faq {
-    grid-template-columns: 1fr;
-    gap: 3rem;
   }
 
   .footer {
@@ -917,18 +979,58 @@
   }
 
   .footer nav {
+    align-items: flex-start;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: 1rem;
   }
 
-  .footer > p {
+  .copyright {
     grid-column: 1;
   }
 }
 
+@media (max-width: 360px) {
+  .header,
+  .hero,
+  .templateSection,
+  .processSection,
+  .detailSection,
+  .faq,
+  .finalCta,
+  .footer,
+  .mobileNav {
+    width: min(100% - 1.25rem, 1240px);
+  }
+
+  .heroCopy h1 {
+    font-size: 3.05rem;
+  }
+
+  .templateGrid {
+    column-gap: 0.45rem;
+  }
+
+  .templateAction svg {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .templateCard,
-  .primaryButton {
+  .headerCta,
+  .primaryButton,
+  .inverseButton,
+  .heroImageFrame img,
+  .templateImageFrame img {
     transition: none;
+  }
+
+  .primaryButton:hover,
+  .inverseButton:hover {
+    transform: none;
+  }
+
+  .heroPreview:hover .heroImageFrame img,
+  .templateLink:hover .templateImageFrame img {
+    transform: none;
   }
 }

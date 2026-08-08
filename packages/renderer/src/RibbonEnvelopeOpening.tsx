@@ -16,19 +16,35 @@ export type RibbonEnvelopeVariant =
   | "garden-promise"
   | "golden-hour"
   | "little-blessings"
+  | "little-question"
   | "sunday-joy"
   | "warm-editorial";
 
-const standardPhaseDurations: Partial<Record<InvitationOpeningState, number>> = {
-  untying: 620,
-  opening: 700,
-  "letter-revealing": 760,
-};
+export type RibbonEnvelopePace = "deliberate" | "slow" | "standard";
 
-const slowCinematicPhaseDurations: Partial<Record<InvitationOpeningState, number>> = {
-  untying: 900,
-  opening: 1_050,
-  "letter-revealing": 1_400,
+interface OpeningPaceProfile {
+  readonly durations: Partial<Record<InvitationOpeningState, number>>;
+  readonly safetyTimeout: number;
+}
+
+/**
+ * `deliberate` runs 2.65 s, past the 2.2 s the design reference accepts without product sign-off.
+ * The founder approved the longer sequence on 2026-08-01 on the condition that it offers the same
+ * 44 px skip control the `slow` families carry, so any pace other than `standard` shows one.
+ */
+const openingPaces: Record<RibbonEnvelopePace, OpeningPaceProfile> = {
+  deliberate: {
+    durations: { untying: 850, opening: 900, "letter-revealing": 900 },
+    safetyTimeout: 4_100,
+  },
+  slow: {
+    durations: { untying: 900, opening: 1_050, "letter-revealing": 1_400 },
+    safetyTimeout: 5_200,
+  },
+  standard: {
+    durations: { untying: 620, opening: 700, "letter-revealing": 760 },
+    safetyTimeout: 3_200,
+  },
 };
 
 const nextPhase: Partial<Record<InvitationOpeningState, InvitationOpeningState>> = {
@@ -36,9 +52,6 @@ const nextPhase: Partial<Record<InvitationOpeningState, InvitationOpeningState>>
   opening: "letter-revealing",
   "letter-revealing": "opened",
 };
-
-const standardSafetyTimeout = 3_200;
-const slowCinematicSafetyTimeout = 5_200;
 
 function usePrefersReducedMotion(reducedMotion: boolean): boolean {
   const [systemPreference, setSystemPreference] = useState(false);
@@ -66,16 +79,33 @@ interface RibbonEnvelopeOpeningProps {
    * text here must also exist in the invitation content below.
    */
   coverMark?: ReactNode;
+  /**
+   * Optional marks printed on the closed envelope's front pocket, such as an addressed name. The
+   * whole envelope is hidden from assistive technology, so anything here must also exist as text
+   * elsewhere in the opening scene or the invitation below.
+   */
+  frontMark?: ReactNode;
   includeStyles?: boolean;
+  /**
+   * Optional decoration mounted inside the note or exposed card so it follows that layer's reveal.
+   */
+  letterMark?: ReactNode;
   kicker: string;
   letterLead: string;
   letterNote: string;
   mode: InvitationRendererProps["mode"];
   onOpeningStateChange?: ((state: InvitationOpeningState) => void) | undefined;
   openingReplayKey?: number | undefined;
+  pace?: RibbonEnvelopePace;
   recipient: string;
   recipientLead: string;
   reducedMotion?: boolean;
+  /**
+   * Optional family-owned closure replacing the default CSS loops, tails, and centre. Cloth reads
+   * as cloth only through curves the four default boxes cannot describe, so a family may supply an
+   * SVG bow here; a rectilinear closure stays cheaper as plain elements.
+   */
+  ribbonKnot?: ReactNode;
   sceneDecoration?: ReactNode;
   style?: CSSProperties;
   variant: RibbonEnvelopeVariant;
@@ -89,16 +119,20 @@ export function RibbonEnvelopeOpening({
   children,
   className,
   coverMark,
+  frontMark,
   includeStyles = true,
   kicker,
+  letterMark,
   letterLead,
   letterNote,
   mode,
   onOpeningStateChange,
   openingReplayKey = 0,
+  pace,
   recipient,
   recipientLead,
   reducedMotion = false,
+  ribbonKnot,
   sceneDecoration,
   style,
   variant,
@@ -117,11 +151,17 @@ export function RibbonEnvelopeOpening({
   const shouldLockPage = contentIsGated && mode === "published";
   const gardenPromise = variant === "garden-promise";
   const littleBlessings = variant === "little-blessings";
-  // Little Blessings shares Garden Promise's slower, more cinematic opening timing and its Skip
-  // control, while keeping its own visual classes (it is not styled with the gp- overrides).
-  const slowOpening = gardenPromise || littleBlessings;
+  // Existing families keep their timing; a new version may name a different pace.
+  const paceKey: RibbonEnvelopePace =
+    pace ?? (gardenPromise || littleBlessings ? "slow" : "standard");
+  const openingPace = openingPaces[paceKey];
+  const offersSkip = paceKey !== "standard";
   const cinematicTakeover =
-    gardenPromise || variant === "golden-hour" || littleBlessings || variant === "sunday-joy";
+    gardenPromise ||
+    variant === "golden-hour" ||
+    littleBlessings ||
+    variant === "little-question" ||
+    variant === "sunday-joy";
   const contentIsVisuallyGated =
     contentIsGated && !(cinematicTakeover && openingState === "letter-revealing");
 
@@ -142,22 +182,20 @@ export function RibbonEnvelopeOpening({
   }, [openingReplayKey]);
 
   useEffect(() => {
-    const durations = slowOpening ? slowCinematicPhaseDurations : standardPhaseDurations;
-    const duration = durations[openingState];
+    const duration = openingPace.durations[openingState];
     const followingState = nextPhase[openingState];
     if (!duration || !followingState) return;
 
     const timer = window.setTimeout(() => setOpeningState(followingState), duration);
     return () => window.clearTimeout(timer);
-  }, [slowOpening, openingState]);
+  }, [openingPace, openingState]);
 
   useEffect(() => {
     if (!sequenceActive) return;
 
-    const timeout = slowOpening ? slowCinematicSafetyTimeout : standardSafetyTimeout;
-    const timer = window.setTimeout(() => setOpeningState("opened"), timeout);
+    const timer = window.setTimeout(() => setOpeningState("opened"), openingPace.safetyTimeout);
     return () => window.clearTimeout(timer);
-  }, [slowOpening, sequenceActive]);
+  }, [openingPace, sequenceActive]);
 
   useEffect(() => {
     if (shouldReduceMotion && sequenceActive) setOpeningState("opened");
@@ -217,15 +255,33 @@ export function RibbonEnvelopeOpening({
   useEffect(() => {
     if (openingState !== "opened" || !activatedRef.current) return;
 
-    const timer = window.setTimeout(
-      () => {
-        const focusTarget = contentRef.current?.querySelector<HTMLElement>(
-          "[data-envelope-focus-target]",
-        );
-        focusTarget?.focus({ preventScroll: true });
-      },
-      shouldReduceMotion ? 50 : 0,
-    );
+    // WebKit can expose `opened` before a formerly inert subtree accepts focus under load. Retry
+    // only while focus remains outside the invitation, and stop if the guest moves into it.
+    let attempts = 0;
+    let timer = 0;
+    const maxAttempts = shouldReduceMotion ? 40 : 4;
+    const focusContent = () => {
+      const content = contentRef.current;
+      const focusTarget = content?.querySelector<HTMLElement>("[data-envelope-focus-target]");
+
+      if (content && focusTarget) {
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement !== document.body && content.contains(activeElement)) {
+          return;
+        }
+
+        content.inert = false;
+        focusTarget.focus({ preventScroll: true });
+        if (document.activeElement === focusTarget) return;
+      }
+
+      if (attempts >= maxAttempts) return;
+
+      attempts += 1;
+      timer = window.setTimeout(focusContent, 100);
+    };
+
+    timer = window.setTimeout(focusContent, 0);
     return () => window.clearTimeout(timer);
   }, [openingState, shouldReduceMotion]);
 
@@ -294,12 +350,13 @@ export function RibbonEnvelopeOpening({
           <div aria-hidden="true" className={gardenClass("envelope", gardenPromise)}>
             <div className={gardenClass("envelope-back", gardenPromise)} />
             <div className={gardenClass("letter", gardenPromise)}>
+              {letterMark}
               <span>{letterLead}</span>
               <strong>{recipient}</strong>
               <small>{letterNote}</small>
             </div>
             <div className={gardenClass("envelope-flap", gardenPromise)}>{coverMark}</div>
-            <div className={gardenClass("envelope-front", gardenPromise)} />
+            <div className={gardenClass("envelope-front", gardenPromise)}>{frontMark}</div>
             <div
               className={`${gardenClass("ribbon", gardenPromise)} ${gardenClass(
                 "ribbon-horizontal",
@@ -313,31 +370,35 @@ export function RibbonEnvelopeOpening({
               )}`}
             />
             <div className={gardenClass("ribbon-knot", gardenPromise)}>
-              <span
-                className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
-                  "ribbon-loop-left",
-                  gardenPromise,
-                )}`}
-              />
-              <span
-                className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
-                  "ribbon-loop-right",
-                  gardenPromise,
-                )}`}
-              />
-              <span
-                className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
-                  "ribbon-tail-left",
-                  gardenPromise,
-                )}`}
-              />
-              <span
-                className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
-                  "ribbon-tail-right",
-                  gardenPromise,
-                )}`}
-              />
-              <i />
+              {ribbonKnot ?? (
+                <>
+                  <span
+                    className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
+                      "ribbon-loop-left",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <span
+                    className={`${gardenClass("ribbon-loop", gardenPromise)} ${gardenClass(
+                      "ribbon-loop-right",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <span
+                    className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
+                      "ribbon-tail-left",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <span
+                    className={`${gardenClass("ribbon-tail", gardenPromise)} ${gardenClass(
+                      "ribbon-tail-right",
+                      gardenPromise,
+                    )}`}
+                  />
+                  <i />
+                </>
+              )}
             </div>
           </div>
         </button>
@@ -355,7 +416,7 @@ export function RibbonEnvelopeOpening({
                 ? "Your invitation is open"
                 : "Opening invitation…"}
         </p>
-        {slowOpening && sequenceActive ? (
+        {offersSkip && sequenceActive ? (
           <button
             className={gardenClass("skip-opening", gardenPromise)}
             onClick={skipOpening}
@@ -389,6 +450,9 @@ export function RibbonEnvelopeOpening({
 
 export const ribbonEnvelopeStyles = `
 .ie-root {
+  /* Accent mixed toward the document ink. Raw --ie-ribbon is chosen for rules and the ribbon,
+     and is too light for small text on several template palettes. */
+  --ie-ribbon-text: color-mix(in srgb, var(--ie-ribbon) 70%, var(--ie-ink));
   position: relative;
   container-type: inline-size;
   width: 100%;
@@ -428,7 +492,7 @@ export const ribbonEnvelopeStyles = `
 }
 .ie-opening-kicker {
   margin: 0;
-  color: var(--ie-ribbon);
+  color: var(--ie-ribbon-text);
   font-size: 0.68rem;
   font-weight: 760;
   letter-spacing: 0.18em;
@@ -531,7 +595,7 @@ export const ribbonEnvelopeStyles = `
 }
 .ie-letter small {
   margin-top: 0.7rem;
-  color: color-mix(in srgb, var(--ie-ink) 66%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 76%, transparent);
   letter-spacing: 0.08em;
 }
 .ie-ribbon {
@@ -641,7 +705,7 @@ export const ribbonEnvelopeStyles = `
   max-width: 28rem;
   margin: 0;
   padding-inline: 1rem;
-  color: color-mix(in srgb, var(--ie-ink) 72%, transparent);
+  color: color-mix(in srgb, var(--ie-ink) 76%, transparent);
   font-family: "Fraunces Variable", Georgia, serif;
   font-size: clamp(0.95rem, 3cqi, 1.2rem);
 }
@@ -654,7 +718,7 @@ export const ribbonEnvelopeStyles = `
 }
 .ie-opening-hint {
   margin: 0.7rem 0 0;
-  color: color-mix(in srgb, var(--ie-ribbon) 88%, var(--ie-ink));
+  color: var(--ie-ribbon-text);
   font-size: 0.72rem;
   font-weight: 760;
   letter-spacing: 0.08em;

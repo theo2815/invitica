@@ -1,0 +1,91 @@
+:where(.mascot) {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+:where(.mascot[data-size="compact"]) {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+:where(.mascot[data-size="standard"]) {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: url("/brand/invi-character-sprites.webp");
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 500% 100%;
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.mascot[data-invi-frame="alert"] .sprite {
+  background-position: 25% 0;
+}
+
+.mascot[data-invi-frame="thinking"] .sprite {
+  background-position: 50% 0;
+}
+
+.mascot[data-invi-frame="success"] .sprite {
+  background-position: 75% 0;
+}
+
+.mascot[data-invi-frame="resting"] .sprite {
+  background-position: 100% 0;
+}
+
+/* The source sheet supplies every expression. Motion changes only the whole paper character, never
+   its authored folds or face. Idle stays still; responding is the only loop. */
+.mascot[data-invi-state="responding"] .sprite {
+  animation: invi-responding 1.3s ease-in-out infinite;
+  will-change: transform;
+}
+
+.mascot[data-invi-state="success"] .sprite {
+  animation: invi-success 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.mascot[data-invi-state="attention"] .sprite {
+  transform: translateY(1%);
+}
+
+@keyframes invi-responding {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-2%) scale(1.025);
+  }
+}
+
+@keyframes invi-success {
+  0% {
+    transform: translateY(2%) scale(0.97);
+  }
+
+  55% {
+    transform: translateY(-4%) scale(1.04);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot[data-invi-state] .sprite {
+    animation: none;
+    transition: none;
+  }
+}

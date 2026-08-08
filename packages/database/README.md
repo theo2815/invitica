@@ -13,8 +13,10 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 - `workspace_id`, backed by active workspace membership, is the creator ownership boundary.
 - Untrusted invitation documents are parsed by the shared TypeScript schema before persistence or
   publication; SQL adds narrow structural and business-rule checks at mutation boundaries.
-- Authenticated browser roles do not receive generic document, publication, RSVP, or private-link
-  mutation access. Narrow RPCs derive identity from `auth.uid()` and re-check ownership.
+- Authenticated browser roles do not receive unbounded table or whole-document mutation access.
+  Narrow RPCs derive identity from `auth.uid()` and re-check ownership. The generic
+  `update_invitation_sections` RPC accepts only stable-ID patches allowed by an exact
+  template-version policy.
 - Privileged functions pin an empty `search_path` and grant only the roles that need the operation.
 - Raw personalized-link tokens are never stored in PostgreSQL. Hashing and separately keyed recovery
   ciphertext have distinct purposes, and revocation destroys recoverable material.
@@ -52,6 +54,15 @@ contract only. The canonical applied/verified status is maintained in the Inviti
 | `0024_invitation_share_messages.sql` | Creator-authored personal and general share messages |
 | `0025_guest_party_pagination.sql` | Owner-only bounded Guest Desk search/filter pagination |
 | `0026_guest_link_batch_recovery.sql` | Ordered batched recovery for visible private-link pages |
+| `0027_terms_acceptance.sql` | Append-only creator Terms acceptance with the presented Privacy Notice version |
+| `0028_template_version_policy.sql` | Database-owned exact template policy, stable-ID section updates, and policy-backed publication |
+| `0029_occasion_template_versions.sql` | Garden Promise, Golden Hour, and Sunday Joy v2 policies plus expanded program bounds |
+| `0030_romance_invitation.sql` | Romance occasion policy, A Little Question v1, one-recipient personal invitations, and required declined-response messages |
+| `0031_delete_invitation.sql` | Owner deletion of any invitation, published or not |
+| `0032_assistant_message_budget.sql` | Server-enforced per-creator daily and global monthly AI assistant message ceilings |
+| `0033_assistant_conversations.sql` | Creator-owned saved assistant conversations, readable and deletable only by their author |
+| `0034_assistant_message_usage.sql` | Read-only per-creator view of the day's assistant allowance, with the cap owned by one function |
+| `0035_account_deletion_requests.sql` | Single-use, expiring, hash-only account deletion tokens claimable only by their own signed-in author |
 
 Migrations are additive and sequential. Do not selectively install a later migration because its
 function body appears to create successfully: PostgreSQL may defer relation resolution until the
@@ -72,8 +83,20 @@ hook. Do not place service-role credentials in browser-visible variables or repo
 ## Tests
 
 Every migration has a numerically matching transaction-wrapped pgTAP file in `tests/`. The current
-26 files declare 542 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
-idempotency, concurrency, document preservation, and focused runtime behavior.
+35 files declare 718 assertions across catalog shape, grants, RLS denial, cross-owner isolation,
+idempotency, concurrency, document preservation, and focused runtime behavior. The latest executed
+all-migration evidence covers `0001` through `0035` (**2026-08-07, zero failures at 701 executed
+assertions**). Only 701 of the 718 run: `0010` executes none of its 17, for the reason in the
+verification caveat below.
+
+*(This section previously stopped at `0033`/677 and omitted `0034` from the inventory above;
+corrected 2026-08-07 when `0035` was added and run.)*
+
+**Apply every migration before running any suite.** The suites assert the fully-migrated catalog
+rather than the schema at their own number: `0028` inserts three template-version policies and `0029`
+inserts three more, yet both suites assert the combined total. Running progressively — migration N
+then suite N — produces false failures. A migration that changes a shared catalog must also update the
+earlier suites that count it.
 
 Run the suites in numeric order against a disposable database with pgTAP installed, using `psql` or
 the project verification workflow with `ON_ERROR_STOP` enabled. Never run these destructive fixture

@@ -17,8 +17,8 @@ import {
 } from "../src/index.js";
 
 describe("template registry", () => {
-  it("registers five immutable schema-valid template versions", () => {
-    expect(templateRegistry).toHaveLength(5);
+  it("registers nine immutable schema-valid template versions", () => {
+    expect(templateRegistry).toHaveLength(9);
     expect(Object.isFrozen(templateRegistry)).toBe(true);
 
     for (const manifest of templateRegistry) {
@@ -29,17 +29,21 @@ describe("template registry", () => {
 
     expect(resolveTemplateById("garden-promise")).toMatchObject({
       qualityStatus: "production",
-      rendererKey: "garden-promise-v1",
+      rendererKey: "garden-promise-v2",
+      version: 2,
     });
     expect(
-      templateRegistry
-        .filter((manifest) => manifest.listing.id !== "garden-promise")
-        .map((manifest) => [manifest.rendererKey, manifest.qualityStatus]),
+      templateRegistry.map((manifest) => [manifest.rendererKey, manifest.qualityStatus]),
     ).toEqual([
+      ["garden-promise-v1", "production"],
+      ["garden-promise-v2", "production"],
       ["standard-v1", "fixture"],
+      ["golden-hour-v2", "production"],
       ["standard-v1", "fixture"],
+      ["sunday-joy-v2", "production"],
       ["little-blessings-v1", "production"],
       ["little-blessings-v2", "production"],
+      ["little-question-v1", "production"],
     ]);
 
     expect(resolveTemplateById("little-blessings")).toMatchObject({
@@ -61,10 +65,14 @@ describe("template registry", () => {
     ).toEqual([
       // A wedding celebrates two people, so the neutral form is correct rather than a fallback.
       ["garden-promise", "they"],
+      ["garden-promise", "they"],
       ["golden-hour", "she"],
+      ["golden-hour", "she"],
+      ["sunday-joy", "she"],
       ["sunday-joy", "she"],
       ["little-blessings", "she"],
       ["little-blessings", "she"],
+      ["a-little-question", "they"],
     ]);
 
     expect(() =>
@@ -73,6 +81,26 @@ describe("template registry", () => {
         celebrantPronoun: "it",
       }),
     ).toThrow();
+  });
+
+  it("pins each template version to an explicit editor contract", () => {
+    expect(
+      templateRegistry.map((manifest) => [
+        manifest.listing.id,
+        manifest.version,
+        manifest.editorKey,
+      ]),
+    ).toEqual([
+      ["garden-promise", 1, "focused-event-v1"],
+      ["garden-promise", 2, "section-document-v1"],
+      ["golden-hour", 1, "focused-event-v1"],
+      ["golden-hour", 2, "section-document-v1"],
+      ["sunday-joy", 1, "focused-event-v1"],
+      ["sunday-joy", 2, "section-document-v1"],
+      ["little-blessings", 1, "section-document-v1"],
+      ["little-blessings", 2, "section-document-v1"],
+      ["a-little-question", 1, "section-document-v1"],
+    ]);
   });
 
   it("resolves stable template and version identifiers and rejects unknown values", () => {
@@ -108,12 +136,29 @@ describe("template registry", () => {
   });
 
   it("derives catalog sections from the schema-backed default documents", () => {
-    expect(templateCatalog).toHaveLength(4);
+    expect(templateCatalog).toHaveLength(5);
     expect(templateCatalog.find((template) => template.id === "golden-hour")?.sections).toEqual([
       "Opening",
       "Event details",
-      "Venue",
       "Message",
+      "Countdown",
+      "People in the program",
+      "Schedule",
+      "Attire",
+      "Gallery",
+      "Guest notes",
+      "RSVP",
+    ]);
+    expect(templateCatalog.find((template) => template.id === "sunday-joy")?.sections).toEqual([
+      "Opening",
+      "Event details",
+      "Message",
+      "Countdown",
+      "Schedule",
+      "Attire",
+      "Gallery",
+      "Guest notes",
+      "Gifts",
       "RSVP",
     ]);
     expect(
@@ -123,14 +168,35 @@ describe("template registry", () => {
       "Event details",
       "Message",
       "Countdown",
-      "Parents and godparents",
-      "Order of the day",
-      "What to wear",
+      "People in the program",
+      "Schedule",
+      "Attire",
       "Gallery",
-      "A gentle note",
-      "Gift ideas",
+      "Guest notes",
+      "Gifts",
       "RSVP",
     ]);
+    expect(
+      templateCatalog.find((template) => template.id === "a-little-question")?.sections,
+    ).toEqual(["Opening", "Event details", "Message", "Gallery", "RSVP"]);
+  });
+
+  it("keeps the Romance question last and personal-response behavior explicit", () => {
+    const romance = resolveTemplateById("a-little-question");
+    const starter = templateStarterDocument(romance);
+    const reply = starter.sections.at(-1);
+
+    expect(romance.listing).toMatchObject({
+      name: "A Little Question",
+      occasion: "Romance",
+    });
+    expect(reply?.type).toBe("rsvp");
+    expect(reply?.props).toMatchObject({
+      responseMode: "romantic-question",
+      declineButtonBehavior: "dodge-five",
+    });
+    expect(starter.assets).toEqual([]);
+    expect(starter.sections.find((section) => section.type === "gallery")?.visible).toBe(false);
   });
 
   it("shows Little Blessings with bounded declared image references in the catalog", () => {
@@ -174,10 +240,20 @@ describe("template registry", () => {
   });
 
   it("falls back to the showcase only for templates that ship no media", () => {
-    const gardenPromise = resolveTemplateById("garden-promise");
-
-    expect(gardenPromise.starterDocument).toBeUndefined();
-    expect(templateStarterDocument(gardenPromise)).toBe(gardenPromise.defaultDocument);
+    // Stated as the invariant rather than against one named template: a showcase that carries
+    // picture slots must hand a new draft something else to start from, and a showcase that carries
+    // none needs no second document. Every registered version is held to it.
+    for (const manifest of templateRegistry) {
+      const carriesMedia = manifest.defaultDocument.assets.length > 0;
+      expect([
+        manifest.listing.id,
+        manifest.version,
+        manifest.starterDocument !== undefined,
+      ]).toEqual([manifest.listing.id, manifest.version, carriesMedia]);
+      expect(templateStarterDocument(manifest)).toBe(
+        carriesMedia ? manifest.starterDocument : manifest.defaultDocument,
+      );
+    }
 
     // A media-carrying showcase without a starter would be created as a draft
     // referencing media the creator never uploaded.
@@ -187,6 +263,130 @@ describe("template registry", () => {
         starterDocument: undefined,
       }).success,
     ).toBe(false);
+  });
+
+  it("shows every Garden Promise section in the catalog and hides the unfilled ones in a draft", () => {
+    const gardenPromise = resolveTemplateById("garden-promise");
+    const showcase = gardenPromise.defaultDocument;
+    const starter = templateStarterDocument(gardenPromise);
+
+    // The catalog shows the whole template, so a creator judges it before choosing it.
+    expect(showcase.sections.every((section) => section.visible)).toBe(true);
+    expect(
+      showcase.sections.find((section) => section.type === "gallery")?.props.images,
+    ).toHaveLength(4);
+
+    // Every image slot the template offers is represented, so the preview shows a placeholder for
+    // each one rather than only for the album: the couple's portrait, four album frames, and a
+    // picture for every gift idea.
+    const showcaseHero = showcase.sections.find((section) => section.type === "hero");
+    const showcaseGifts = showcase.sections.find((section) => section.type === "gifts");
+
+    expect(showcaseHero?.props.imageAssetId).toBeDefined();
+    expect(showcaseGifts?.props.items).toHaveLength(3);
+    expect(showcaseGifts?.props.items.every((item) => Boolean(item.imageAssetId))).toBe(true);
+    expect(showcase.assets).toHaveLength(8);
+
+    const showcaseEvents = showcase.sections.find((section) => section.type === "event-details")
+      ?.props.events;
+    expect(
+      showcaseEvents?.every(
+        (event) => event.latitude !== undefined && event.longitude !== undefined,
+      ),
+    ).toBe(true);
+
+    // A first draft can only contain what the couple could publish today.
+    expect(starter).toBe(gardenPromise.starterDocument);
+    expect(starter.assets).toEqual([]);
+    expect(starter.sections.map((section) => section.type)).toEqual(
+      showcase.sections.map((section) => section.type),
+    );
+
+    const hero = starter.sections.find((section) => section.type === "hero");
+    const gallery = starter.sections.find((section) => section.type === "gallery");
+    const gifts = starter.sections.find((section) => section.type === "gifts");
+    const starterEvents = starter.sections.find((section) => section.type === "event-details")
+      ?.props.events;
+
+    // None of the showcase's picture slots follow a creator into their first draft.
+    expect(hero?.props.imageAssetId).toBeUndefined();
+    expect(gallery?.visible).toBe(false);
+    expect(gallery?.props.images).toEqual([]);
+    expect(gifts?.visible).toBe(false);
+    expect(gifts?.props.items.every((item) => item.imageAssetId === undefined)).toBe(true);
+    expect(
+      starterEvents?.every(
+        (event) => event.latitude === undefined && event.longitude === undefined,
+      ),
+    ).toBe(true);
+  });
+
+  /**
+   * Golden Hour and Sunday Joy follow the same rule Garden Promise set: the catalog shows the whole
+   * template with a placeholder in every picture slot, and a first draft carries only what the
+   * creator could publish today. The two documents are derived from one source in the manifest, so
+   * this states the properties that derivation must preserve rather than re-listing their content.
+   */
+  it.each([
+    ["golden-hour", { assets: 7, galleryImages: 6, starterHidden: ["gallery"] }],
+    [
+      "sunday-joy",
+      { assets: 8, galleryImages: 4, starterHidden: ["schedule", "gallery", "gifts"] },
+    ],
+  ])("shows every %s section in the catalog and hides the unfilled ones in a draft", (templateId, expected) => {
+    const manifest = resolveTemplateById(templateId);
+    const showcase = manifest.defaultDocument;
+    const starter = templateStarterDocument(manifest);
+
+    expect(showcase.sections.every((section) => section.visible)).toBe(true);
+    expect(showcase.assets).toHaveLength(expected.assets);
+    expect(
+      showcase.sections.find((section) => section.type === "hero")?.props.imageAssetId,
+    ).toBeDefined();
+    expect(
+      showcase.sections.find((section) => section.type === "gallery")?.props.images,
+    ).toHaveLength(expected.galleryImages);
+    // Every gift idea carries a picture slot, so the preview shows where each one goes. Golden Hour
+    // has no gift section at all, which `?? []` reports as satisfied rather than as a failure.
+    const showcaseGifts =
+      showcase.sections.find((section) => section.type === "gifts")?.props.items ?? [];
+    expect(showcaseGifts.every((item) => Boolean(item.imageAssetId))).toBe(true);
+    // Coordinates turn on the click-to-load venue map for the sample event.
+    expect(
+      showcase.sections
+        .find((section) => section.type === "event-details")
+        ?.props.events.every(
+          (event) => event.latitude !== undefined && event.longitude !== undefined,
+        ),
+    ).toBe(true);
+
+    // A first draft keeps the showcase's wording, order, and timing, and none of its media.
+    expect(starter).toBe(manifest.starterDocument);
+    expect(starter.assets).toEqual([]);
+    expect(starter.sections.map((section) => section.type)).toEqual(
+      showcase.sections.map((section) => section.type),
+    );
+    expect(
+      starter.sections.filter((section) => !section.visible).map((section) => section.type),
+    ).toEqual(expected.starterHidden);
+    expect(
+      starter.sections.find((section) => section.type === "hero")?.props.imageAssetId,
+    ).toBeUndefined();
+    expect(starter.sections.find((section) => section.type === "gallery")?.props.images).toEqual(
+      [],
+    );
+    expect(
+      (starter.sections.find((section) => section.type === "gifts")?.props.items ?? []).every(
+        (item) => item.imageAssetId === undefined,
+      ),
+    ).toBe(true);
+    expect(
+      starter.sections
+        .find((section) => section.type === "event-details")
+        ?.props.events.every(
+          (event) => event.latitude === undefined && event.longitude === undefined,
+        ),
+    ).toBe(true);
   });
 
   it("rejects a starter document that references media", () => {
@@ -233,6 +433,22 @@ describe("template registry", () => {
     expect(templateCatalog.filter((template) => template.id === "little-blessings")).toHaveLength(
       1,
     );
+  });
+
+  it("keeps structurally different successors new-drafts-only", () => {
+    const structuralSuccessors = [
+      ["40000000-0000-4000-8000-000000000001", "40000000-0000-4000-8000-000000000006"],
+      ["40000000-0000-4000-8000-000000000002", "40000000-0000-4000-8000-000000000007"],
+      ["40000000-0000-4000-8000-000000000003", "40000000-0000-4000-8000-000000000008"],
+    ] as const;
+
+    for (const [sourceId, targetId] of structuralSuccessors) {
+      const source = resolveTemplateVersion(sourceId);
+      expect(resolveTemplateUpgrade(sourceId)).toBeNull();
+      expect(() =>
+        migrateTemplateDocument(structuredClone(templateStarterDocument(source)), targetId),
+      ).toThrow(InvalidTemplateUpgradeError);
+    }
   });
 
   it("migrates only the version pin and preserves every creator-owned field", () => {

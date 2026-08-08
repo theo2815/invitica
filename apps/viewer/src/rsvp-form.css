@@ -12,9 +12,43 @@
   text-align: left;
 }
 
+.rsvp-card--choice-fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+}
+
 .rsvp-card--centered,
 .rsvp-card__notice {
   text-align: center;
+}
+
+.rsvp-card--romantic-result {
+  display: grid;
+  justify-items: center;
+  padding-block: clamp(1.5rem, 7vw, 2.15rem);
+}
+
+.rsvp-card__response-mark {
+  display: grid;
+  width: 3.35rem;
+  height: 3.35rem;
+  margin-bottom: 0.72rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ie-ribbon, currentColor) 34%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ie-ribbon, currentColor) 7%, white);
+  color: var(--ie-ribbon, currentColor);
+}
+
+.rsvp-card__response-mark svg {
+  width: 1.85rem;
+  height: 1.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.45;
 }
 
 .rsvp-card fieldset {
@@ -149,6 +183,14 @@
 .rsvp-card__secondary {
   background: transparent;
   color: inherit;
+}
+
+.rsvp-card--romantic-result .rsvp-card__secondary {
+  width: auto;
+  min-width: 8.5rem;
+  margin-top: 1.15rem;
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--ie-paper, white) 92%, transparent);
 }
 
 .rsvp-card button:disabled {

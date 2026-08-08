@@ -1,18 +1,36 @@
+/* Palette from `globals.css :root`. This block also carried `--danger: #9f2f2f`, one of three
+   reds the codebase held for one semantic token; it is now the shared `#9d2d2d`. */
 .previewPage {
-  --background: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --accent-hover: #5d2632;
-  --danger: #9f2f2f;
-  --focus: #2457c5;
   container-type: inline-size;
   min-width: 320px;
   background: var(--background);
   color: var(--text);
+}
+
+/*
+  The full-page preview owns its temporary gate. Embedded editor and modal previews remain free to
+  scroll their surrounding creator surface, while no-JavaScript output never receives this
+  hydration-only attribute.
+*/
+.previewPage[data-preview-scroll-gated="true"] {
+  position: fixed;
+  inset: 0;
+  height: 100svh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+/*
+  This route renders the invitation full-bleed, so its closed envelope scene fills the viewport on
+  mobile and desktop. The renderer only guarantees that in published mode, and this surface renders
+  in preview mode so the reply section stays visible like it does in the quick-preview modal — which
+  is contained in a frame and must keep its own size. `.ie-opening` covers the occasion families,
+  Little Blessings, and the standard renderer; `.gp-opening` covers legacy Garden Promise v1.
+*/
+.previewPage :global(.ie-opening),
+.previewPage :global(.gp-opening) {
+  min-height: 100svh;
 }
 
 .actionDock {
@@ -37,7 +55,7 @@
   border: 1px solid var(--border);
   border-radius: 0.65rem;
   background: color-mix(in srgb, var(--surface) 96%, transparent);
-  box-shadow: 0 0.75rem 2.5rem rgb(41 35 31 / 18%);
+  box-shadow: 0 0.75rem 2.5rem rgb(var(--shadow-rgb) / 18%);
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -138,8 +156,8 @@
   border-right: 0;
   border-radius: 0.55rem 0 0 0.55rem;
   background: var(--accent);
-  box-shadow: 0 0.5rem 1.5rem rgb(41 35 31 / 18%);
-  color: #ffffff;
+  box-shadow: 0 0.5rem 1.5rem rgb(var(--shadow-rgb) / 18%);
+  color: var(--accent-text);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -188,7 +206,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.3rem;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: 0.72rem;
   font-weight: 750;
   text-decoration: none;

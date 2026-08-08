@@ -58,6 +58,7 @@ function errorCode(error: unknown): string | undefined {
 function mutationFailure(error: unknown): GuestRsvpPersistenceError {
   switch (errorCode(error)) {
     case "22023":
+    case "23514":
       return new GuestRsvpPersistenceError("invalid");
     case "40001":
       return new GuestRsvpPersistenceError("conflict");

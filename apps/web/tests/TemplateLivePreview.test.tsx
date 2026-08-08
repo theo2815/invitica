@@ -1,3 +1,4 @@
+import { resolveTemplateById } from "@invitica/template-kit";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +7,7 @@ import { TemplateLivePreview } from "../src/components/templates/TemplateLivePre
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 describe("full template preview", () => {
@@ -21,6 +23,10 @@ describe("full template preview", () => {
       />,
     );
 
+    const previewPage = document.querySelector("[data-preview-scroll-gated]");
+    expect(previewPage).not.toBeNull();
+    expect(previewPage?.getAttribute("data-preview-scroll-gated")).toBe("true");
+
     expect(screen.queryByRole("link", { name: "Log in to use this template" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
     act(() => vi.advanceTimersByTime(900));
@@ -28,6 +34,7 @@ describe("full template preview", () => {
     act(() => vi.advanceTimersByTime(1_400));
     act(() => vi.advanceTimersByTime(0));
 
+    expect(previewPage?.getAttribute("data-preview-scroll-gated")).toBe("false");
     expect(
       within(screen.getByRole("complementary", { name: "Template preview actions" })).getByText(
         "Garden Promise",
@@ -51,7 +58,7 @@ describe("full template preview", () => {
     );
   });
 
-  it("keeps fixture previews truthful and unavailable for creation", () => {
+  it("offers the upgraded Golden Hour template for creation", () => {
     vi.useFakeTimers();
     render(
       <TemplateLivePreview
@@ -64,9 +71,9 @@ describe("full template preview", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
-    act(() => vi.advanceTimersByTime(620));
-    act(() => vi.advanceTimersByTime(700));
-    act(() => vi.advanceTimersByTime(760));
+    act(() => vi.advanceTimersByTime(850));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(900));
     act(() => vi.advanceTimersByTime(0));
 
     expect(
@@ -74,9 +81,9 @@ describe("full template preview", () => {
         "Golden Hour",
       ),
     ).toBeDefined();
-    expect(screen.getByRole("button", { name: "Preview only" }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    expect(
+      screen.getByRole("link", { name: "Log in to use this template" }).getAttribute("href"),
+    ).toBe("/login?next=%2Ftemplates%2Fgolden-hour%2Fpreview%3Fintent%3Duse");
   });
 
   it("reuses the friendly repeat-template decision for authenticated creators", () => {
@@ -92,7 +99,10 @@ describe("full template preview", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Open invitation for/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip opening" }));
+    act(() => vi.advanceTimersByTime(850));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(0));
     expect(screen.getByRole("status").textContent).toContain("You’re signed in");
 
     fireEvent.click(screen.getByRole("button", { name: "Use this template" }));
@@ -100,5 +110,106 @@ describe("full template preview", () => {
     expect(screen.getByRole("link", { name: "View invitations" }).getAttribute("href")).toBe(
       "/dashboard/invitations",
     );
+  });
+
+  /**
+   * The catalog preview is where a creator decides. It renders the showcase document, so every
+   * section the document carries is present — including the album and gift list a new draft ships
+   * hidden — and the album shows the renderer's upload placeholder rather than photographs belonging
+   * to the sample wedding.
+   *
+   * It renders in preview mode, identical to the quick-preview modal, so a creator sees the same
+   * eleven sections either way — including the reply section, which published mode would omit.
+   */
+  it("shows every Garden Promise section, its album placeholders, and both venue maps", () => {
+    // The click-to-load map needs a configured tile key; without one the renderer falls back to the
+    // "Get directions" link, so the coordinates alone are not enough to prove the control appears.
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "template-preview-test-key");
+    render(
+      <TemplateLivePreview
+        authenticated={false}
+        creationRequestId="71000000-0000-4000-8000-000000000001"
+        returningFromLogin={false}
+        templateId="garden-promise"
+        usedBefore={false}
+      />,
+    );
+
+    const invitation = document.querySelector('[data-template="garden-promise"]');
+    if (!invitation) throw new Error("Expected the Garden Promise renderer");
+
+    // Asserted against the showcase itself rather than a copied list, so this stays true as the
+    // template changes and states the actual property: the preview shows the whole document.
+    const showcase = resolveTemplateById("garden-promise").defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+    expect(invitation.querySelector('[data-section-type="rsvp"]')).not.toBeNull();
+
+    // One placeholder for every image slot the template offers: the couple's portrait, four album
+    // frames, and a picture for each gift idea.
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(8);
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+    expect(screen.getByText("Our story in photographs")).toBeDefined();
+    expect(screen.getByText("A note about gifts")).toBeDefined();
+
+    // Both venues carry coordinates, so the click-to-load map control appears once hydrated.
+    // Queried through the DOM rather than by role: the invitation body is inert until a guest opens
+    // the envelope, which keeps it out of the accessibility tree that `getAllByRole` searches.
+    const mapToggles = [...invitation.querySelectorAll(".im-toggle")];
+    expect(mapToggles).toHaveLength(2);
+    expect(mapToggles.every((toggle) => toggle.textContent === "Show map")).toBe(true);
+    // The directions link stays alongside the map rather than being replaced by it.
+    expect(invitation.querySelectorAll('a[href="https://maps.google.com/"]')).toHaveLength(2);
+  });
+
+  /**
+   * The same contract for the other two occasion families. Each is asserted against its own showcase
+   * document rather than a copied section list, so the preview cannot silently stop showing part of
+   * the template. Placeholder counts are stated literally, because the point of the number is that a
+   * creator sees one slot per photograph the template offers.
+   */
+  it.each([
+    // Golden Hour has no gift section: one debutante portrait plus six album frames.
+    ["golden-hour", { placeholders: 7 }],
+    // Sunday Joy trades two album frames for a shorter scroll and adds a picture to each of its
+    // three gift ideas: portrait, four album frames, three gifts.
+    ["sunday-joy", { placeholders: 8 }],
+  ])("shows every %s section, its image placeholders, and the venue map", (templateId, expected) => {
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "template-preview-test-key");
+    render(
+      <TemplateLivePreview
+        authenticated={false}
+        creationRequestId="71000000-0000-4000-8000-000000000002"
+        returningFromLogin={false}
+        templateId={templateId}
+        usedBefore={false}
+      />,
+    );
+
+    const invitation = document.querySelector(`[data-template="${templateId}"]`);
+    if (!invitation) throw new Error(`Expected the ${templateId} renderer`);
+
+    const showcase = resolveTemplateById(templateId).defaultDocument;
+    expect(
+      [...invitation.querySelectorAll("[data-section-type]")].map((section) =>
+        section.getAttribute("data-section-type"),
+      ),
+    ).toEqual(showcase.sections.map((section) => section.type));
+    expect(invitation.querySelector('[data-section-type="rsvp"]')).not.toBeNull();
+
+    expect(invitation.querySelectorAll(".ot-media-placeholder")).toHaveLength(
+      expected.placeholders,
+    );
+    expect(invitation.querySelectorAll(".ot-hero-placeholder")).toHaveLength(1);
+
+    // Queried through the DOM rather than by role: the invitation body is inert until a guest opens
+    // the envelope, which keeps it out of the accessibility tree that `getAllByRole` searches.
+    const mapToggles = [...invitation.querySelectorAll(".im-toggle")];
+    expect(mapToggles).toHaveLength(1);
+    expect(mapToggles[0]?.textContent).toBe("Show map");
+    expect(invitation.querySelectorAll('a[href="https://maps.google.com/"]')).toHaveLength(1);
   });
 });

@@ -8,6 +8,7 @@ import {
   RibbonEnvelopeOpening,
   type RibbonEnvelopeVariant,
 } from "./RibbonEnvelopeOpening.js";
+import { isSectionVisibleToAudience } from "./sectionVisibility.js";
 
 export interface ResolvedRendererImageRendition {
   readonly width: number;
@@ -448,6 +449,7 @@ function openingPresentation(motionStyle: InvitationDocument["opening"]["motionS
 }
 
 export function InvitationRenderer({
+  audience = "general",
   document,
   mode,
   onOpeningStateChange,
@@ -494,7 +496,7 @@ export function InvitationRenderer({
       >
         <main className="sr-content" data-envelope-focus-target tabIndex={-1}>
           {document.sections
-            .filter((section) => section.visible)
+            .filter((section) => isSectionVisibleToAudience(section, mode, audience))
             .map((section) => renderSection(section, mode, rsvpSlot, resolveImage))}
         </main>
       </RibbonEnvelopeOpening>

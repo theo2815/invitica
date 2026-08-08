@@ -1,0 +1,392 @@
+import { z } from "zod";
+
+/**
+ * Bounds on what one turn may cost, checked before the model is reached.
+ *
+ * The daily cap limits how many messages a creator sends; these limit how large any one of
+ * them can be. Without them a single pasted wall of text, or a thread left open all
+ * afternoon, would cost several times what the cap was sized for.
+ *
+ * They live in the contract rather than beside the system prompt because the composer needs
+ * them too, and importing the prompt module into a client component would ship the entire
+ * help corpus to the browser.
+ */
+export const MAX_MESSAGE_CHARACTERS = 2_000;
+export const MAX_CONVERSATION_MESSAGES = 20;
+
+export const assistantMessageSchema = z.object({
+  content: z.string().trim().min(1).max(MAX_MESSAGE_CHARACTERS),
+  role: z.enum(["assistant", "user"]),
+});
+
+// A thread that does not end with the creator has nothing to answer. Rejecting it here
+// keeps a malformed client from spending a message on an empty turn.
+const conversationSchema = z
+  .array(assistantMessageSchema)
+  .min(1)
+  .max(MAX_CONVERSATION_MESSAGES)
+  .refine((messages) => messages.at(-1)?.role === "user", {
+    message: "The last message must come from the creator.",
+  });
+
+/**
+ * What the assistant does with the next thing the creator types.
+ *
+ * Explicit rather than inferred. "How do I publish?", "make it a garden wedding", and a
+ * pasted guest list are three requests to three endpoints at three costs, and the only way to
+ * tell them apart automatically would be to ask a model first — a billed call to decide where
+ * to send the next one.
+ *
+ * It lives in the contract because the client picks it, the request carries it, and the server
+ * validates it. Three separate spellings of the same three words is one place too many.
+ */
+export const assistantModeSchema = z.enum(["document", "guests", "help"]);
+
+export type AssistantMode = z.infer<typeof assistantModeSchema>;
+
+/**
+ * The name of each mode's tab, exactly as it reads on the button.
+ *
+ * One owner, because these strings appear in three places that must agree: the tab itself, the
+ * suggestion offering to switch to it, and the sentence telling Invi which tab the creator is
+ * typing into. Invi naming a tab the creator cannot find is worse than saying nothing.
+ */
+export const ASSISTANT_MODE_LABELS: Record<AssistantMode, string> = {
+  document: "Draft my invitation",
+  guests: "Organize my guest list",
+  help: "Answer a question",
+};
+
+/**
+ * Where the creator is standing when they ask.
+ *
+ * Every field is optional, because the widget floats over routes that know none of it and an
+ * answer without context is still an answer. What it buys is the difference between "I cannot
+ * help you with that" and the four steps: a creator on the Templates page with no invitations
+ * yet needs a different sentence than one inside an editor.
+ *
+ * None of it is trusted for anything that matters. `invitationId` is re-resolved server-side
+ * under the creator's own session, so the client cannot describe someone else's invitation as
+ * its own; `surface` and `mode` only shape wording, and the worst a wrong one produces is Invi
+ * naming the wrong page.
+ */
+export const assistantContextSchema = z.object({
+  /** The invitation in context, if any. Re-loaded server-side under the creator's session. */
+  invitationId: z.string().uuid().optional(),
+  mode: assistantModeSchema.optional(),
+  surface: z.string().trim().max(120).optional(),
+});
+
+export const assistantRequestSchema = z.object({
+  context: assistantContextSchema.optional(),
+  messages: conversationSchema,
+});
+
+/**
+ * A document proposal is asked for against one invitation, named by id rather than sent as
+ * a document. The server loads the draft itself under the creator's own session, so a
+ * client cannot ask the assistant to rewrite an invitation it does not own, and cannot
+ * describe someone else's draft as the starting point.
+ */
+export const assistantDocumentRequestSchema = z.object({
+  invitationId: z.string().uuid(),
+  messages: conversationSchema,
+});
+
+/**
+ * A guest-list parse is asked for against one invitation, the same way a document proposal
+ * is. Guest parties belong to a published invitation, so the server resolves the invitation
+ * under the creator's own session and refuses one they do not own or have not published.
+ *
+ * It carries a conversation rather than a single paste, because correcting a parse is a
+ * sentence — "the Santos family is six, not five" — and re-pasting the whole list to fix one
+ * row would be worse than typing it.
+ */
+export const assistantGuestsRequestSchema = z.object({
+  invitationId: z.string().uuid(),
+  messages: conversationSchema,
+});
+
+/**
+ * Writing a creator's own invitation message, asked for against one invitation the same way
+ * the other two are. The server resolves it under the creator's own session and refuses one
+ * they do not own or have not published — an unpublished invitation has no link to write a
+ * message about.
+ *
+ * It carries a conversation rather than a single instruction, because refining wording is
+ * what this is for: "shorter", "less formal", "mention it is a garden ceremony" are all
+ * answers to the message that came before them.
+ */
+export const assistantMessageRequestSchema = z.object({
+  invitationId: z.string().uuid(),
+  messages: conversationSchema,
+});
+
+/**
+ * How many parties one request may produce.
+ *
+ * `createGuestPartiesAction` accepts at most 50 in a single transaction and the composer
+ * holds 50 rows, so a longer answer could not be created anyway. Truncating here gives a
+ * creator fifty rows they can act on instead of a refusal they cannot.
+ */
+export const MAX_PARSED_GUEST_PARTIES = 50;
+
+/**
+ * One parsed party, in the shape `createGuestPartiesAction` already accepts.
+ *
+ * Declared in the contract rather than beside the parser so the composer can hold these
+ * without importing server code. The server still validates every one of them against
+ * `guestPartyInputSchema` before it is sent — this type describes what survived, not what
+ * the model said.
+ */
+export interface ParsedGuestParty {
+  capacity: number;
+  guestNames: string[];
+  internalLabel: string;
+  recipientName: string;
+}
+
+/**
+ * How a saved thread appears in the history list.
+ *
+ * Deliberately not the messages. Opening the list must not pull every word a creator has
+ * ever written to Invi into the browser; the thread itself is loaded when one is chosen.
+ */
+export interface AssistantConversationSummary {
+  id: string;
+  title: string;
+  /** ISO 8601, as the database returns it. */
+  updatedAt: string;
+}
+
+/** Matches `assistant_conversations_title_bounds` in migration `0033`. */
+export const MAX_CONVERSATION_TITLE_CHARACTERS = 120;
+
+/**
+ * Names a thread from the creator's own first question.
+ *
+ * Invitica writes this, not the model. A title is not worth a billed call, and a
+ * model-written one would be a second place a creator's words could be quietly reworded.
+ */
+export function conversationTitle(messages: readonly AssistantApiMessage[]): string {
+  const first = messages.find((message) => message.role === "user")?.content ?? "";
+  const collapsed = first.replace(/\s+/g, " ").trim();
+
+  if (collapsed.length === 0) return "Untitled conversation";
+  if (collapsed.length <= MAX_CONVERSATION_TITLE_CHARACTERS) return collapsed;
+
+  // An ellipsis rather than a hard cut, so a truncated title reads as truncated instead
+  // of as a creator who stopped mid-word.
+  return `${collapsed.slice(0, MAX_CONVERSATION_TITLE_CHARACTERS - 1).trimEnd()}…`;
+}
+
+/**
+ * The sentence a drafted proposal arrives with, and the batch of questions that may follow it.
+ *
+ * Invitica's words around the model's, the same way the guest-list count is. The draft itself
+ * is the answer and it is shown in the preview where a creator can judge it; restating it as
+ * prose would be a second, less reliable copy. The questions are the model's own text, because
+ * they are about this creator's invitation and no fixed sentence could be.
+ *
+ * Numbered rather than bulleted so a creator can answer "1 and 3" — `AssistantAnswer` renders
+ * `1.` as an ordered list, and the numbers are what makes a batch answerable in one message
+ * instead of five.
+ */
+function questionList(questions: readonly string[]): string {
+  return questions.map((question, at) => `${at + 1}. ${question}`).join("\n");
+}
+
+function questionCount(questions: readonly string[]): string {
+  return questions.length === 1 ? "one thing" : `${questions.length} things`;
+}
+
+/** What Invi says when a draft arrives, with or without anything still missing from it. */
+export function draftedMessage(questions: readonly string[] = []): string {
+  const drafted =
+    "I have drafted this into your invitation. Look it over in the preview, then keep it or discard it.";
+
+  if (questions.length === 0) return drafted;
+
+  return `${drafted}\n\nTo finish the rest, ${questionCount(questions)}:\n\n${questionList(questions)}`;
+}
+
+/**
+ * What Invi says when there was nothing to draft yet.
+ *
+ * No proposal is staged and no expensive call was made. A creator who wrote "help me with my
+ * wedding invitation" gets the questions that turn it into something draftable, rather than an
+ * empty draft they would read as the feature not working.
+ */
+export function intakeQuestionsMessage(questions: readonly string[]): string {
+  return `Before I draft anything, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will draft from it.`;
+}
+
+/**
+ * What Invi says when rows come back, with anything still unclear underneath them.
+ *
+ * The count is Invitica's, for the reason the guest branch has always held it: the rows are
+ * listed below where a creator can read them, and restating other people's names as prose
+ * would be a second and less reliable copy. The questions are the model's own words, because
+ * they are about this creator's list and no fixed sentence could be.
+ */
+export function guestListMessage(count: number, questions: readonly string[] = []): string {
+  const found =
+    count === 1
+      ? "I found 1 invitation in that list. Open the Guest Desk to check it before anything is created."
+      : `I found ${count} invitations in that list. Open the Guest Desk to check them before anything is created.`;
+
+  if (questions.length === 0) return found;
+
+  return `${found}\n\nTo get the rest right, ${questionCount(questions)}:\n\n${questionList(questions)}`;
+}
+
+/**
+ * What Invi says when a list is too unclear to sort yet.
+ *
+ * The guest-list twin of `intakeQuestionsMessage`, and it exists for the same reason. A
+ * request naming no one — "add my ninongs", "the usual family" — used to end at
+ * `no_parties`, which reads as the feature failing rather than as a question nobody asked.
+ */
+export function guestQuestionsMessage(questions: readonly string[]): string {
+  return `Before I add anyone, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will sort the list from it.`;
+}
+
+/**
+ * The rows currently on the creator's screen, as a message the model reads back.
+ *
+ * This is what makes a follow-up a follow-up. Without it a correction — "the Santos family
+ * is six", "address Tita Baby as just Baby" — was answered by re-deriving the whole list
+ * from the original paste, so a positional reference was guesswork and every hand edit the
+ * creator had made in the composer was silently discarded.
+ *
+ * Invitica writes it, not the model, and it is data rather than prose. The alternative was
+ * letting Invi narrate the rows back into the thread, which would put a second and less
+ * reliable copy of other people's names in the conversation — and in history, since threads
+ * are saved. This never enters the thread at all: it is built at send time from the rows
+ * that exist right now, so it cannot drift from what is on screen and cannot be stored.
+ *
+ * Romance rows carry capacity 1 and no members, which is what they truly are. The model is
+ * never offered those two fields on that branch, so reading them here cannot teach it to
+ * answer with them.
+ */
+export function currentGuestRowsMessage(parties: readonly ParsedGuestParty[]): AssistantApiMessage {
+  const rows = parties
+    .map((party, at) => {
+      const members = party.guestNames.length > 0 ? party.guestNames.join(", ") : "none named";
+      return `${at + 1} | ${party.internalLabel} | ${party.recipientName} | ${party.capacity} | ${members}`;
+    })
+    .join("\n");
+
+  return {
+    content: `[Invitica — the rows currently on this creator's screen]\nnumber | name | envelope greeting | seats | named members\n${rows}`,
+    role: "assistant",
+  };
+}
+
+/**
+ * The tail of a thread that is small enough to send.
+ *
+ * A saved conversation can be continued, so it can outgrow the twenty-message ceiling the
+ * request contract enforces. Without this the twenty-first turn would be refused as an
+ * invalid request — a validation error where the creator sees only a working thread that
+ * suddenly stopped working. Trimming the head loses the oldest context, which is the
+ * cheaper of the two failures.
+ */
+export function conversationWindow(
+  messages: readonly AssistantApiMessage[],
+): AssistantApiMessage[] {
+  return messages.slice(-MAX_CONVERSATION_MESSAGES);
+}
+
+/**
+ * A guest-list turn, with the rows it is about carried alongside it.
+ *
+ * Windowed to one short of the ceiling before the rows are spliced in, so a long thread
+ * plus its rows still fits the twenty the request contract accepts. The rows go immediately
+ * before the creator's newest message — near enough to read as its subject, and leaving a
+ * `user` message last, which `conversationSchema` requires.
+ */
+export function guestConversationPayload(
+  messages: readonly AssistantApiMessage[],
+  parties: null | readonly ParsedGuestParty[] | undefined,
+): AssistantApiMessage[] {
+  if (!parties || parties.length === 0) return conversationWindow(messages);
+
+  const windowed = messages.slice(-(MAX_CONVERSATION_MESSAGES - 1));
+  const newest = windowed.at(-1);
+  if (!newest) return conversationWindow(messages);
+
+  return [...windowed.slice(0, -1), currentGuestRowsMessage(parties), newest];
+}
+
+/**
+ * What Invi says when wording arrives, with anything still unclear underneath it.
+ *
+ * The sentence is Invitica's; the wording itself is in the fields and its preview, where a
+ * creator can read it against real invitation data rather than as a quotation in a chat.
+ */
+export function shareMessageWrittenMessage(questions: readonly string[] = []): string {
+  const written =
+    "I have written that into the fields below. Read it in the preview, then edit it or save it.";
+
+  if (questions.length === 0) return written;
+
+  return `${written}\n\nTo get it closer, ${questionCount(questions)}:\n\n${questionList(questions)}`;
+}
+
+/** What Invi says when there was nothing to write from yet. */
+export function shareMessageQuestionsMessage(questions: readonly string[]): string {
+  return `Before I write anything, ${questionCount(questions)}:\n\n${questionList(questions)}\n\nAnswer what you can in one message and I will write it from that.`;
+}
+
+/**
+ * The wording currently in the creator's fields, as a message the model reads back.
+ *
+ * The share-message twin of `currentGuestRowsMessage`, and it exists for the same reason:
+ * "make it shorter" is about what is on screen, which may be what Invi last wrote, what the
+ * creator has since typed over it, or wording they saved weeks ago. Without this the model
+ * would be shortening its own last answer and quietly discarding their edits.
+ *
+ * Built at send time and never stored, so it cannot drift from the fields it describes.
+ */
+export function currentShareMessagesMessage(messages: {
+  general: null | string;
+  personal: null | string;
+}): AssistantApiMessage {
+  const lines = [
+    `Personal: ${messages.personal ?? "(empty — Invitica's own wording is in use)"}`,
+    `General: ${messages.general ?? "(empty — Invitica's own wording is in use)"}`,
+  ];
+
+  return {
+    content: `[Invitica — the wording currently in the creator's fields]\n${lines.join("\n\n")}`,
+    role: "assistant",
+  };
+}
+
+/**
+ * A message-writing turn, with the wording it is about carried alongside it.
+ *
+ * Windowed one short of the ceiling before the record is spliced in, so a long thread plus
+ * its wording still fits the twenty the request contract accepts. The record goes immediately
+ * before the creator's newest message, leaving a `user` message last as `conversationSchema`
+ * requires.
+ */
+export function shareMessageConversationPayload(
+  messages: readonly AssistantApiMessage[],
+  current: null | { general: null | string; personal: null | string },
+): AssistantApiMessage[] {
+  if (!current || (!current.general && !current.personal)) return conversationWindow(messages);
+
+  const windowed = messages.slice(-(MAX_CONVERSATION_MESSAGES - 1));
+  const newest = windowed.at(-1);
+  if (!newest) return conversationWindow(messages);
+
+  return [...windowed.slice(0, -1), currentShareMessagesMessage(current), newest];
+}
+
+export type AssistantApiMessage = z.infer<typeof assistantMessageSchema>;
+export type AssistantApiRequest = z.infer<typeof assistantRequestSchema>;
+export type AssistantDocumentApiRequest = z.infer<typeof assistantDocumentRequestSchema>;
+export type AssistantGuestsApiRequest = z.infer<typeof assistantGuestsRequestSchema>;
+export type AssistantMessageApiRequest = z.infer<typeof assistantMessageRequestSchema>;

@@ -23,11 +23,9 @@ import {
   updateGuestParty,
   updateInvitationShareMessages,
 } from "./guests";
-import {
-  buildPersonalInvitationMessage,
-  GENERAL_MESSAGE_TOKENS,
-  PERSONAL_MESSAGE_TOKENS,
-} from "./sharing";
+import { guestNamesSchema, guestPartyInputSchema } from "./party-input";
+import { generalShareMessageSchema, personalShareMessageSchema } from "./share-message-input";
+import { buildPersonalInvitationMessage } from "./sharing";
 import {
   decryptGuestLinkToken,
   encryptGuestLinkToken,
@@ -36,23 +34,6 @@ import {
 } from "./tokens";
 
 const uuidSchema = z.string().uuid();
-const guestNamesSchema = z.array(z.string().trim().min(1).max(120)).max(50);
-const guestPartyInputSchema = z
-  .strictObject({
-    capacity: z.number().int().min(1).max(50),
-    guestNames: guestNamesSchema,
-    internalLabel: z.string().trim().min(1).max(120),
-    recipientName: z.string().trim().min(1).max(120),
-  })
-  .superRefine((value, context) => {
-    if (value.guestNames.length > value.capacity) {
-      context.addIssue({
-        code: "custom",
-        message: "Named guests cannot exceed the party capacity.",
-        path: ["guestNames"],
-      });
-    }
-  });
 const createGuestPartiesSchema = z.strictObject({
   invitationId: uuidSchema,
   mutationId: uuidSchema,
@@ -135,10 +116,20 @@ export async function createGuestPartiesAction(
       };
     }
 
+    if (
+      context.occasion === "Romance" &&
+      parsed.data.parties.some((party) => party.capacity !== 1)
+    ) {
+      return {
+        message: "Each Romance invitation must belong to exactly one recipient.",
+        status: "error",
+      };
+    }
+
     const normalizedParties = parsed.data.parties.map((party) => ({
       ...party,
       guestNames:
-        party.guestNames.length === 0 && party.capacity === 1
+        context.occasion === "Romance" && party.guestNames.length === 0
           ? [party.internalLabel]
           : party.guestNames,
     }));
@@ -241,33 +232,10 @@ export async function setGuestInvitationSentAction(
   }
 }
 
-/**
- * A creator-authored message. Blank clears the customisation and restores the generated default,
- * which is why an empty string is accepted rather than rejected.
- */
-function shareMessageSchema(allowed: readonly string[]) {
-  return z
-    .string()
-    .max(2000)
-    .transform((value) => value.trim())
-    .refine(
-      (value) => value === "" || value.includes("{link}"),
-      "Keep {link} so guests can open the invitation.",
-    )
-    .refine((value) => {
-      for (const [, token] of value.matchAll(/\{([a-zA-Z]+)\}/g)) {
-        // An unrecognised placeholder would be pasted to a guest as literal "{name}" text.
-        if (!allowed.includes(token as string)) return false;
-      }
-      return true;
-    }, "Use only the placeholders listed below.")
-    .transform((value) => (value === "" ? null : value));
-}
-
 const shareMessagesSchema = z.strictObject({
-  general: shareMessageSchema(GENERAL_MESSAGE_TOKENS),
+  general: generalShareMessageSchema,
   invitationId: uuidSchema,
-  personal: shareMessageSchema(PERSONAL_MESSAGE_TOKENS),
+  personal: personalShareMessageSchema,
 });
 
 /** Saves the creator's own share wording, or clears it back to the generated default. */
@@ -385,6 +353,12 @@ export async function updateGuestPartyAction(input: unknown): Promise<GuestManag
   try {
     const context = await loadOwnedInvitationContext(parsed.data.invitationId);
     if (!context) return { message: "This invitation is unavailable.", status: "error" };
+    if (context.occasion === "Romance" && parsed.data.capacity !== 1) {
+      return {
+        message: "A Romance invitation must belong to exactly one recipient.",
+        status: "error",
+      };
+    }
     await updateGuestParty(context.supabase, parsed.data);
     revalidatePath("/dashboard/guests");
     return { status: "updated" };

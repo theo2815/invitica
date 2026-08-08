@@ -1,0 +1,380 @@
+/*
+ * Terms and Privacy were an eighth copy of the Warm Editorial palette under different names, and
+ * so the one pair of pages that stayed cream when everything around them went dark. The names are
+ * kept — a legal document reads in `--ink` on `--paper`, not in `--text` on `--background` — but
+ * they are now aliases, and `--surface`, `--surface-muted`, and `--focus` are simply inherited
+ * rather than restated. Nothing here needs a dark branch of its own.
+ */
+.page {
+  --paper: var(--background);
+  --ink: var(--text);
+  --ink-soft: var(--muted);
+  --line: var(--border);
+  --wine: var(--accent);
+  min-height: 100dvh;
+  padding-left: max(clamp(1rem, 4vw, 3.5rem), env(safe-area-inset-left));
+  padding-right: max(clamp(1rem, 4vw, 3.5rem), env(safe-area-inset-right));
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.page a:focus-visible {
+  outline-color: var(--focus);
+}
+
+.header,
+.footer {
+  display: flex;
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.header {
+  align-items: center;
+  justify-content: space-between;
+  min-height: calc(5rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand svg {
+  color: var(--wine);
+}
+
+.header nav,
+.footer nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header nav a,
+.footer nav a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 720;
+  text-underline-offset: 0.2em;
+}
+
+.header nav a:hover,
+.footer nav a:hover {
+  color: var(--wine);
+}
+
+.main {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.document {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 42rem);
+  gap: clamp(2.5rem, 7vw, 6rem);
+  justify-content: center;
+  padding-block: clamp(3rem, 8vw, 7rem);
+}
+
+.documentHeader,
+.contentLayout,
+.sources {
+  grid-column: 1 / -1;
+}
+
+.documentHeader {
+  max-width: 50rem;
+}
+
+.eyebrow,
+.contents > p {
+  margin: 0;
+  color: var(--wine);
+  font-size: 0.69rem;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.documentHeader h1 {
+  max-width: 44rem;
+  margin: 0.9rem 0 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(3.25rem, 9vw, 6.7rem);
+  font-weight: 510;
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+}
+
+.status {
+  width: fit-content;
+  margin: 1.5rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--wine);
+  color: var(--wine);
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.version {
+  margin: 0.8rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.lede {
+  max-width: 46rem;
+  margin: 1.3rem 0 0;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 2vw, 1.12rem);
+  line-height: 1.75;
+}
+
+.sources h2 {
+  margin: 0.65rem 0 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  font-weight: 520;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.sections ul,
+.sources ul {
+  padding-left: 1.25rem;
+}
+
+.sections li,
+.sources li {
+  margin-top: 0.65rem;
+  line-height: 1.65;
+}
+
+/*
+ * Both documents run past twenty clauses, so the contents list is taller than a laptop viewport.
+ * It scrolls inside itself rather than overflowing the sticky box; tabbing through its links
+ * scrolls it, so it needs no tabindex of its own.
+ */
+.contents {
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100dvh - 3rem);
+  align-self: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 0.25rem;
+}
+
+.contentLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 42rem);
+  gap: clamp(2.5rem, 7vw, 6rem);
+  justify-content: center;
+}
+
+.contents ol {
+  display: grid;
+  gap: 0.25rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contentsLink {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.contentsLink:hover {
+  color: var(--wine);
+}
+
+.sections {
+  min-width: 0;
+}
+
+.sections section {
+  scroll-margin-top: 1.5rem;
+  padding-block: 0 2.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.sections section + section {
+  padding-top: 2.5rem;
+}
+
+.sections h2 {
+  margin: 0;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.55rem);
+  font-weight: 520;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.sections p,
+.sections li,
+.sources p,
+.sources li {
+  color: var(--ink-soft);
+  font-size: 0.91rem;
+}
+
+.sections p {
+  margin: 1rem 0 0;
+  line-height: 1.75;
+}
+
+/* A wide table stays inside its own scroller so the document body never scrolls sideways. */
+.tableScroll {
+  margin-top: 1.4rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.tableScroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.table th,
+.table td {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  line-height: 1.6;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  background: var(--surface-muted);
+  color: var(--wine);
+  font-size: 0.7rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table tbody th {
+  width: 30%;
+  font-weight: 640;
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sources {
+  padding-top: 1rem;
+}
+
+.sources p {
+  max-width: 44rem;
+  line-height: 1.65;
+}
+
+.sourceLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--wine);
+  font-weight: 720;
+  text-underline-offset: 0.2em;
+}
+
+.sourceLink span {
+  margin-left: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.footer {
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-block: 2rem calc(2rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+
+.footer p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 760px) {
+  .header,
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .header {
+    gap: 0.4rem;
+    padding-block: calc(1rem + env(safe-area-inset-top)) 1rem;
+  }
+
+  .document {
+    display: block;
+  }
+
+  .contentLayout {
+    display: block;
+  }
+
+  .contents {
+    position: static;
+    max-height: none;
+    margin-block: 2.5rem 3rem;
+    overflow-y: visible;
+  }
+
+  .footer {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .header nav,
+  .footer nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

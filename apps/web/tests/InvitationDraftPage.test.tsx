@@ -1,4 +1,4 @@
-import { resolveTemplateById } from "@invitica/template-kit";
+import { resolveTemplateById, resolveTemplateVersion } from "@invitica/template-kit";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,7 @@ import InvitationDraftPage from "../app/dashboard/invitations/[invitationId]/pag
 import { ensurePersonalWorkspace } from "../src/server/auth/session";
 import { loadInvitationDraft } from "../src/server/invitations/drafts";
 import { loadInvitationPublicationStatus } from "../src/server/invitations/publications";
+import { listInvitationImageAssets } from "../src/server/media/library";
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
@@ -30,8 +31,13 @@ vi.mock("../src/server/invitations/publications", () => ({
   loadInvitationPublicationStatus: vi.fn(),
 }));
 
+vi.mock("../src/server/media/library", () => ({
+  listInvitationImageAssets: vi.fn(),
+}));
+
 const invitationId = "71000000-0000-4000-8000-000000000001";
 const gardenPromise = resolveTemplateById("garden-promise");
+const gardenPromiseV1 = resolveTemplateVersion("40000000-0000-4000-8000-000000000001");
 
 afterEach(cleanup);
 
@@ -39,6 +45,8 @@ beforeEach(() => {
   vi.mocked(ensurePersonalWorkspace).mockReset();
   vi.mocked(loadInvitationDraft).mockReset();
   vi.mocked(loadInvitationPublicationStatus).mockReset();
+  vi.mocked(listInvitationImageAssets).mockReset();
+  vi.mocked(listInvitationImageAssets).mockResolvedValue([]);
   vi.mocked(loadInvitationPublicationStatus).mockResolvedValue({
     errorCode: null,
     livePublicIdentifier: null,
@@ -77,6 +85,23 @@ describe("persisted invitation draft page", () => {
     expect(screen.queryByRole("heading", { level: 1, name: "Mara & Joaquin" })).toBeNull();
     expect(container.querySelector("[data-envelope-gated] h1")?.textContent).toBe("Mara & Joaquin");
     expect(loadInvitationDraft).toHaveBeenCalledWith(expect.anything(), invitationId);
+  });
+
+  it("selects the editor contract without branching on the listing ID", async () => {
+    vi.mocked(loadInvitationDraft).mockResolvedValue({
+      document: gardenPromiseV1.defaultDocument,
+      invitationId,
+      manifest: {
+        ...gardenPromiseV1,
+        listing: { ...gardenPromiseV1.listing, id: "little-blessings" },
+      },
+      revision: 1,
+    });
+
+    render(await InvitationDraftPage({ params: Promise.resolve({ invitationId }) }));
+
+    expect(screen.getByLabelText(/Names or invitation title/)).toBeDefined();
+    expect(listInvitationImageAssets).not.toHaveBeenCalled();
   });
 
   it("does not reveal a draft that is absent under workspace RLS", async () => {

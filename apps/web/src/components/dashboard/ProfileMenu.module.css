@@ -92,7 +92,7 @@
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 14%);
+  box-shadow: 0 1.25rem 3rem rgb(var(--shadow-rgb) / 14%);
 }
 
 .menuIdentity {
@@ -138,6 +138,8 @@
   font-size: 0.72rem;
   font-weight: 720;
   text-align: left;
+  /* Settings is a link now, so the shared row has to say it is not underlined. */
+  text-decoration: none;
   cursor: pointer;
 }
 

@@ -3,9 +3,9 @@ import { LittleBlessingsRenderer } from "./LittleBlessingsRenderer.js";
 
 /**
  * The v2 renderer owns all future Little Blessings visual changes. It begins
- * equivalent to v1 so adopting the new version cannot rewrite creator content
- * or surprise a creator before they choose to publish again.
+ * from the shared storybook renderer but opts into v2-only envelope artwork, so
+ * historical v1 publications keep their original opening object.
  */
 export function LittleBlessingsRendererV2(props: InvitationRendererProps) {
-  return <LittleBlessingsRenderer {...props} />;
+  return <LittleBlessingsRenderer {...props} envelopeArtwork="storybook-svg" />;
 }

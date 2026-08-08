@@ -1,0 +1,177 @@
+/*
+ * A single-purpose page outside the creator shell: no navigation, no sidebar, nothing to do here
+ * but read the consequence and decide. It follows the theme like the auth surfaces do, and its
+ * `data-surface="auth"` carries that background out to the document.
+ */
+
+.page {
+  display: grid;
+  min-height: 100dvh;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right))
+    max(2rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+  background: var(--background);
+  color: var(--text);
+  place-items: center;
+}
+
+.card {
+  width: min(100%, 34rem);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--surface);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.64rem;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  margin: 0.7rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.75rem, 4.5vw, 2.5rem);
+  font-weight: 520;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.lead {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.consequences {
+  display: grid;
+  margin: 1.15rem 0 0;
+  padding: 0.9rem 1rem 0.9rem 2rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, var(--border));
+  border-left-width: 3px;
+  border-left-color: var(--danger);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.account {
+  margin: 1.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.destructive {
+  display: inline-flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.25rem;
+  padding-inline: 1.25rem;
+  border: 1px solid var(--danger);
+  border-radius: 0.35rem;
+  background: var(--danger);
+  color: var(--danger-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.destructive:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.progress {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.error {
+  display: grid;
+  align-items: start;
+  margin: 1.15rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, var(--border));
+  border-left: 3px solid var(--danger);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface));
+  color: var(--danger);
+  gap: 0.55rem;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.error svg {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.08rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+
+.primaryLink,
+.secondaryLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.4rem;
+  padding-inline: 1.15rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.75rem;
+  font-weight: 760;
+  text-decoration: none;
+}
+
+/* Inside the two-action row the buttons supply their own spacing. */
+.actions .primaryLink,
+.actions .secondaryLink {
+  margin-top: 0;
+}
+
+.secondaryLink {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.primaryLink:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.secondaryLink:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 460px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+}

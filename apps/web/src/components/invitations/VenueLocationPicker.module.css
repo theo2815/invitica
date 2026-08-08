@@ -86,7 +86,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #fffdf8;
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.76rem;
   font-weight: 760;
@@ -106,26 +106,17 @@
 /* ---------------------------------------------------------------- full-screen picker */
 
 .backdrop {
-  /* The picker is portalled to <body>, outside the `.page` element that declares the Warm Editorial
-     tokens, so they are redeclared here. Without this the surfaces resolve to an empty `var()` and
-     the modal chrome renders transparent over the page. */
-  --background: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --text: #29231f;
-  --muted: #6d655e;
-  --border: #d5cbbd;
-  --accent: #7a3442;
-  --accent-hover: #5d2632;
-  --focus: #2457c5;
-  --display-font: "Fraunces Variable", Georgia, serif;
+  /* The picker is portalled to <body>, outside the `.page` element that used to declare the Warm
+     Editorial tokens — which is why they were repeated here, or the modal chrome resolved to an
+     empty `var()` and rendered transparent. The palette is on `:root` now, so it reaches the
+     portal wherever it lands and carries the current theme with it. */
   position: fixed;
   z-index: 100;
   inset: 0;
   display: grid;
   padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
     max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
-  background: rgb(35 28 24 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   place-items: center;
 }
 
@@ -144,7 +135,7 @@
   border-radius: 0.9rem;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 2rem 6rem rgb(30 24 20 / 32%);
+  box-shadow: 0 2rem 6rem rgb(var(--shadow-rgb) / 32%);
 }
 
 .dialogHeader {
@@ -241,7 +232,7 @@
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   background: var(--surface);
-  box-shadow: 0 1rem 2.5rem rgb(30 24 20 / 22%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--shadow-rgb) / 22%);
   list-style: none;
 }
 
@@ -312,7 +303,7 @@
   width: 10px;
   height: 4px;
   border-radius: 50%;
-  background: rgb(41 35 31 / 28%);
+  background: rgb(var(--overlay-rgb) / 28%);
   transform: translateX(-50%);
 }
 
@@ -390,7 +381,7 @@
 .confirmButton {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fffdf8;
+  color: var(--accent-text);
 }
 
 .confirmButton:hover:not(:disabled) {

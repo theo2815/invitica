@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "brand:icons": "node scripts/generate-brand-icons.mjs",
+    "brand:wordmark": "node scripts/generate-brand-wordmark.mjs",
     "build": "next build",
     "dev": "next dev",
     "test": "vitest run --pool=threads --maxWorkers=1",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@aws-sdk/client-s3": "3.1090.0",
     "@fontsource-variable/fraunces": "5.2.9",
     "@fontsource-variable/instrument-sans": "5.2.8",

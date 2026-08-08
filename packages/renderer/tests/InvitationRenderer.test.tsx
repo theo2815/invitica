@@ -6,13 +6,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   GardenPromiseRenderer,
+  GardenPromiseRendererV2,
+  GoldenHourRendererV2,
   InvitationRenderer,
   LittleBlessingsRenderer,
   LittleBlessingsRendererV2,
   resolveTemplateRenderer,
   resolveTemplateRendererRegistration,
+  SundayJoyRendererV2,
   UnknownTemplateRendererError,
 } from "../src/index.js";
+import { loadTemplateRendererRegistration } from "../src/lazy-registry.js";
 
 describe("InvitationRenderer", () => {
   it("renders the same document contract for a published personalized invitation", () => {
@@ -52,12 +56,46 @@ describe("InvitationRenderer", () => {
   it("resolves only allowlisted template renderers", () => {
     expect(resolveTemplateRenderer("standard-v1")).toBe(InvitationRenderer);
     expect(resolveTemplateRenderer("garden-promise-v1")).toBe(GardenPromiseRenderer);
+    expect(resolveTemplateRenderer("garden-promise-v2")).toBe(GardenPromiseRendererV2);
+    expect(resolveTemplateRenderer("golden-hour-v2")).toBe(GoldenHourRendererV2);
+    expect(resolveTemplateRenderer("sunday-joy-v2")).toBe(SundayJoyRendererV2);
     expect(resolveTemplateRenderer("little-blessings-v1")).toBe(LittleBlessingsRenderer);
     expect(resolveTemplateRenderer("little-blessings-v2")).toBe(LittleBlessingsRendererV2);
     expect(resolveTemplateRendererRegistration("little-blessings-v1").version).toBe(1);
     expect(resolveTemplateRendererRegistration("little-blessings-v2").version).toBe(2);
     expect(resolveTemplateRenderer("little-blessings-v2")).not.toBe(LittleBlessingsRenderer);
     expect(() => resolveTemplateRenderer("remote-template-code")).toThrow(
+      UnknownTemplateRendererError,
+    );
+  });
+
+  it("lazy-loads the same versioned renderer registrations", async () => {
+    await expect(loadTemplateRendererRegistration("garden-promise-v1")).resolves.toEqual({
+      component: GardenPromiseRenderer,
+      rendererKey: "garden-promise-v1",
+      version: 1,
+    });
+    await expect(loadTemplateRendererRegistration("garden-promise-v2")).resolves.toEqual({
+      component: GardenPromiseRendererV2,
+      rendererKey: "garden-promise-v2",
+      version: 2,
+    });
+    await expect(loadTemplateRendererRegistration("golden-hour-v2")).resolves.toEqual({
+      component: GoldenHourRendererV2,
+      rendererKey: "golden-hour-v2",
+      version: 2,
+    });
+    await expect(loadTemplateRendererRegistration("little-blessings-v2")).resolves.toEqual({
+      component: LittleBlessingsRendererV2,
+      rendererKey: "little-blessings-v2",
+      version: 2,
+    });
+    await expect(loadTemplateRendererRegistration("sunday-joy-v2")).resolves.toEqual({
+      component: SundayJoyRendererV2,
+      rendererKey: "sunday-joy-v2",
+      version: 2,
+    });
+    await expect(loadTemplateRendererRegistration("remote-template-code")).rejects.toThrow(
       UnknownTemplateRendererError,
     );
   });
@@ -104,6 +142,7 @@ describe("InvitationRenderer", () => {
 
     const html = renderToStaticMarkup(
       <GardenPromiseRenderer
+        audience="personalized"
         document={gardenPromise.defaultDocument}
         mode="published"
         recipientName="The Villanueva and de la Cruz Family"
@@ -129,6 +168,7 @@ describe("InvitationRenderer", () => {
   it("fills the RSVP slot without changing the invitation document", () => {
     const html = renderToStaticMarkup(
       <InvitationRenderer
+        audience="personalized"
         document={invitationFixture}
         mode="published"
         rsvpSlot={<form aria-label="RSVP reply">Reply controls</form>}
@@ -139,6 +179,57 @@ describe("InvitationRenderer", () => {
     expect(html).toContain('aria-label="RSVP reply"');
     expect(html).toContain("Reply controls");
     expect(html).not.toContain("Use your personalized invitation link to respond");
+  });
+
+  it("applies the general-link reply boundary to every renderer", () => {
+    const gardenPromise = templateRegistry.find(
+      (manifest) => manifest.listing.id === "garden-promise" && manifest.version === 1,
+    );
+    const littleBlessings = templateRegistry.find(
+      (manifest) => manifest.listing.id === "little-blessings" && manifest.version === 1,
+    );
+
+    if (!gardenPromise || !littleBlessings) {
+      throw new Error("Production template fixtures are required");
+    }
+
+    const renderers = [
+      {
+        marker: 'data-section-type="rsvp"',
+        render: (audience: "general" | "personalized", mode: "preview" | "published") =>
+          renderToStaticMarkup(
+            <InvitationRenderer audience={audience} document={invitationFixture} mode={mode} />,
+          ),
+      },
+      {
+        marker: "Kindly reply by December 17, 2026",
+        render: (audience: "general" | "personalized", mode: "preview" | "published") =>
+          renderToStaticMarkup(
+            <GardenPromiseRenderer
+              audience={audience}
+              document={gardenPromise.defaultDocument}
+              mode={mode}
+            />,
+          ),
+      },
+      {
+        marker: 'class="lb-section lb-rsvp"',
+        render: (audience: "general" | "personalized", mode: "preview" | "published") =>
+          renderToStaticMarkup(
+            <LittleBlessingsRenderer
+              audience={audience}
+              document={littleBlessings.defaultDocument}
+              mode={mode}
+            />,
+          ),
+      },
+    ];
+
+    for (const { marker, render } of renderers) {
+      expect(render("general", "published")).not.toContain(marker);
+      expect(render("personalized", "published")).toContain(marker);
+      expect(render("general", "preview")).toContain(marker);
+    }
   });
 
   it("renders every registered template fixture through its allowlisted renderer", () => {
@@ -162,6 +253,156 @@ describe("InvitationRenderer", () => {
       expect(html).toContain('data-opening-state="closed"');
       expect(html).toContain("Preparing invitation for");
       expect(html).toContain('data-envelope-gated="false"');
+    }
+  });
+
+  it("renders each expanded occasion through its dedicated composition", () => {
+    const versions = [
+      {
+        id: "garden-promise",
+        marker: 'data-template="garden-promise"',
+        renderer: GardenPromiseRendererV2,
+        sectionCount: 11,
+        variant: "garden-promise",
+      },
+      {
+        id: "golden-hour",
+        marker: 'data-template="golden-hour"',
+        renderer: GoldenHourRendererV2,
+        sectionCount: 10,
+        variant: "golden-hour",
+      },
+      {
+        id: "sunday-joy",
+        marker: 'data-template="sunday-joy"',
+        renderer: SundayJoyRendererV2,
+        sectionCount: 10,
+        variant: "sunday-joy",
+      },
+    ] as const;
+
+    for (const version of versions) {
+      const manifest = templateRegistry.find(
+        (candidate) => candidate.listing.id === version.id && candidate.version === 2,
+      );
+      if (!manifest) throw new Error(`${version.id} v2 fixture is required`);
+
+      expect(resolveTemplateRenderer(manifest.rendererKey)).toBe(version.renderer);
+
+      const Renderer = version.renderer;
+      const html = renderToStaticMarkup(
+        <Renderer
+          audience="personalized"
+          document={manifest.defaultDocument}
+          mode="published"
+          reducedMotion
+        />,
+      );
+
+      expect(html).toContain(version.marker);
+      expect(html).toContain(`data-envelope-variant="${version.variant}"`);
+      expect(html).toContain('data-motion-enabled="false"');
+      expect(html).not.toContain('class="sr-root"');
+      expect(manifest.defaultDocument.sections).toHaveLength(version.sectionCount);
+      for (const section of manifest.defaultDocument.sections.filter((item) => item.visible)) {
+        expect(html).toContain(`data-section-type="${section.type}"`);
+      }
+    }
+  });
+
+  /**
+   * "Portrait pending creator upload" is written for a creator looking at an empty slot. On a
+   * published invitation whose creator simply never added a photograph, a guest using a screen
+   * reader would otherwise hear it read out as part of the invitation. The gallery and gift slots
+   * were already silent; the hero one was not.
+   */
+  it("keeps every unfilled media slot out of the accessibility tree", () => {
+    for (const manifest of templateRegistry.filter(
+      (candidate) =>
+        candidate.version === 2 &&
+        ["garden-promise", "golden-hour", "sunday-joy"].includes(candidate.listing.id),
+    )) {
+      const Renderer = resolveTemplateRenderer(manifest.rendererKey);
+      const html = renderToStaticMarkup(
+        <Renderer
+          audience="personalized"
+          document={manifest.defaultDocument}
+          mode="published"
+          reducedMotion
+        />,
+      );
+
+      const placeholders = [...html.matchAll(/<div([^>]*)class="ot-media-placeholder/g)];
+      expect([manifest.listing.id, placeholders.length]).toEqual([
+        manifest.listing.id,
+        manifest.defaultDocument.assets.length,
+      ]);
+      for (const match of placeholders) {
+        expect([manifest.listing.id, (match[1] ?? "").includes('aria-hidden="true"')]).toEqual([
+          manifest.listing.id,
+          true,
+        ]);
+      }
+    }
+  });
+
+  /**
+   * The hero medallion is a 24%-opacity watermark sitting directly behind the eyebrow and title. A
+   * numeral there reads as a grey artifact rather than an ornament, so the glyph is set only on the
+   * envelope cover and in the footer, where the medallion is small and fully opaque.
+   */
+  it("sets the debut numeral only where the medallion is not behind live type", () => {
+    const goldenHour = templateRegistry.find(
+      (candidate) => candidate.listing.id === "golden-hour" && candidate.version === 2,
+    );
+    if (!goldenHour) throw new Error("Golden Hour v2 fixture is required");
+
+    const html = renderToStaticMarkup(
+      <GoldenHourRendererV2
+        audience="personalized"
+        document={goldenHour.defaultDocument}
+        mode="published"
+        reducedMotion
+      />,
+    );
+
+    expect(html).toContain('data-context="cover" data-motif="golden-hour"><b>XVIII</b>');
+    expect(html).not.toContain('data-context="hero" data-motif="golden-hour"><b>');
+  });
+
+  it("keeps the Golden Hour page free of repeating diagonal rays", () => {
+    const goldenHour = templateRegistry.find(
+      (candidate) => candidate.listing.id === "golden-hour" && candidate.version === 2,
+    );
+    if (!goldenHour) throw new Error("Golden Hour v2 fixture is required");
+
+    const html = renderToStaticMarkup(
+      <GoldenHourRendererV2
+        audience="personalized"
+        document={goldenHour.defaultDocument}
+        mode="published"
+        reducedMotion
+      />,
+    );
+
+    expect(html).not.toContain("linear-gradient(135deg, transparent 48%");
+    expect(html).not.toContain("background-size: 24rem 24rem");
+  });
+
+  it("keeps the personal-link RSVP boundary in every expanded occasion renderer", () => {
+    for (const manifest of templateRegistry.filter(
+      (candidate) =>
+        candidate.version === 2 &&
+        ["garden-promise", "golden-hour", "sunday-joy"].includes(candidate.listing.id),
+    )) {
+      const Renderer = resolveTemplateRenderer(manifest.rendererKey);
+      const render = (audience: "general" | "personalized") =>
+        renderToStaticMarkup(
+          <Renderer audience={audience} document={manifest.defaultDocument} mode="published" />,
+        );
+
+      expect(render("general")).not.toContain('data-section-type="rsvp"');
+      expect(render("personalized")).toContain('data-section-type="rsvp"');
     }
   });
 

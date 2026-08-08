@@ -19,27 +19,31 @@ export interface LegalDocumentSet {
 export const INVITICA_PUBLIC_URL = "https://invitica.app/";
 
 /**
- * Counsel-owned document metadata. Draft documents are public status pages only: they cannot be
- * accepted, do not gate creator access, and do not add a Privacy link to guest invitations.
+ * Document metadata. `effective` status plus an effective date is what turns on creator acceptance
+ * and the guest-facing Privacy link, so a version bump here is a product change: existing creators
+ * are stopped at `/legal/acceptance` until they accept the new pair.
+ *
+ * Both documents move together. Acceptance records the pair, so shipping one effective and one
+ * draft would leave the gate off with an effective document published.
  */
 export const LEGAL_DOCUMENTS = {
   privacy: {
-    effectiveDate: null,
+    effectiveDate: "2026-08-08",
     kind: "privacy",
     path: "/privacy",
     publicUrl: "https://invitica.app/privacy",
-    status: "draft",
+    status: "effective",
     title: "Privacy Notice",
-    version: "draft-2026-07-29",
+    version: "1.0",
   },
   terms: {
-    effectiveDate: null,
+    effectiveDate: "2026-08-08",
     kind: "terms",
     path: "/terms",
     publicUrl: "https://invitica.app/terms",
-    status: "draft",
+    status: "effective",
     title: "Terms of Service",
-    version: "draft-2026-07-29",
+    version: "1.0",
   },
 } as const satisfies LegalDocumentSet;
 

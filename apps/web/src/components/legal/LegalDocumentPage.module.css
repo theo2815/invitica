@@ -86,7 +86,6 @@
 }
 
 .documentHeader,
-.blockers,
 .contentLayout,
 .sources {
   grid-column: 1 / -1;
@@ -97,7 +96,6 @@
 }
 
 .eyebrow,
-.blockerLabel,
 .contents > p {
   margin: 0;
   color: var(--wine);
@@ -143,14 +141,6 @@
   line-height: 1.75;
 }
 
-.blockers {
-  padding: clamp(1.25rem, 4vw, 2.25rem);
-  border: 1px solid var(--line);
-  border-left: 0.35rem solid var(--wine);
-  background: var(--surface);
-}
-
-.blockers h2,
 .sources h2 {
   margin: 0.65rem 0 0;
   font-family: "Fraunces Variable", Georgia, serif;
@@ -160,23 +150,29 @@
   line-height: 1.05;
 }
 
-.blockers ul,
 .sections ul,
 .sources ul {
   padding-left: 1.25rem;
 }
 
-.blockers li,
 .sections li,
 .sources li {
   margin-top: 0.65rem;
   line-height: 1.65;
 }
 
+/*
+ * Both documents run past twenty clauses, so the contents list is taller than a laptop viewport.
+ * It scrolls inside itself rather than overflowing the sticky box; tabbing through its links
+ * scrolls it, so it needs no tabindex of its own.
+ */
 .contents {
   position: sticky;
   top: 1.5rem;
+  max-height: calc(100dvh - 3rem);
   align-self: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding-top: 0.25rem;
 }
 
@@ -236,8 +232,7 @@
 .sections p,
 .sections li,
 .sources p,
-.sources li,
-.blockers li {
+.sources li {
   color: var(--ink-soft);
   font-size: 0.91rem;
 }
@@ -247,14 +242,61 @@
   line-height: 1.75;
 }
 
-.reviewNote {
-  padding: 0.9rem 1rem;
-  border-left: 3px solid var(--wine);
-  background: color-mix(in srgb, var(--surface-muted) 64%, transparent);
+/* A wide table stays inside its own scroller so the document body never scrolls sideways. */
+.tableScroll {
+  margin-top: 1.4rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
 }
 
-.reviewNote strong {
+.tableScroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.table th,
+.table td {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  line-height: 1.6;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  background: var(--surface-muted);
   color: var(--wine);
+  font-size: 0.7rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table tbody th {
+  width: 30%;
+  font-weight: 640;
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .sources {
@@ -319,7 +361,9 @@
 
   .contents {
     position: static;
+    max-height: none;
     margin-block: 2.5rem 3rem;
+    overflow-y: visible;
   }
 
   .footer {

@@ -1,20 +1,90 @@
 import type { LegalDocumentMetadata } from "@invitica/renderer/legal-documents";
 import Link from "next/link";
 
-import type { LegalWorkingDraft } from "../../content/legal-drafts";
+import type { LegalDocumentContent, LegalDocumentTable } from "../../content/legal-documents";
 import { BrandMark } from "../BrandMark";
 import styles from "./LegalDocumentPage.module.css";
 
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * Formatted here rather than through `Intl` so the rendered string cannot shift with the build
+ * machine's locale or ICU build. The stored value is always `YYYY-MM-DD`.
+ */
+export function formatEffectiveDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-");
+  const monthName = monthNames[Number(month) - 1];
+
+  if (!year || !monthName || !day) {
+    return isoDate;
+  }
+
+  return `${Number(day)} ${monthName} ${year}`;
+}
+
+function DocumentTable({ caption, table }: { caption: string; table: LegalDocumentTable }) {
+  return (
+    // Focusable on purpose: below roughly 34rem the table scrolls sideways inside this box, and a
+    // keyboard-only reader has no other way to reach the far columns of the retention or
+    // lawful-basis tables. Axe reports `scrollable-region-focusable` at serious impact without it,
+    // measured at 390 and 320 px in both themes, which is why the lint rule is suppressed here
+    // rather than the attribute dropped.
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard access
+    <section aria-label={caption} className={styles.tableScroll} tabIndex={0}>
+      <table className={styles.table}>
+        <caption className={styles.visuallyHidden}>{caption}</caption>
+        <thead>
+          <tr>
+            {table.headers.map((header) => (
+              <th key={header} scope="col">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row) => (
+            <tr key={row.join("|")}>
+              {row.map((cell, index) =>
+                index === 0 ? (
+                  <th key={cell} scope="row">
+                    {cell}
+                  </th>
+                ) : (
+                  <td key={cell}>{cell}</td>
+                ),
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 interface LegalDocumentPageProps {
+  content: LegalDocumentContent;
   document: LegalDocumentMetadata;
-  draft: LegalWorkingDraft;
   otherDocument: {
     href: "/privacy" | "/terms";
     label: string;
   };
 }
 
-export function LegalDocumentPage({ document, draft, otherDocument }: LegalDocumentPageProps) {
+export function LegalDocumentPage({ content, document, otherDocument }: LegalDocumentPageProps) {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -30,71 +100,74 @@ export function LegalDocumentPage({ document, draft, otherDocument }: LegalDocum
       <main className={styles.main}>
         <article className={styles.document}>
           <header className={styles.documentHeader}>
-            <p className={styles.eyebrow}>{draft.documentLabel}</p>
+            <p className={styles.eyebrow}>{content.documentLabel}</p>
             <h1>{document.title}</h1>
-            <p className={styles.status}>Working draft · Not in effect</p>
-            <p className={styles.version}>Draft version {document.version}</p>
-            {draft.introduction.map((paragraph) => (
+            {document.effectiveDate ? (
+              <p className={styles.status}>
+                In effect since {formatEffectiveDate(document.effectiveDate)}
+              </p>
+            ) : null}
+            <p className={styles.version}>Version {document.version}</p>
+            {content.introduction.map((paragraph) => (
               <p className={styles.lede} key={paragraph}>
                 {paragraph}
               </p>
             ))}
           </header>
 
-          <aside aria-labelledby="review-blockers-heading" className={styles.blockers}>
-            <p className={styles.blockerLabel}>Activation is blocked</p>
-            <h2 id="review-blockers-heading">Founder and legal review still required</h2>
-            <ul>
-              {draft.blockers.map((blocker) => (
-                <li key={blocker}>{blocker}</li>
-              ))}
-            </ul>
-          </aside>
-
-          <nav aria-label={`${document.title} contents`} className={styles.contents}>
-            <p>On this page</p>
-            <ol>
-              {draft.sections.map((section) => (
-                <li key={section.id}>
-                  <a href={`#${section.id}`}>{section.title}</a>
-                </li>
-              ))}
-            </ol>
-          </nav>
-
-          <div className={styles.sections}>
-            {draft.sections.map((section) => (
-              <section id={section.id} key={section.id}>
-                <h2>{section.title}</h2>
-                {section.paragraphs.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
+          {/*
+           * The sticky contents must be bounded by a wrapper that ends before Primary sources.
+           * Without it the nav's grid row is the whole document and a 20-plus entry list, which is
+           * taller than a laptop viewport, runs straight through the sources section.
+           */}
+          <div className={styles.contentLayout}>
+            <nav aria-label={`${document.title} contents`} className={styles.contents}>
+              <p>On this page</p>
+              <ol>
+                {content.sections.map((section) => (
+                  <li key={section.id}>
+                    <a className={styles.contentsLink} href={`#${section.id}`}>
+                      {section.title}
+                    </a>
+                  </li>
                 ))}
-                {section.bullets ? (
-                  <ul>
-                    {section.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {section.reviewNote ? (
-                  <p className={styles.reviewNote}>
-                    <strong>Review blocker:</strong> {section.reviewNote}
-                  </p>
-                ) : null}
-              </section>
-            ))}
+              </ol>
+            </nav>
+
+            <div className={styles.sections}>
+              {content.sections.map((section) => (
+                <section id={section.id} key={section.id}>
+                  <h2>{section.title}</h2>
+                  {section.paragraphs.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                  {section.bullets ? (
+                    <ul>
+                      {section.bullets.map((bullet) => (
+                        <li key={bullet}>{bullet}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {section.table ? (
+                    <DocumentTable caption={section.title} table={section.table} />
+                  ) : null}
+                </section>
+              ))}
+            </div>
           </div>
 
-          <section aria-labelledby="draft-sources-heading" className={styles.sources}>
-            <h2 id="draft-sources-heading">Official sources used for this working draft</h2>
-            <p>
-              These sources inform the review scaffold. They do not replace advice about Invitica’s
-              particular facts.
-            </p>
+          <section aria-labelledby="legal-sources-heading" className={styles.sources}>
+            <h2 id="legal-sources-heading">Primary sources</h2>
+            <p>{content.sourcesNote}</p>
             <ul>
-              {draft.sources.map((source) => (
+              {content.sources.map((source) => (
                 <li key={source.href}>
-                  <a href={source.href} rel="noreferrer" target="_blank">
+                  <a
+                    className={styles.sourceLink}
+                    href={source.href}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
                     {source.label} <span>(opens in a new tab)</span>
                   </a>
                 </li>

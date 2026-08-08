@@ -23,6 +23,21 @@ describe("authentication security helpers", () => {
     expect(() => getSiteOrigin("javascript:alert(1)")).toThrow();
   });
 
+  /**
+   * A hosted `http://` value does not fail loudly — it breaks Google sign-in silently. The OAuth
+   * `redirectTo` is built from this origin and Supabase matches it against its Redirect URLs
+   * allowlist scheme and all, so `http://` misses, GoTrue falls back to the project's Site URL, and
+   * the creator lands on the landing page holding an unused `?code=`. Observed on invitica.app on
+   * 2026-08-08, where `/auth/callback` was redirecting to `http://invitica.app/login?error=oauth`.
+   */
+  it("upgrades a remote http site origin to https, and leaves local development alone", () => {
+    expect(getSiteOrigin("http://invitica.example")).toBe("https://invitica.example");
+    expect(getSiteOrigin("http://invitica.app")).toBe("https://invitica.app");
+
+    expect(getSiteOrigin("http://localhost:3000")).toBe("http://localhost:3000");
+    expect(getSiteOrigin("http://127.0.0.1:3000")).toBe("http://127.0.0.1:3000");
+  });
+
   it("rejects incomplete login credentials", () => {
     const formData = new FormData();
     formData.set("email", "not-an-email");

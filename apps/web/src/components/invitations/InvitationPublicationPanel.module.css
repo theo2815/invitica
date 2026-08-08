@@ -35,12 +35,12 @@
   font-weight: 700;
 }
 .heading > span[data-status="delivered"] {
-  border-color: color-mix(in srgb, #527050 42%, var(--border));
-  color: #3f613d;
+  border-color: color-mix(in srgb, var(--success) 42%, var(--border));
+  color: var(--success);
 }
 .heading > span[data-status="failed"] {
-  border-color: color-mix(in srgb, #a54838 42%, var(--border));
-  color: #8c382b;
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  color: var(--danger);
 }
 .checklist {
   display: grid;
@@ -64,8 +64,8 @@
   border-radius: 50%;
 }
 .checklist li[data-ready="true"] span {
-  border-color: #527050;
-  background: #527050;
+  border-color: var(--success);
+  background: var(--success);
   box-shadow: inset 0 0 0 2px var(--surface);
 }
 .statusMessage,
@@ -81,7 +81,7 @@
   gap: 0.3rem;
 }
 .statusMessage [role="alert"] {
-  color: #8c382b;
+  color: var(--danger);
 }
 /* The reason and the next action carry the weight here, so they read at body colour while the
    reassurance underneath stays muted like the rest of the panel's supporting copy. */
@@ -89,12 +89,12 @@
   display: grid;
   gap: 0.3rem;
   padding: 0.55rem 0.65rem;
-  border-left: 2px solid #8c382b;
+  border-left: 2px solid var(--danger);
   border-radius: 0.2rem;
-  background: rgb(140 56 43 / 6%);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
 }
 .failureDetail p:first-child {
-  color: #8c382b;
+  color: var(--danger);
   font-weight: 700;
 }
 .failureDetail p:nth-child(2) {
@@ -117,7 +117,7 @@
 .publishButton {
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 .statusCheckButton {
   width: fit-content;
@@ -172,7 +172,7 @@
   display: grid;
   place-items: center;
   padding: 1.25rem;
-  background: rgb(41 35 31 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   color: var(--text);
 }
 .dialog {
@@ -182,7 +182,7 @@
   border-top: 3px solid var(--accent);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 2rem 5rem rgb(41 35 31 / 22%);
+  box-shadow: 0 2rem 5rem rgb(var(--shadow-rgb) / 22%);
 }
 .dialog h3 {
   margin: 0.6rem 0 0;
@@ -212,7 +212,7 @@
 .dialogActions button:last-child {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 @media (max-width: 480px) {
   .dialogActions {

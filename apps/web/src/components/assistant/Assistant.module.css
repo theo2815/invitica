@@ -34,7 +34,7 @@
   border: 1px solid var(--accent, #7a3442);
   border-radius: 50%;
   background: var(--surface, #fffdf8);
-  box-shadow: 0 0.75rem 1.75rem rgb(61 45 37 / 22%);
+  box-shadow: 0 0.75rem 1.75rem rgb(var(--shadow-rgb) / 22%);
   color: var(--accent, #7a3442);
   cursor: pointer;
   transition:
@@ -96,7 +96,7 @@
   border: 1px solid var(--border, #d5cbbd);
   border-radius: 0.6rem;
   background: var(--surface, #fffdf8);
-  box-shadow: 0 1.5rem 3rem rgb(61 45 37 / 18%);
+  box-shadow: 0 1.5rem 3rem rgb(var(--shadow-rgb) / 18%);
   color: var(--text, #29231f);
   transition:
     width 180ms ease,
@@ -954,7 +954,9 @@
   border: 1px solid var(--accent, #7a3442);
   border-radius: 0.35rem;
   background: var(--accent, #7a3442);
-  color: var(--background, #f7f3eb);
+  /* The ink on an accent fill, not the page behind it. Both happen to land dark-on-rose in the
+     dark theme, but only one of them is meant to. */
+  color: var(--accent-text);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;

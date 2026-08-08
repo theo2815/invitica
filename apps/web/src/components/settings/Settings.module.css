@@ -197,7 +197,7 @@
 }
 
 /*
- * Three mutually exclusive cards. Selection is carried by border, fill, and a checked radio —
+ * Two mutually exclusive cards. Selection is carried by border, fill, and a checked radio —
  * never by fill alone, so the current theme is still identifiable without color.
  */
 .themeGroup {
@@ -207,7 +207,7 @@
   padding: 0;
   border: 0;
   gap: 0.55rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .themeGroup:disabled {
@@ -334,8 +334,8 @@
 }
 
 @media (max-width: 560px) {
-  /* Three cards at 320 px leave about 88 px each, which wraps "System" onto two lines and drops
-     its description to four. One column below this width instead. */
+  /* Two cards at 320 px leave about 138 px each, which is enough for the label but drops both
+     descriptions to three lines of four words. One column below this width instead. */
   .themeGroup {
     grid-template-columns: minmax(0, 1fr);
   }

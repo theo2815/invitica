@@ -26,7 +26,7 @@
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface);
-    box-shadow: 0 0.5rem 1.5rem rgb(61 45 37 / 12%);
+    box-shadow: 0 0.5rem 1.5rem rgb(var(--shadow-rgb) / 12%);
     color: var(--muted);
     font-size: 0.62rem;
     font-weight: 700;

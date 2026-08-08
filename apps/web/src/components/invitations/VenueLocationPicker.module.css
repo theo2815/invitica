@@ -86,7 +86,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #fffdf8;
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.76rem;
   font-weight: 760;
@@ -116,7 +116,7 @@
   display: grid;
   padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
     max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
-  background: rgb(35 28 24 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   place-items: center;
 }
 
@@ -135,7 +135,7 @@
   border-radius: 0.9rem;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 2rem 6rem rgb(30 24 20 / 32%);
+  box-shadow: 0 2rem 6rem rgb(var(--shadow-rgb) / 32%);
 }
 
 .dialogHeader {
@@ -232,7 +232,7 @@
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   background: var(--surface);
-  box-shadow: 0 1rem 2.5rem rgb(30 24 20 / 22%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--shadow-rgb) / 22%);
   list-style: none;
 }
 
@@ -303,7 +303,7 @@
   width: 10px;
   height: 4px;
   border-radius: 50%;
-  background: rgb(41 35 31 / 28%);
+  background: rgb(var(--overlay-rgb) / 28%);
   transform: translateX(-50%);
 }
 
@@ -381,7 +381,7 @@
 .confirmButton {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fffdf8;
+  color: var(--accent-text);
 }
 
 .confirmButton:hover:not(:disabled) {

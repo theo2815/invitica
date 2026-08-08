@@ -13,7 +13,7 @@
   overflow-y: auto;
   padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
     max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-  background: rgb(35 28 24 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   animation: discard-backdrop-in 160ms ease-out both;
   place-items: center;
 }
@@ -26,7 +26,7 @@
   border: 1px solid var(--border, #d5cbbd);
   border-radius: 0.5rem;
   background: var(--surface, #fffdf8);
-  box-shadow: 0 2rem 6rem rgb(30 24 20 / 28%);
+  box-shadow: 0 2rem 6rem rgb(var(--shadow-rgb) / 28%);
   animation: discard-dialog-in 180ms ease-out both;
 }
 

@@ -142,7 +142,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #fffaf6;
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 760;

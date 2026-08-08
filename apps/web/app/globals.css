@@ -5,15 +5,23 @@
 /*
  * The Warm Editorial palette, defined once.
  *
- * These eleven names were already the vocabulary — `--accent` appears in 237 declarations,
- * `--border` in 231 — but every surface carried its own copy of the values, so `.page` in the
- * creator shell, the auth page, the publication panel, the venue picker, the template preview,
- * and both `CreatorControl` popovers each re-declared the same hex. A second theme against that
- * would have meant editing seven blocks to change one color.
+ * These names were already the vocabulary — `--accent` appears in 237 declarations, `--border` in
+ * 231 — but every surface carried its own copy of the values, so `.page` in the creator shell, the
+ * auth page, the publication panel, the venue picker, the template preview, and both
+ * `CreatorControl` popovers each re-declared the same hex. A second theme against that would have
+ * meant editing seven blocks to change one color.
  *
  * `--accent-text` and `--danger-text` exist because the fill and the ink on it invert together:
  * white on burgundy in light, dark wine on rose in dark. Nineteen rules used to hard-code
- * `#ffffff` for that.
+ * `#ffffff` for that. `--success` and `--warning` arrived later for the same reason: the publish,
+ * delivery, and RSVP states were forty-odd raw greens, ambers, and a second red spread across the
+ * dashboard, the Guest Desk, the publication panel, and both draft editors, none of which had a
+ * dark value to fall back on. Neither takes a `-text` partner, because neither is ever a fill under
+ * type — a ready dot and a delivered pill are all they colour.
+ *
+ * `--shadow-rgb` and `--overlay-rgb` are channels rather than colors so each declaration keeps its
+ * own alpha. A warm brown at 6% is *lighter* than `#17130f`, so before this existed every dark
+ * card sat in a faint halo instead of a shadow.
  */
 :root {
   color-scheme: light;
@@ -30,6 +38,20 @@
   --focus: #2457c5;
   --danger: #9d2d2d;
   --danger-text: #ffffff;
+  --success: #3f653e;
+  --warning: #795b16;
+  --shadow-rgb: 61 45 37;
+  --overlay-rgb: 35 28 24;
+
+  /* The empty-state illustration: a drawn envelope resting on a sage field. Only the field and its
+     hairlines are themed. The card itself stays cream in both palettes, because it depicts paper —
+     the same reason `packages/renderer` is untouched — so every ink ratio inside it is identical
+     in dark and light. */
+  --art-field: #dfe4d3;
+  --art-field-ink-rgb: 72 82 61;
+  --art-flap: #ccd4bd;
+  --art-sheen: rgb(255 255 255 / 27%);
+
   --display-font: "Fraunces Variable", Georgia, serif;
 
   font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
@@ -44,30 +66,11 @@
  * that carries text clears AA; `--border` is deliberately at 1.58:1, the same subtle divider the
  * light theme draws.
  *
- * Three selectors, because the choice has three values. No attribute means System, and the media
- * query answers it in CSS with no script and so no flash. An explicit choice stamps the
- * attribute server-side from a cookie, and must win in both directions — which is why the light
- * block is an exclusion rather than a default.
+ * One selector, because the choice has two values and light is the default. Invitica does not read
+ * `prefers-color-scheme` anywhere: a first visit, including a fresh incognito window, is the cream
+ * paper regardless of what the device prefers, and only the Settings control moves it. The
+ * attribute is stamped server-side from a cookie, so the first paint is already correct.
  */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --background: #17130f;
-    --surface: #201a15;
-    --surface-muted: #2c2620;
-    --text: #f3ece2;
-    --muted: #b3a696;
-    --border: #453b33;
-    --accent: #e79aa8;
-    --accent-hover: #f0b0bb;
-    --accent-text: #2a1016;
-    --focus: #8fb4ff;
-    --danger: #f09b92;
-    --danger-text: #3a1210;
-  }
-}
-
 :root[data-theme="dark"] {
   color-scheme: dark;
 
@@ -83,6 +86,15 @@
   --focus: #8fb4ff;
   --danger: #f09b92;
   --danger-text: #3a1210;
+  --success: #93c98d;
+  --warning: #e0b657;
+  --shadow-rgb: 0 0 0;
+  --overlay-rgb: 4 3 2;
+
+  --art-field: #28312a;
+  --art-field-ink-rgb: 205 214 194;
+  --art-flap: #333d31;
+  --art-sheen: rgb(255 255 255 / 7%);
 }
 
 * {
@@ -101,13 +113,12 @@ html {
    Declared on `body` alone, with no `html` background, so it propagates to the canvas and covers
    the whole screen rather than only body's box.
 
-   The landing and the legal documents keep their own `--ink`/`--wine`/`--paper` vocabulary and
-   stay light in every theme, so this literal is deliberately not a token: it is their cream,
-   not the themed one. */
+   It was a literal while the landing and the legal documents were exempt from the theme. They no
+   longer are, so every surface that reaches this rule wants the themed value. */
 body {
   margin: 0;
   min-width: 320px;
-  background: #f7f3eb;
+  background: var(--background);
 }
 
 /* The creator shell's header is `--surface`, a shade lighter than the cream above. iOS fills the
@@ -160,8 +171,11 @@ svg {
   left: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 0.25rem;
-  background: #111111;
-  color: #ffffff;
+  /* Inverted against the page rather than fixed black-on-white: a `#111` chip on the dark theme's
+     `#17130f` is technically legible and visually absent, which defeats a control whose whole job
+     is to be found. */
+  background: var(--text);
+  color: var(--background);
   font-weight: 700;
   transform: translateY(-200%);
   transition: transform 160ms ease;

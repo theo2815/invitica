@@ -59,7 +59,7 @@
   border: 1px solid var(--border, #d5cbbd);
   border-radius: 0.5rem;
   background: var(--surface, #fffdf8);
-  box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 7%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--shadow-rgb) / 7%);
 }
 
 /*

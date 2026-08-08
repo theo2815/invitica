@@ -7,13 +7,16 @@ import type { ThemePreference } from "../../server/account/theme";
 import styles from "./Settings.module.css";
 
 const OPTIONS: { description: string; label: string; value: ThemePreference }[] = [
-  { description: "Follows your device", label: "System", value: "system" },
-  { description: "Always the cream paper", label: "Light", value: "light" },
-  { description: "Always the dark paper", label: "Dark", value: "dark" },
+  { description: "The cream paper Invitica ships with", label: "Light", value: "light" },
+  { description: "The same paper and wine, after dark", label: "Dark", value: "dark" },
 ];
 
 /**
- * System, Light, or Dark.
+ * Light or Dark, and nothing else.
+ *
+ * There is deliberately no *System*: a device set to dark at the OS level is not a statement about
+ * this product, and a creator who has never opened this panel should meet the same cream paper on
+ * every machine they sign in from. The palette moves only from here.
  *
  * Radio inputs rather than the button group the Invi mode switch uses: this is one mutually
  * exclusive value that persists, not a view mode, and radios carry arrow-key navigation and the

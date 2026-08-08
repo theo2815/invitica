@@ -98,7 +98,7 @@ export default async function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          description="Applies to your Invitica workspace. Invitations keep their own design in every theme, so what a guest sees never changes."
+          description="Applies to every Invitica page in this browser, and stays until you change it here. Invitations keep their own design in every theme, so what a guest sees never changes."
           title="Theme"
         >
           <ThemePanel preference={theme} />

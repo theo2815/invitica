@@ -1,5 +1,18 @@
 /* biome-ignore-all lint/style/noDescendingSpecificity: Component-scoped descendants follow the landing-page reading order. */
 
+/*
+ * The landing keeps its own vocabulary rather than the creator app's, because it is a slightly
+ * warmer paper and a slightly cooler wine than the product chrome — the brand lock of
+ * 2026-07-15 — and reads as a marketing surface partly for that reason. The light values below
+ * are unchanged.
+ *
+ * What is new is a dark branch. It was previously exempt from the theme, which meant a creator who
+ * chose dark met a full-brightness cream page the moment they clicked the wordmark home.
+ *
+ * `--wine-ink` was called `--white`, and the rename is the point: it is the ink that sits *on* a
+ * wine fill, so in dark it is a deep wine on a rose fill. A token named `--white` holding `#2a1016`
+ * is the kind of thing someone later "corrects" back to white.
+ */
 .page {
   --paper: #f6f0e6;
   --paper-light: #fffaf2;
@@ -9,15 +22,61 @@
   --line: #cfc1b1;
   --wine: #783547;
   --wine-deep: #572535;
-  --white: #fffdf9;
-  --focus: #1759c7;
+  --wine-ink: #fffdf9;
   --display-font: "Fraunces Variable", Georgia, serif;
   min-width: 320px;
   overflow-x: clip;
   background:
-    radial-gradient(circle at 79% 6%, rgb(120 53 71 / 7%), transparent 28rem), var(--paper);
+    radial-gradient(
+      circle at 79% 6%,
+      color-mix(in srgb, var(--wine) 7%, transparent),
+      transparent 28rem
+    ),
+    var(--paper);
   color: var(--ink);
   font-family: "Instrument Sans Variable", "Segoe UI", sans-serif;
+}
+
+/*
+ * Warm Editorial after dark, in the landing's own register: the paper darkens, the wine lifts to
+ * the rose that can carry text, and the two surface steps invert their direction so `--paper-light`
+ * is still the raised one. `--focus` is inherited from `globals.css` rather than restated, so the
+ * keyboard ring follows the theme without a second definition to keep in sync.
+ */
+:root[data-theme="dark"] .page {
+  --paper: #17130f;
+  --paper-light: #201a15;
+  --paper-deep: #2c2620;
+  --ink: #f3ece2;
+  --ink-soft: #b3a696;
+  --line: #453b33;
+  --wine: #e79aa8;
+  --wine-deep: #f0b0bb;
+  --wine-ink: #2a1016;
+}
+
+/*
+ * The closing band is the one element that does not change between themes, and the browser is what
+ * settled it.
+ *
+ * A rose pill is the right accent at button size; the same rose across a full-width block is the
+ * brightest thing on the page — the dark capture showed a ~1240 x 260 slab of `#e79aa8` glaring out
+ * of `#17130f`. In light this block is a *deep* wine that anchors the foot of the page, so
+ * inverting the token inverted its role too.
+ *
+ * Going deeper instead does not work either, and the arithmetic says why: no wine separates from a
+ * near-black page by lightness. `#3a1720` reads 1.16:1 against `#17130f`, and even the landing's
+ * own `#783547` reaches only 2.11:1. What makes the band a block is **chroma** — a saturated wine
+ * against an almost neutral brown — and that is undiminished in the dark theme.
+ *
+ * So the band keeps its light values by redeclaring them for its own subtree, and every descendant
+ * that already reads `--wine` or `--wine-ink` follows: the label at 72%, the drawn circle at 24%,
+ * the inverse button, and its hover. Cream on the band is 7.46:1 in both themes.
+ */
+:root[data-theme="dark"] .finalCta {
+  --wine: #783547;
+  --wine-ink: #fffdf9;
+  --paper-deep: #e8ddce;
 }
 
 .page a:focus-visible,
@@ -103,7 +162,7 @@
 .headerCta {
   border-radius: 999px;
   background: var(--wine);
-  color: var(--white);
+  color: var(--wine-ink);
   transition: background 160ms ease;
 }
 
@@ -196,7 +255,7 @@
   padding-inline: 1.35rem;
   border-radius: 999px;
   background: var(--wine);
-  color: var(--white);
+  color: var(--wine-ink);
   font-size: 0.76rem;
   font-weight: 780;
   text-decoration: none;
@@ -400,7 +459,7 @@
 
 .templateImageFrame {
   border: 1px solid var(--line);
-  box-shadow: 0 0.8rem 2.25rem rgb(51 39 31 / 8%);
+  box-shadow: 0 0.8rem 2.25rem rgb(var(--shadow-rgb) / 8%);
 }
 
 .templateDetails {
@@ -603,7 +662,7 @@
   margin-bottom: clamp(6rem, 10vw, 9rem);
   padding: clamp(3rem, 6vw, 5.5rem);
   background: var(--wine);
-  color: var(--white);
+  color: var(--wine-ink);
 }
 
 .finalCta::after {
@@ -612,7 +671,7 @@
   bottom: -11rem;
   width: 25rem;
   aspect-ratio: 1;
-  border: 1px solid rgb(255 253 249 / 24%);
+  border: 1px solid color-mix(in srgb, var(--wine-ink) 24%, transparent);
   border-radius: 50%;
   content: "";
 }
@@ -627,17 +686,17 @@
 }
 
 .finalCta .sectionLabel {
-  color: rgb(255 253 249 / 72%);
+  color: color-mix(in srgb, var(--wine-ink) 72%, transparent);
 }
 
 .finalCta h2 {
-  color: var(--white);
+  color: var(--wine-ink);
   font-size: clamp(2.5rem, 4.5vw, 4.5rem);
 }
 
 .inverseButton {
   flex: none;
-  background: var(--white);
+  background: var(--wine-ink);
   color: var(--wine);
 }
 
@@ -706,7 +765,7 @@
     border: 1px solid var(--line);
     border-top: 0;
     background: var(--paper-light);
-    box-shadow: 0 1rem 2rem rgb(39 33 29 / 10%);
+    box-shadow: 0 1rem 2rem rgb(var(--shadow-rgb) / 10%);
   }
 
   .mobileNav[data-open="true"] {
@@ -730,7 +789,7 @@
     border: 0;
     border-radius: 999px;
     background: var(--wine);
-    color: var(--white);
+    color: var(--wine-ink);
   }
 
   .hero {

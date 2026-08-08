@@ -49,7 +49,7 @@
 }
 
 .saveStatus[data-status="saved"] > span {
-  background: #527050;
+  background: var(--success);
 }
 
 .saveStatus[data-status="saving"] > span {
@@ -59,7 +59,7 @@
 
 .saveStatus[data-status="conflict"] > span,
 .saveStatus[data-status="error"] > span {
-  background: #a54838;
+  background: var(--danger);
 }
 
 .saveStatus div {
@@ -109,7 +109,7 @@
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   background: var(--surface);
-  box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 7%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--shadow-rgb) / 7%);
 }
 
 .inspectorHeading h3,
@@ -197,12 +197,12 @@
 }
 
 .fieldGroup > :is(input, textarea)[aria-invalid="true"] {
-  border-color: #a54838;
+  border-color: var(--danger);
 }
 
 .fieldError,
 .fieldHint {
-  color: #8c382b;
+  color: var(--danger);
   font-size: 0.62rem;
   line-height: 1.45;
 }
@@ -215,10 +215,10 @@
   display: grid;
   gap: 0.8rem;
   padding: 0.9rem;
-  border: 1px solid color-mix(in srgb, #a54838 42%, var(--border));
-  border-left: 3px solid #a54838;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
+  border-left: 3px solid var(--danger);
   border-radius: 0.3rem;
-  background: color-mix(in srgb, #a54838 6%, var(--surface));
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface));
 }
 
 .saveNotice strong {
@@ -346,7 +346,7 @@
   overflow: auto;
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 1.5rem 4rem rgb(61 45 37 / 13%);
+  box-shadow: 0 1.5rem 4rem rgb(var(--shadow-rgb) / 13%);
   overscroll-behavior: contain;
 }
 
@@ -402,7 +402,7 @@
   .mobileSwitcher button[aria-pressed="true"] {
     background: var(--surface);
     color: var(--text);
-    box-shadow: 0 0.3rem 0.8rem rgb(61 45 37 / 8%);
+    box-shadow: 0 0.3rem 0.8rem rgb(var(--shadow-rgb) / 8%);
   }
 
   .editorGrid {

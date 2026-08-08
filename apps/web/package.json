@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "brand:icons": "node scripts/generate-brand-icons.mjs",
+    "brand:wordmark": "node scripts/generate-brand-wordmark.mjs",
     "build": "next build",
     "dev": "next dev",
     "test": "vitest run --pool=threads --maxWorkers=1",

@@ -92,7 +92,7 @@
   border-radius: 0.45rem;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 16%);
+  box-shadow: 0 1.25rem 3rem rgb(var(--shadow-rgb) / 16%);
 }
 
 .selectPopover {

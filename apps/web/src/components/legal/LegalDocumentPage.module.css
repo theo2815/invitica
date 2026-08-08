@@ -1,12 +1,16 @@
+/*
+ * Terms and Privacy were an eighth copy of the Warm Editorial palette under different names, and
+ * so the one pair of pages that stayed cream when everything around them went dark. The names are
+ * kept — a legal document reads in `--ink` on `--paper`, not in `--text` on `--background` — but
+ * they are now aliases, and `--surface`, `--surface-muted`, and `--focus` are simply inherited
+ * rather than restated. Nothing here needs a dark branch of its own.
+ */
 .page {
-  --paper: #f7f3eb;
-  --surface: #fffdf8;
-  --surface-muted: #eee7da;
-  --ink: #29231f;
-  --ink-soft: #6d655e;
-  --line: #d5cbbd;
-  --wine: #7a3442;
-  --focus: #2457c5;
+  --paper: var(--background);
+  --ink: var(--text);
+  --ink-soft: var(--muted);
+  --line: var(--border);
+  --wine: var(--accent);
   min-height: 100dvh;
   padding-left: max(clamp(1rem, 4vw, 3.5rem), env(safe-area-inset-left));
   padding-right: max(clamp(1rem, 4vw, 3.5rem), env(safe-area-inset-right));

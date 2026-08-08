@@ -22,7 +22,7 @@
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 1.25rem 3rem rgb(61 45 37 / 5%);
+  box-shadow: 0 1.25rem 3rem rgb(var(--shadow-rgb) / 5%);
 }
 
 .context h2,
@@ -223,7 +223,7 @@
 }
 
 .copySuccess {
-  color: #3f653e;
+  color: var(--success);
 }
 
 .copyError {
@@ -266,7 +266,7 @@
 }
 
 .copySuccess {
-  color: #3f653e;
+  color: var(--success);
 }
 
 .copyError {
@@ -286,23 +286,23 @@
 .dialogActions button:last-child {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .linkReveal {
   grid-template-columns: auto minmax(0, 1fr);
   margin-top: 1.25rem;
-  border-left: 3px solid #4f734d;
-  background: #f3f5ec;
+  border-left: 3px solid var(--success);
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
 }
 
 .linkReveal > span {
   display: grid;
   width: 3rem;
   height: 3rem;
-  border: 1px solid rgb(79 115 77 / 28%);
+  border: 1px solid color-mix(in srgb, var(--success) 32%, transparent);
   border-radius: 50%;
-  color: #3f653e;
+  color: var(--success);
   place-items: center;
 }
 
@@ -504,7 +504,7 @@
   border: 1px solid var(--accent);
   border-radius: 0.35rem;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   font-size: 0.72rem;
   font-weight: 760;
   cursor: pointer;
@@ -716,7 +716,7 @@
 }
 
 .active {
-  color: #466545;
+  color: var(--success);
 }
 
 .revoked {
@@ -724,7 +724,7 @@
 }
 
 .responseBadge[data-response="attending"] {
-  color: #3f653e;
+  color: var(--success);
 }
 
 .responseBadge[data-response="declined"] {
@@ -753,7 +753,7 @@
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   background: var(--surface);
-  box-shadow: 0 1rem 2.5rem rgb(61 45 37 / 14%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--shadow-rgb) / 14%);
 }
 
 .partyActions[data-open="true"] {
@@ -826,7 +826,7 @@
   overflow-y: auto;
   padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
     max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-  background: rgb(35 28 24 / 58%);
+  background: rgb(var(--overlay-rgb) / 58%);
   animation: guest-backdrop-in 160ms ease-out both;
   place-items: center;
 }
@@ -846,7 +846,7 @@
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--surface);
-  box-shadow: 0 2rem 6rem rgb(30 24 20 / 28%);
+  box-shadow: 0 2rem 6rem rgb(var(--shadow-rgb) / 28%);
   animation: guest-dialog-in 180ms ease-out both;
 }
 
@@ -1156,7 +1156,7 @@
     gap: 0.8rem;
     padding: 1rem;
     border-radius: 0.4rem;
-    box-shadow: 0 0.65rem 1.5rem rgb(61 45 37 / 4%);
+    box-shadow: 0 0.65rem 1.5rem rgb(var(--shadow-rgb) / 4%);
   }
 
   .context h2 {
@@ -1339,7 +1339,7 @@
   padding-inline: 0.75rem;
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .copyInvitationButton svg {

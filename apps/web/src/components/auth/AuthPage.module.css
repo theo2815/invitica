@@ -132,7 +132,7 @@
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   background: var(--surface);
-  box-shadow: 0 1.5rem 4rem rgb(61 45 37 / 8%);
+  box-shadow: 0 1.5rem 4rem rgb(var(--shadow-rgb) / 8%);
 }
 
 .panelHeading h1 {
@@ -269,7 +269,7 @@
   padding-inline: 0.9rem;
   border: 1px solid var(--border);
   border-radius: 0.3rem;
-  background: #fffefb;
+  background: var(--surface);
   color: var(--text);
   transition:
     border-color 160ms ease,
@@ -462,9 +462,9 @@
 .success {
   margin: 0;
   padding: 0.75rem 0.85rem;
-  border-left: 3px solid #477052;
-  background: color-mix(in srgb, #477052 8%, var(--surface));
-  color: #34543d;
+  border-left: 3px solid var(--success);
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+  color: var(--success);
   font-size: 0.78rem;
   line-height: 1.5;
 }

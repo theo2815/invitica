@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -116,5 +116,30 @@ describe("creator security headers", () => {
     const headers = await nextConfig.headers?.();
 
     expect(headers?.[0]?.source).toBe("/((?!i/|m/|s/|api/public/).*)");
+  });
+});
+
+/**
+ * Google un-verifies a domain the moment its verification file stops resolving, and losing that
+ * verification takes the OAuth consent screen's name and logo with it — the consent screen falls
+ * back to showing the Supabase host. The file is 53 bytes of text with no build step and nothing
+ * importing it, which makes it exactly the kind of thing a future cleanup deletes.
+ */
+describe("Google Search Console domain verification", () => {
+  const verificationFile = "googlef9ad63811ae220a8.html";
+
+  it("serves the verification file from the public root, unrewritten", async () => {
+    const path = resolve(import.meta.dirname, "..", "public", verificationFile);
+    expect(existsSync(path), `${verificationFile} must stay in apps/web/public`).toBe(true);
+
+    // Google matches the body exactly; a trailing newline or a wrapper fails the check.
+    expect(readFileSync(path, "utf8")).toBe(`google-site-verification: ${verificationFile}`);
+
+    // No rewrite may shadow it, or the deployed site answers the Viewer instead of the file.
+    const rewrites = await nextConfig.rewrites?.();
+    const shadowed = (Array.isArray(rewrites) ? rewrites : []).some((rewrite) =>
+      `/${verificationFile}`.startsWith(rewrite.source.replace(/:path\*$/, "")),
+    );
+    expect(shadowed).toBe(false);
   });
 });

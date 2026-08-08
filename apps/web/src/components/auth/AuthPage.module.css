@@ -246,14 +246,19 @@
 
 .fieldLabelRow {
   display: flex;
+  /* Wraps rather than squeezing. At 320 px "New password" beside "Suggest a strong password" does
+     not fit, and breaking each of them mid-phrase reads worse than putting the action on its own
+     line. `nowrap` on the actions below is what forces the whole control down instead. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.35rem 1rem;
 }
 
 .field label {
   font-size: 0.76rem;
   font-weight: 720;
+  white-space: nowrap;
 }
 
 .fieldLink {
@@ -261,6 +266,7 @@
   font-size: 0.73rem;
   font-weight: 700;
   text-underline-offset: 0.2em;
+  white-space: nowrap;
 }
 
 .field input {
@@ -335,6 +341,161 @@
   color: var(--muted);
   font-size: 0.7rem;
   line-height: 1.45;
+}
+
+/* Password strength — the bar is the glance, the word and the list are the information. */
+.strength {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.strengthTrack {
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.strengthBar {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--danger);
+  transition:
+    width 200ms ease,
+    background 200ms ease;
+}
+
+.strengthBar[data-score="1"] {
+  width: 25%;
+}
+
+.strengthBar[data-score="2"] {
+  width: 50%;
+  background: var(--warning);
+}
+
+.strengthBar[data-score="3"] {
+  width: 75%;
+  background: var(--warning);
+}
+
+.strengthBar[data-score="4"] {
+  width: 100%;
+  background: var(--success);
+}
+
+.strengthLabel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.71rem;
+  line-height: 1.45;
+}
+
+.strengthLabel strong {
+  color: var(--text);
+  font-weight: 760;
+}
+
+.strengthList {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.strengthList li {
+  display: grid;
+  grid-template-columns: 0.9rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.71rem;
+  line-height: 1.45;
+}
+
+.strengthList li[data-met="true"] {
+  color: var(--success);
+}
+
+.strengthTip {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+/* Sits in the label row beside "Password", where login puts "Forgot password?". */
+.generateButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.generateButton:hover {
+  color: var(--accent-hover);
+}
+
+/* Cloudflare Turnstile. The widget itself is an iframe we do not style; this reserves its space
+   so the submit button does not jump when the challenge finishes loading. */
+.captchaField {
+  display: grid;
+  gap: 0.4rem;
+  min-height: 4.4rem;
+}
+
+.captchaField:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.captchaWidget {
+  min-height: 4.06rem;
+}
+
+.legalFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.15rem 0 0;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.71rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.legalFooter a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--muted);
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.legalFooter a:hover {
+  color: var(--accent);
+}
+
+.legalFooterVersion {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.68rem;
 }
 
 .consentField {

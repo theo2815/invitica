@@ -8,10 +8,9 @@ import styles from "./LandingConcept.module.css";
 
 interface LandingNavigationProps {
   authenticated: boolean;
-  betaLocked: boolean;
 }
 
-export function LandingNavigation({ authenticated, betaLocked }: LandingNavigationProps) {
+export function LandingNavigation({ authenticated }: LandingNavigationProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   function closeMenu() {
@@ -36,10 +35,6 @@ export function LandingNavigation({ authenticated, betaLocked }: LandingNavigati
           {authenticated ? (
             <Link className={styles.headerCta} href="/dashboard">
               Home
-            </Link>
-          ) : betaLocked ? (
-            <Link className={styles.headerCta} href="/login">
-              Log in
             </Link>
           ) : (
             <>
@@ -86,10 +81,6 @@ export function LandingNavigation({ authenticated, betaLocked }: LandingNavigati
         {authenticated ? (
           <Link className={styles.mobileCta} href="/dashboard" onClick={closeMenu}>
             Home
-          </Link>
-        ) : betaLocked ? (
-          <Link className={styles.mobileCta} href="/login" onClick={closeMenu}>
-            Log in
           </Link>
         ) : (
           <>

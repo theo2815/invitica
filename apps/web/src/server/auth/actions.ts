@@ -12,8 +12,14 @@ import {
   setPendingTermsAcceptance,
 } from "../legal/acceptance";
 import { legalAcceptanceCookieSecretIsConfigured } from "../legal/pending-acceptance";
-import { publicAuthLocked } from "./beta-gate";
 import { getSafeNextPath, getSiteOrigin } from "./redirects";
+import {
+  CAPTCHA_REFUSED_MESSAGE,
+  captchaOptions,
+  isCaptchaError,
+  readCaptchaToken,
+  turnstileEnabled,
+} from "./turnstile";
 import type { AuthActionState } from "./types";
 import {
   validateEmailLogin,
@@ -43,17 +49,28 @@ export async function signInWithEmail(
 ): Promise<AuthActionState> {
   const nextValue = formData.get("next");
   const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
-  const result = validateEmailLogin(formData);
+  const result = validateEmailLogin(formData, { requireCaptcha: turnstileEnabled() });
 
   if (!result.ok) {
     return { error: null, fieldErrors: result.fieldErrors };
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword(result.data);
+  const { captchaToken, email, password } = result.data;
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    options: captchaOptions(captchaToken),
+    password,
+  });
 
   if (error || !data.user) {
-    return { error: "The email or password is incorrect." };
+    // A refused challenge is not a wrong password, and saying so would send a creator off to reset
+    // a password that was correct.
+    return {
+      error: isCaptchaError(error)
+        ? CAPTCHA_REFUSED_MESSAGE
+        : "The email or password is incorrect.",
+    };
   }
 
   const acceptanceRedirect = await getPostAuthLegalRedirect(supabase, data.user.id, nextPath);
@@ -73,14 +90,10 @@ export async function signUpWithEmail(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  // Closed during the production beta; the register UI and route are gated too (see beta-gate).
-  if (publicAuthLocked()) {
-    return { error: "Creating an account is closed while Invitica is in beta." };
-  }
-
   const nextValue = formData.get("next");
   const nextPath = getSafeNextPath(typeof nextValue === "string" ? nextValue : null);
   const result = validateEmailRegistration(formData, {
+    requireCaptcha: turnstileEnabled(),
     requireTermsAcceptance: isLegalAcceptanceEnabled(),
   });
 
@@ -100,13 +113,18 @@ export async function signUpWithEmail(
     email: result.data.email,
     password: result.data.password,
     options: {
+      ...captchaOptions(result.data.captchaToken),
       data: { full_name: result.data.fullName },
       emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`,
     },
   });
 
   if (error) {
-    return { error: "Your account could not be created. Please try again." };
+    return {
+      error: isCaptchaError(error)
+        ? CAPTCHA_REFUSED_MESSAGE
+        : "Your account could not be created. Please try again.",
+    };
   }
 
   if (data.session) {
@@ -131,11 +149,8 @@ export async function signUpWithEmail(
 }
 
 export async function signInWithGoogle(formData: FormData): Promise<void> {
-  // Closed during the production beta; the Google button is hidden too (see beta-gate).
-  if (publicAuthLocked()) {
-    redirect("/login?message=beta");
-  }
-
+  // No captcha token here. The OAuth redirect is not a credential endpoint, and Google runs its own
+  // abuse controls on the consent screen the creator lands on.
   const supabase = await createClient();
   const origin = getSiteOrigin();
   const nextValue = formData.get("next");
@@ -163,12 +178,7 @@ export async function requestPasswordReset(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  // Closed during the production beta; the forgot-password link and route are gated too.
-  if (publicAuthLocked()) {
-    return { error: "Password recovery is closed while Invitica is in beta." };
-  }
-
-  const result = validateRecoveryEmail(formData);
+  const result = validateRecoveryEmail(formData, { requireCaptcha: turnstileEnabled() });
 
   if (!result.ok) {
     return { error: null, fieldErrors: result.fieldErrors };
@@ -177,12 +187,15 @@ export async function requestPasswordReset(
   const supabase = await createClient();
   const origin = getSiteOrigin();
   const { error } = await supabase.auth.resetPasswordForEmail(result.data.email, {
+    ...captchaOptions(result.data.captchaToken),
     redirectTo: `${origin}/reset-password`,
   });
 
   if (error) {
     return {
-      error: "We could not send a recovery code right now. Please wait a moment and try again.",
+      error: isCaptchaError(error)
+        ? CAPTCHA_REFUSED_MESSAGE
+        : "We could not send a recovery code right now. Please wait a moment and try again.",
     };
   }
 
@@ -193,7 +206,7 @@ export async function requestPasswordReset(
 
 export async function resendRecoveryCode(
   _state: AuthActionState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<AuthActionState> {
   const cookieStore = await cookies();
   const email = cookieStore.get(recoveryEmailCookie)?.value;
@@ -204,15 +217,25 @@ export async function resendRecoveryCode(
     };
   }
 
+  // The address comes from the cookie, never the form, so this action has no field to validate —
+  // only the shared challenge the verify page's other form also carries.
+  const captchaToken = readCaptchaToken(formData);
+  if (turnstileEnabled() && !captchaToken) {
+    return { error: CAPTCHA_REFUSED_MESSAGE };
+  }
+
   const supabase = await createClient();
   const origin = getSiteOrigin();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    ...captchaOptions(captchaToken),
     redirectTo: `${origin}/reset-password`,
   });
 
   if (error) {
     return {
-      error: "We could not resend the code right now. Please wait a moment and try again.",
+      error: isCaptchaError(error)
+        ? CAPTCHA_REFUSED_MESSAGE
+        : "We could not resend the code right now. Please wait a moment and try again.",
     };
   }
 
@@ -227,7 +250,7 @@ export async function verifyRecoveryCode(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const result = validateRecoveryCode(formData);
+  const result = validateRecoveryCode(formData, { requireCaptcha: turnstileEnabled() });
 
   if (!result.ok) {
     return { error: null, fieldErrors: result.fieldErrors };
@@ -245,11 +268,16 @@ export async function verifyRecoveryCode(
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({
     email,
+    options: captchaOptions(result.data.captchaToken),
     token: result.data.otp,
     type: "recovery",
   });
 
   if (error) {
+    if (isCaptchaError(error)) {
+      return { error: null, fieldErrors: { captchaToken: CAPTCHA_REFUSED_MESSAGE } };
+    }
+
     return {
       error: null,
       fieldErrors: {

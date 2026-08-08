@@ -10,25 +10,19 @@ import { templateStillSource } from "./templates/template-stills";
 
 interface LandingConceptProps {
   authenticated?: boolean;
-  /** When true (production beta), account creation is closed, so the CTA points to sign-in instead. */
-  betaLocked?: boolean;
   templates: readonly TemplateCatalogEntry[];
 }
 
 const featuredPreviewHref = "/templates/little-blessings/preview";
 
-export function LandingConcept({
-  authenticated = false,
-  betaLocked = false,
-  templates,
-}: LandingConceptProps) {
+export function LandingConcept({ authenticated = false, templates }: LandingConceptProps) {
   return (
     <div className={styles.page}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
 
-      <LandingNavigation authenticated={authenticated} betaLocked={betaLocked} />
+      <LandingNavigation authenticated={authenticated} />
 
       <main id="main-content">
         <section className={styles.hero}>

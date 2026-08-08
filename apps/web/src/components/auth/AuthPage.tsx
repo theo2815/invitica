@@ -1,23 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useActionState, useState } from "react";
+import { type FormEvent, useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { assessPassword } from "../../server/auth/password-strength";
 import type { AuthActionState, AuthFieldErrors, AuthFieldName } from "../../server/auth/types";
 import { validateEmailLogin, validateEmailRegistration } from "../../server/auth/validation";
 import { TermsAcceptanceField } from "../legal/TermsAcceptanceField";
-import { FieldError, PasswordField, PendingButton } from "./AuthFormFields";
+import { FieldError, GeneratePasswordButton, PasswordField, PendingButton } from "./AuthFormFields";
 import styles from "./AuthPage.module.css";
 import { AuthShell } from "./AuthShell";
+import { LegalFooter } from "./LegalFooter";
+import { CAPTCHA_FIELD_ID, TurnstileField, useTurnstile } from "./TurnstileField";
 
 type AuthMode = "login" | "register";
 
 type EmailAction = (state: AuthActionState, formData: FormData) => Promise<AuthActionState>;
 
 interface AuthPageProps {
-  /** When true (production beta), hide account creation, Google sign-in, and password recovery. */
-  betaLocked?: boolean;
   emailAction: EmailAction;
   googleAction: (formData: FormData) => Promise<void>;
   initialError?: string | undefined;
@@ -101,8 +102,8 @@ function GoogleButton() {
 function focusFirstError(fieldErrors: AuthFieldErrors, mode: AuthMode) {
   const order: AuthFieldName[] =
     mode === "register"
-      ? ["fullName", "email", "password", "confirmPassword", "termsAccepted"]
-      : ["email", "password"];
+      ? ["fullName", "email", "password", "confirmPassword", "termsAccepted", "captchaToken"]
+      : ["email", "password", "captchaToken"];
   const firstInvalid = order.find((name) => fieldErrors[name]);
 
   if (firstInvalid) {
@@ -114,14 +115,15 @@ function focusFirstError(fieldErrors: AuthFieldErrors, mode: AuthMode) {
             ? "confirm-password"
             : firstInvalid === "termsAccepted"
               ? "register-terms-accepted"
-              : `${mode}-${firstInvalid}`,
+              : firstInvalid === "captchaToken"
+                ? CAPTCHA_FIELD_ID
+                : `${mode}-${firstInvalid}`,
       )
       ?.focus();
   }
 }
 
 export function AuthPage({
-  betaLocked,
   emailAction,
   googleAction,
   initialError,
@@ -137,16 +139,34 @@ export function AuthPage({
   });
   const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [values, setValues] = useState<AuthValues>(initialValues);
+  const turnstile = useTurnstile();
   const fieldErrors = { ...state.fieldErrors, ...clientErrors };
   if (termsAccepted) {
     delete fieldErrors.termsAccepted;
+  }
+  if (turnstile.token) {
+    delete fieldErrors.captchaToken;
   }
   const headingId = `${mode}-heading`;
   const errorId = `${mode}-form-error`;
   const alternateHref = nextPath
     ? `${copy.alternateHref}?next=${encodeURIComponent(nextPath)}`
     : copy.alternateHref;
+  // A Turnstile token is single-use. Every action result means one was spent or refused, so mint a
+  // fresh one rather than letting a retry submit a token Cloudflare has already seen.
+  // A single-use token is spent or refused on every action result, so a fresh one has to be
+  // minted. The effect runs *on* a new result rather than reading one, hence the dependency.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional run-on-change trigger
+  useEffect(() => {
+    turnstile.reset();
+  }, [state, turnstile.reset]);
+
+  const strength =
+    mode === "register"
+      ? assessPassword(values.password, { email: values.email, fullName: values.fullName })
+      : undefined;
 
   function updateValue(name: keyof AuthValues, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -160,13 +180,27 @@ export function AuthPage({
     });
   }
 
+  function useGeneratedPassword(password: string) {
+    setValues((current) => ({ ...current, confirmPassword: password, password }));
+    setClientErrors((current) => {
+      const next = { ...current };
+      delete next.confirmPassword;
+      delete next.password;
+      return next;
+    });
+    setPasswordVisible(true);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const result =
       mode === "register"
         ? validateEmailRegistration(new FormData(event.currentTarget), {
+            requireCaptcha: turnstile.required,
             requireTermsAcceptance: legalAcceptanceRequired,
           })
-        : validateEmailLogin(new FormData(event.currentTarget));
+        : validateEmailLogin(new FormData(event.currentTarget), {
+            requireCaptcha: turnstile.required,
+          });
 
     if (!result.ok) {
       event.preventDefault();
@@ -190,32 +224,28 @@ export function AuthPage({
         text: copy.story,
       }}
     >
-      {betaLocked ? null : (
-        <>
-          {legalAcceptanceRequired ? (
-            <p className={styles.googleLegalNotice}>
-              Google sign-in returns you to Invitica. If this account has not accepted the current
-              documents, you will review them before entering the creator studio. Read the{" "}
-              <Link href="/terms" rel="noreferrer" target="_blank">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" rel="noreferrer" target="_blank">
-                Privacy Notice
-              </Link>
-              .
-            </p>
-          ) : null}
-          <form action={googleAction} aria-label="Continue with Google">
-            {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
-            <GoogleButton />
-          </form>
+      {legalAcceptanceRequired ? (
+        <p className={styles.googleLegalNotice}>
+          Google sign-in returns you to Invitica. If this account has not accepted the current
+          documents, you will review them before entering the creator studio. Read the{" "}
+          <Link href="/terms" rel="noreferrer" target="_blank">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" rel="noreferrer" target="_blank">
+            Privacy Notice
+          </Link>
+          .
+        </p>
+      ) : null}
+      <form action={googleAction} aria-label="Continue with Google">
+        {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
+        <GoogleButton />
+      </form>
 
-          <div aria-hidden="true" className={styles.divider}>
-            <span>or continue with email</span>
-          </div>
-        </>
-      )}
+      <div aria-hidden="true" className={styles.divider}>
+        <span>or continue with email</span>
+      </div>
 
       <form
         action={formAction}
@@ -270,15 +300,20 @@ export function AuthPage({
           id={`${mode}-password`}
           label="Password"
           labelAction={
-            mode === "login" && !betaLocked ? (
+            mode === "login" ? (
               <Link className={styles.fieldLink} href="/forgot-password">
                 Forgot password?
               </Link>
-            ) : undefined
+            ) : (
+              <GeneratePasswordButton onGenerate={useGeneratedPassword} />
+            )
           }
           name="password"
           onChange={(value) => updateValue("password", value)}
+          onVisibleChange={mode === "register" ? setPasswordVisible : undefined}
+          strength={strength}
           value={values.password}
+          visible={mode === "register" ? passwordVisible : undefined}
         />
 
         {mode === "register" ? (
@@ -312,6 +347,8 @@ export function AuthPage({
           </>
         ) : null}
 
+        <TurnstileField error={fieldErrors.captchaToken} instance={turnstile} />
+
         {state.error ? (
           <p className={styles.error} id={errorId} role="alert">
             {state.error}
@@ -327,11 +364,10 @@ export function AuthPage({
         <PendingButton idleLabel={copy.emailSubmit} pendingLabel={copy.emailPending} />
       </form>
 
-      {betaLocked ? null : (
-        <p className={styles.alternate}>
-          {copy.alternate} <Link href={alternateHref}>{copy.alternateAction}</Link>
-        </p>
-      )}
+      <p className={styles.alternate}>
+        {copy.alternate} <Link href={alternateHref}>{copy.alternateAction}</Link>
+      </p>
+      <LegalFooter />
     </AuthShell>
   );
 }
@@ -348,6 +384,7 @@ export function CheckEmailPage() {
       <p className={styles.alternate}>
         <Link href="/login">Back to sign in</Link>
       </p>
+      <LegalFooter />
     </AuthShell>
   );
 }

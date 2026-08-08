@@ -5,6 +5,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSiteOrigin } from "../auth/redirects";
 import { requireConfirmedUser } from "../auth/session";
+import {
+  CAPTCHA_REFUSED_MESSAGE,
+  captchaOptions,
+  isCaptchaError,
+  readCaptchaToken,
+  turnstileEnabled,
+} from "../auth/turnstile";
 import type { AuthActionState } from "../auth/types";
 import {
   validateCreatorName,
@@ -27,11 +34,10 @@ import { isThemePreference, THEME_COOKIE, themeCookieOptions } from "./theme";
 /**
  * Account management for a creator who is already signed in.
  *
- * These are deliberately separate from `server/auth/actions.ts`, which handles getting *into*
- * an account and is gated by `publicAuthLocked()` for the closed beta. Nothing here is public:
- * every action re-derives the session through `requireConfirmedUser`, so the beta lock does not
- * apply and must not be copied in. A creator who is signed in changing their own password is
- * not the public sign-up the lock exists to close.
+ * These are deliberately separate from `server/auth/actions.ts`, which handles getting *into* an
+ * account. Nothing here is public: every action re-derives the session through
+ * `requireConfirmedUser`. The one place the two overlap is `changePassword`, which re-verifies
+ * through `signInWithPassword` and therefore carries a Turnstile token like the sign-in form does.
  */
 
 export async function updateCreatorName(
@@ -66,12 +72,6 @@ export async function changePassword(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const result = validatePasswordChange(formData);
-
-  if (!result.ok) {
-    return { error: null, fieldErrors: result.fieldErrors };
-  }
-
   const { supabase, user } = await requireConfirmedUser();
   const identity = readCreatorIdentity(user);
 
@@ -81,15 +81,39 @@ export async function changePassword(
     };
   }
 
+  // The account's own name and email, so a creator cannot set either as their password. The auth
+  // forms read these from their own fields; here they come from the session.
+  const storedName = user.user_metadata?.full_name;
+  const result = validatePasswordChange(formData, {
+    email: user.email,
+    fullName: typeof storedName === "string" ? storedName : undefined,
+  });
+
+  if (!result.ok) {
+    return { error: null, fieldErrors: result.fieldErrors };
+  }
+
+  const captchaToken = readCaptchaToken(formData);
+  if (turnstileEnabled() && !captchaToken) {
+    return { error: null, fieldErrors: { captchaToken: CAPTCHA_REFUSED_MESSAGE } };
+  }
+
   // Re-verify before changing. A live session is not proof that the person holding it knows
   // the password — an unlocked laptop is enough for that — and a password change is what
   // locks the real owner out.
   const { error: verificationError } = await supabase.auth.signInWithPassword({
     email: user.email,
+    options: captchaOptions(captchaToken),
     password: result.data.currentPassword,
   });
 
   if (verificationError) {
+    // The re-verification call is captcha-protected too, so a refused challenge must not be
+    // reported as a wrong password.
+    if (isCaptchaError(verificationError)) {
+      return { error: null, fieldErrors: { captchaToken: CAPTCHA_REFUSED_MESSAGE } };
+    }
+
     return {
       error: null,
       fieldErrors: { currentPassword: "That is not your current password." },

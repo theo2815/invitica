@@ -8,10 +8,6 @@ vi.mock("@invitica/renderer/legal-documents", () => ({
   isLegalAcceptanceEnabled: () => true,
 }));
 
-vi.mock("../src/server/auth/beta-gate", () => ({
-  publicAuthLocked: () => false,
-}));
-
 vi.mock("../src/server/legal/acceptance", () => ({
   buildLegalAcceptancePath: vi.fn(),
   getPostAuthLegalRedirect: vi.fn(async () => null),

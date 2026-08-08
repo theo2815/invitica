@@ -1,6 +1,8 @@
+import { assessPassword, type PasswordContext } from "./password-strength";
 import type { AuthFieldErrors } from "./types";
 
 interface EmailCredentials {
+  captchaToken: string | undefined;
   email: string;
   password: string;
 }
@@ -11,11 +13,22 @@ interface RegistrationCredentials extends EmailCredentials {
 }
 
 interface RecoveryCode {
+  captchaToken: string | undefined;
   otp: string;
 }
 
 interface RecoveryEmail {
+  captchaToken: string | undefined;
   email: string;
+}
+
+/**
+ * `requireCaptcha` is false wherever no Turnstile site key is configured — a fresh clone, a local
+ * `pnpm dev`, and any environment where the Supabase toggle has not been turned on yet. The forms
+ * then behave exactly as they did before Turnstile existed.
+ */
+interface CaptchaOption {
+  requireCaptcha?: boolean;
 }
 
 type ValidationResult<T> = { data: T; ok: true } | { fieldErrors: AuthFieldErrors; ok: false };
@@ -36,9 +49,47 @@ function hasErrors(fieldErrors: AuthFieldErrors): boolean {
   return Object.keys(fieldErrors).length > 0;
 }
 
-export function validateEmailLogin(formData: FormData): ValidationResult<EmailCredentials> {
+/**
+ * The one place a password being *set* is judged, so the meter a creator watches and the refusal
+ * they receive come from the same function. Sign-in never calls it: an existing password predates
+ * the rule and is not the sign-in form's business.
+ */
+function passwordProblem(
+  password: string,
+  context: PasswordContext = {},
+  emptyMessage = "Create a password.",
+): string | undefined {
+  if (!password) {
+    return emptyMessage;
+  }
+  return assessPassword(password, context).problem;
+}
+
+/**
+ * Turnstile's token. The presence check is ours; the token itself is verified by Supabase, which
+ * holds the secret half — so a forged value fails at the provider, not here.
+ */
+function readCaptchaToken(formData: FormData): string | undefined {
+  const value = formData.get("captchaToken");
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function captchaError(token: string | undefined, required: boolean): string | undefined {
+  return required && !token ? "Complete the verification below to continue." : undefined;
+}
+
+/**
+ * Sign-in deliberately does **not** score the password. It predates the 2026-08-08 rule, and
+ * refusing a correct password at the sign-in form would lock a creator out of the account they
+ * would need to change it from.
+ */
+export function validateEmailLogin(
+  formData: FormData,
+  options: CaptchaOption = {},
+): ValidationResult<EmailCredentials> {
   const email = readString(formData, "email");
   const password = readPassword(formData, "password");
+  const captchaToken = readCaptchaToken(formData);
   const fieldErrors: AuthFieldErrors = {};
 
   if (!email) {
@@ -51,22 +102,28 @@ export function validateEmailLogin(formData: FormData): ValidationResult<EmailCr
     fieldErrors.password = "Enter your password.";
   }
 
+  const captcha = captchaError(captchaToken, options.requireCaptcha === true);
+  if (captcha) {
+    fieldErrors.captchaToken = captcha;
+  }
+
   if (hasErrors(fieldErrors)) {
     return { fieldErrors, ok: false };
   }
 
-  return { data: { email, password }, ok: true };
+  return { data: { captchaToken, email, password }, ok: true };
 }
 
 export function validateEmailRegistration(
   formData: FormData,
-  options: { requireTermsAcceptance?: boolean } = {},
+  options: CaptchaOption & { requireTermsAcceptance?: boolean } = {},
 ): ValidationResult<RegistrationCredentials> {
   const fullName = readString(formData, "fullName").replace(/\s+/g, " ");
   const email = readString(formData, "email");
   const password = readPassword(formData, "password");
   const confirmPassword = readPassword(formData, "confirmPassword");
   const termsAccepted = formData.get("termsAccepted") === "yes";
+  const captchaToken = readCaptchaToken(formData);
   const fieldErrors: AuthFieldErrors = {};
 
   if (!fullName) {
@@ -81,10 +138,11 @@ export function validateEmailRegistration(
     fieldErrors.email = "Enter a valid email address.";
   }
 
-  if (!password) {
-    fieldErrors.password = "Create a password.";
-  } else if (password.length < 8 || password.length > 128) {
-    fieldErrors.password = "Use a password between 8 and 128 characters.";
+  // The name and email are passed in so the same password cannot be both. They are read from this
+  // form rather than the account, so a creator gets the answer before the round trip.
+  const passwordIssue = passwordProblem(password, { email, fullName });
+  if (passwordIssue) {
+    fieldErrors.password = passwordIssue;
   }
 
   if (!confirmPassword) {
@@ -97,11 +155,16 @@ export function validateEmailRegistration(
     fieldErrors.termsAccepted = "Agree to the current Terms of Service to continue.";
   }
 
+  const captcha = captchaError(captchaToken, options.requireCaptcha === true);
+  if (captcha) {
+    fieldErrors.captchaToken = captcha;
+  }
+
   if (hasErrors(fieldErrors)) {
     return { fieldErrors, ok: false };
   }
 
-  return { data: { email, fullName, password, termsAccepted }, ok: true };
+  return { data: { captchaToken, email, fullName, password, termsAccepted }, ok: true };
 }
 
 export function validateTermsAcceptance(
@@ -117,18 +180,30 @@ export function validateTermsAcceptance(
   return { data: { termsAccepted: true }, ok: true };
 }
 
-export function validateRecoveryEmail(formData: FormData): ValidationResult<RecoveryEmail> {
+export function validateRecoveryEmail(
+  formData: FormData,
+  options: CaptchaOption = {},
+): ValidationResult<RecoveryEmail> {
   const email = readString(formData, "email");
+  const captchaToken = readCaptchaToken(formData);
+  const fieldErrors: AuthFieldErrors = {};
 
   if (!email) {
-    return { fieldErrors: { email: "Enter your email address." }, ok: false };
+    fieldErrors.email = "Enter your email address.";
+  } else if (email.length > 254 || !emailPattern.test(email)) {
+    fieldErrors.email = "Enter a valid email address.";
   }
 
-  if (email.length > 254 || !emailPattern.test(email)) {
-    return { fieldErrors: { email: "Enter a valid email address." }, ok: false };
+  const captcha = captchaError(captchaToken, options.requireCaptcha === true);
+  if (captcha) {
+    fieldErrors.captchaToken = captcha;
   }
 
-  return { data: { email }, ok: true };
+  if (hasErrors(fieldErrors)) {
+    return { fieldErrors, ok: false };
+  }
+
+  return { data: { captchaToken, email }, ok: true };
 }
 
 /**
@@ -143,17 +218,28 @@ export function validateRecoveryEmail(formData: FormData): ValidationResult<Reco
  * this regex, its error string, and the recovery page's `maxLength`, `slice(0, 6)`, `pattern`, and
  * "six-digit" description — so the fix for a mismatch is the Dashboard setting, not these.
  */
-export function validateRecoveryCode(formData: FormData): ValidationResult<RecoveryCode> {
+export function validateRecoveryCode(
+  formData: FormData,
+  options: CaptchaOption = {},
+): ValidationResult<RecoveryCode> {
   const otp = readString(formData, "otp").replace(/\s/g, "");
+  const captchaToken = readCaptchaToken(formData);
+  const fieldErrors: AuthFieldErrors = {};
 
   if (!/^\d{6}$/.test(otp)) {
-    return {
-      fieldErrors: { otp: "Enter the 6-digit code from your email." },
-      ok: false,
-    };
+    fieldErrors.otp = "Enter the 6-digit code from your email.";
   }
 
-  return { data: { otp }, ok: true };
+  const captcha = captchaError(captchaToken, options.requireCaptcha === true);
+  if (captcha) {
+    fieldErrors.captchaToken = captcha;
+  }
+
+  if (hasErrors(fieldErrors)) {
+    return { fieldErrors, ok: false };
+  }
+
+  return { data: { captchaToken, otp }, ok: true };
 }
 
 /**
@@ -185,6 +271,7 @@ export function validateCreatorName(formData: FormData): ValidationResult<{ full
  */
 export function validatePasswordChange(
   formData: FormData,
+  context: PasswordContext = {},
 ): ValidationResult<{ currentPassword: string; password: string }> {
   const currentPassword = readPassword(formData, "currentPassword");
   const password = readPassword(formData, "password");
@@ -195,12 +282,13 @@ export function validatePasswordChange(
     fieldErrors.currentPassword = "Enter your current password.";
   }
 
-  if (!password) {
-    fieldErrors.password = "Create a new password.";
-  } else if (password.length < 8 || password.length > 128) {
-    fieldErrors.password = "Use a password between 8 and 128 characters.";
-  } else if (currentPassword && password === currentPassword) {
+  if (currentPassword && password === currentPassword) {
     fieldErrors.password = "Choose a password different from your current one.";
+  } else {
+    const passwordIssue = passwordProblem(password, context, "Create a new password.");
+    if (passwordIssue) {
+      fieldErrors.password = passwordIssue;
+    }
   }
 
   if (!confirmPassword) {
@@ -242,15 +330,17 @@ export function validateEmailChange(
   return { data: { email }, ok: true };
 }
 
-export function validatePasswordUpdate(formData: FormData): ValidationResult<{ password: string }> {
+export function validatePasswordUpdate(
+  formData: FormData,
+  context: PasswordContext = {},
+): ValidationResult<{ password: string }> {
   const password = readPassword(formData, "password");
   const confirmPassword = readPassword(formData, "confirmPassword");
   const fieldErrors: AuthFieldErrors = {};
 
-  if (!password) {
-    fieldErrors.password = "Create a new password.";
-  } else if (password.length < 8 || password.length > 128) {
-    fieldErrors.password = "Use a password between 8 and 128 characters.";
+  const passwordIssue = passwordProblem(password, context, "Create a new password.");
+  if (passwordIssue) {
+    fieldErrors.password = passwordIssue;
   }
 
   if (!confirmPassword) {

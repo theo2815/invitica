@@ -71,6 +71,10 @@ describe("changing a password from settings", () => {
 
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "creator@example.invalid",
+      // Empty because no Turnstile site key is configured in tests. The key's presence is what
+      // makes this carry a token; the re-verification call needs one because it reaches the same
+      // captcha-protected endpoint the sign-in form does.
+      options: {},
       password: "the-old-one",
     });
     expect(updateUser).toHaveBeenCalledWith({ password: "a-brand-new-one" });

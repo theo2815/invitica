@@ -86,6 +86,8 @@ describe("password recovery actions", () => {
 
     expect(verifyOtp).toHaveBeenCalledWith({
       email: "creator@example.invalid",
+      // Empty without a Turnstile site key; the token rides here when one is configured.
+      options: {},
       token: "123456",
       type: "recovery",
     });
